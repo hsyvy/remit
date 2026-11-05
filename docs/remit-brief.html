@@ -1,0 +1,425 @@
+<title>Remit</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column (~68ch) with wide breakout blocks for the meter, tables and diagram. */
+:root {
+  --paper: #f6f7f9;
+  --sheet: #ffffff;
+  --ink: #17223b;
+  --ink-soft: #4a5672;
+  --rule: #d9dde6;
+  --accent: #2348c9;      /* captured / spent */
+  --hold: #b7791f;        /* held, not yet spent */
+  --free: #2f7d5b;        /* released back to the user */
+  --warn-bg: #fff6e5;
+  --tint: #eef1fb;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #10141d; --sheet: #171c28; --ink: #e6e9f2; --ink-soft: #a3abc2; --rule: #2c3346;
+    --accent: #7d9bff; --hold: #e0a84a; --free: #5fc495; --warn-bg: #2a2214; --tint: #1c2338;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #10141d; --sheet: #171c28; --ink: #e6e9f2; --ink-soft: #a3abc2; --rule: #2c3346;
+  --accent: #7d9bff; --hold: #e0a84a; --free: #5fc495; --warn-bg: #2a2214; --tint: #1c2338;
+  color-scheme: dark;
+}
+body {
+  background: var(--paper); color: var(--ink);
+  font-family: var(--f-body); font-size: 16.5px; line-height: 1.6;
+}
+.wrap {
+  max-width: 980px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 80px;
+}
+.col { max-width: 68ch; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.15; margin: 0; }
+h1 { font-size: clamp(2.4rem, 6vw, 3.6rem); font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 1.7rem; font-weight: 700; letter-spacing: -0.01em; }
+h3 { font-size: 1.15rem; font-weight: 500; }
+p { margin: 0; }
+section { display: grid; gap: 18px; padding-block: 36px; border-top: 1px solid var(--rule); }
+.label {
+  font-family: var(--f-mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.tagline { font-family: var(--f-display); font-size: 1.35rem; font-weight: 500; color: var(--accent); margin-top: -8px; }
+.lede { font-size: 1.2rem; color: var(--ink-soft); max-width: 60ch; }
+.mono, .num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+a { color: var(--accent); }
+code { font-family: var(--f-mono); font-size: 0.9em; background: var(--tint); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+ul, ol { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+
+/* Hero */
+header.hero { display: grid; gap: 18px; padding-bottom: 36px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 0.9rem; color: var(--ink-soft); }
+
+/* Wallet meter: the one signature element */
+.meter-card { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 22px; display: grid; gap: 16px; }
+.meter-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; align-items: baseline; }
+.meter-top .big { font-family: var(--f-display); font-size: 2rem; font-weight: 700; }
+.bar { display: flex; height: 18px; border-radius: 4px; overflow: hidden; background: var(--rule); }
+.bar span { display: block; height: 100%; }
+.bar .spent { background: var(--accent); }
+.bar .held { background: repeating-linear-gradient(135deg, var(--hold) 0 6px, color-mix(in srgb, var(--hold) 65%, var(--sheet)) 6px 12px); }
+.legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.legend div { display: grid; gap: 2px; }
+.legend .k { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; color: var(--ink-soft); }
+.legend .v { font-family: var(--f-mono); font-size: 1.1rem; font-variant-numeric: tabular-nums; }
+.dot { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+.caption { font-size: 0.85rem; color: var(--ink-soft); }
+
+/* Guarantees */
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+.rule { border-top: 3px solid var(--ink); padding-top: 10px; display: grid; gap: 6px; align-content: start; }
+.rule p { color: var(--ink-soft); font-size: 0.95rem; }
+
+/* Budget request receipt */
+.split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+@media (max-width: 760px) { .split { grid-template-columns: minmax(0, 1fr); } }
+.receipt { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 20px; display: grid; gap: 12px; }
+.receipt .line { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: baseline; }
+.receipt .why { grid-column: 1 / -1; font-size: 0.82rem; color: var(--ink-soft); margin-top: -8px; }
+.receipt hr { border: 0; border-top: 1px dashed var(--rule); margin: 0; width: 100%; }
+.receipt .total { font-weight: 600; }
+.btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { font: 500 0.9rem var(--f-body); padding: 8px 14px; border-radius: 6px; border: 1px solid var(--rule); background: transparent; color: var(--ink); }
+.btn.primary { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+
+/* Tables */
+.tablebox { overflow-x: auto; background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 0.92rem; }
+th, td { text-align: left; vertical-align: top; padding: 11px 14px; border-bottom: 1px solid var(--rule); }
+th { font-family: var(--f-mono); font-size: 0.72rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--ink-soft); font-weight: 500; }
+tr:last-child td { border-bottom: 0; }
+td code { white-space: nowrap; }
+.pill { display: inline-block; font-family: var(--f-mono); font-size: 0.72rem; padding: 2px 8px; border-radius: 99px; white-space: nowrap; border: 1px solid currentColor; }
+.pill.kit { color: var(--free); }
+.pill.rest { color: var(--accent); }
+.pill.ours { color: var(--hold); }
+
+/* Diagram */
+.diagram { overflow-x: auto; background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; }
+pre.mermaid { margin: 0; background: transparent; }
+
+/* Risks */
+.risk { background: var(--warn-bg); border-radius: 8px; padding: 16px 18px; display: grid; gap: 8px; }
+.risk h3 { font-size: 1.05rem; }
+.risk p { font-size: 0.95rem; }
+.risks { display: grid; gap: 12px; }
+
+/* Ideas */
+.ideas { display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); gap: 14px; }
+.idea { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; display: grid; gap: 8px; align-content: start; }
+.idea p { font-size: 0.93rem; color: var(--ink-soft); }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font-family: var(--f-mono); font-size: 0.7rem; padding: 2px 7px; border-radius: 4px; background: var(--tint); color: var(--ink-soft); }
+.tag.now { background: var(--accent); color: var(--sheet); }
+.tag.stretch { background: var(--hold); color: var(--sheet); }
+
+/* Timeline */
+.days { display: grid; gap: 0; }
+.day { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 16px; padding-block: 12px; border-bottom: 1px solid var(--rule); }
+.day:last-child { border-bottom: 0; }
+.day .d { font-family: var(--f-mono); font-size: 0.85rem; color: var(--ink-soft); }
+@media (max-width: 480px) { .day { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
+
+.checklist { list-style: none; padding: 0; }
+.checklist li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 10px; }
+.checklist li::before { content: ""; width: 14px; height: 14px; border: 1.5px solid var(--ink-soft); border-radius: 3px; margin-top: 5px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .bar span { transition: flex-basis .6s ease; }
+}
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <span class="label">Product brief · PayPal AI Hackathon</span>
+  <h1>Remit</h1>
+  <p class="tagline">Your agent spends within its remit.</p>
+  <p class="lede">A spending wallet for AI agents. To remit is to send money, and a remit is the limit of what someone is allowed to do. Remit is both. The agent asks you for a budget ahead of time, explains what it needs the money for, and can only spend what you approved on PayPal. Whatever it doesn't spend goes back to you.</p>
+  <div class="meta">
+    <span>Draft · Nov 5, 2026</span>
+    <span>Deadline · Nov 12, 12:00 PT (Nov 13, 1:30 AM IST)</span>
+    <span>Stack · Claude + PayPal Orders &amp; Payments + Agent Toolkit + Channel3</span>
+  </div>
+</header>
+
+<div class="meter-card" aria-label="Example wallet state">
+  <div class="meter-top">
+    <div>
+      <div class="label">Household agent · week of Nov 9–15</div>
+      <div class="big num">$55.20 left</div>
+    </div>
+    <div class="caption">Example data</div>
+  </div>
+  <div class="bar" role="img" aria-label="$121.30 spent of $176.50 approved, $55.20 still held">
+    <span class="spent" style="flex-basis:68.7%"></span>
+    <span class="held" style="flex-basis:31.3%"></span>
+  </div>
+  <div class="legend">
+    <div><span class="k">Approved by you</span><span class="v">$176.50</span></div>
+    <div><span class="k"><span class="dot" style="background:var(--accent)"></span>Spent · 3 purchases</span><span class="v">$121.30</span></div>
+    <div><span class="k"><span class="dot" style="background:var(--hold)"></span>Held, not spent</span><span class="v">$55.20</span></div>
+    <div><span class="k"><span class="dot" style="background:var(--free)"></span>Returns to you</span><span class="v">Nov 15</span></div>
+  </div>
+</div>
+
+<section>
+  <span class="label">The problem</span>
+  <h2>Agents can shop now. Nobody wants to hand them a credit card.</h2>
+  <div class="col" style="display:grid;gap:14px">
+    <p>Shopping agents can already find products, compare prices and fill out checkouts. The missing piece is trust. Today you either approve every single purchase, which defeats the point of an agent, or you give it a saved card and hope it behaves. A page with hidden instructions, a misread request or a pricing bug can turn into real charges.</p>
+    <p>Fixed rules like "max $50 per item" help, but they are static. A grocery week, a holiday week and a quiet week need different budgets, and the user has to keep editing settings.</p>
+    <p><strong>Remit changes the question.</strong> You stop approving each purchase. You approve a budget the agent proposes, with reasons, for a set period. Inside that budget the agent acts on its own. Outside it, the agent has to ask you again.</p>
+  </div>
+</section>
+
+<section>
+  <span class="label">Guarantees</span>
+  <h2>Four rules the product never breaks</h2>
+  <div class="rules">
+    <div class="rule"><h3>Only you approve money</h3><p>Every budget and every top-up is approved by you on PayPal's own page, signed in to your PayPal account. The agent has no way to approve its own request.</p></div>
+    <div class="rule"><h3>It can't overspend</h3><p>Each purchase is checked against the remaining balance in server code before it's paid, and PayPal itself refuses to capture more than the hold. A prompt can't change either check.</p></div>
+    <div class="rule"><h3>Unspent money comes back</h3><p>The budget is a hold on your PayPal funds, not a transfer. Only what the agent actually spends is taken. The rest is released when the period ends.</p></div>
+    <div class="rule"><h3>Every dollar has a reason</h3><p>Each purchase links to a line in the approved plan, with the product, price and the agent's reasoning. You can ask the wallet why it spent anything.</p></div>
+  </div>
+</section>
+
+<section>
+  <span class="label">The core idea</span>
+  <h2>A budget request, written by the agent</h2>
+  <div class="split">
+    <div style="display:grid;gap:14px;min-width:0">
+      <p>This is where the AI earns its place. Before each period, Claude reads what it knows about you, then drafts a spending plan and explains each line:</p>
+      <ul>
+        <li><strong>Spending history</strong> from earlier weeks in the wallet's ledger (and PayPal transactions, if you connect them).</li>
+        <li><strong>Things that are running out</strong>, based on how often you reorder them.</li>
+        <li><strong>Tasks you gave it</strong>, like "find a birthday gift for Sam by Friday".</li>
+        <li><strong>Current prices</strong>, looked up through Channel3's product search, so the estimates aren't guesses.</li>
+      </ul>
+      <p>You can approve the plan as is, remove lines or change amounts, or decline it. If something comes up mid-week, the agent sends a smaller top-up request with its reason, which you approve the same way.</p>
+    </div>
+    <div class="receipt" aria-label="Example budget request">
+      <div class="label">Budget request · Nov 9–15</div>
+      <div class="line"><span>Groceries, 2 orders</span><span class="num">$88.00</span></div>
+      <div class="why">Your last 4 weeks averaged $43.70 per order.</div>
+      <div class="line"><span>Dog food, 12 kg bag</span><span class="num">$32.50</span></div>
+      <div class="why">Last bought Oct 15. Usually runs out after 4 weeks.</div>
+      <div class="line"><span>Birthday gift for Sam</span><span class="num">$40.00</span></div>
+      <div class="why">Your task from Nov 4. Three good options found, $28–$39.</div>
+      <div class="line"><span>Buffer, 10%</span><span class="num">$16.00</span></div>
+      <div class="why">For price changes and shipping.</div>
+      <hr>
+      <div class="line total"><span>Total hold</span><span class="num">$176.50</span></div>
+      <div class="btns">
+        <span class="btn primary">Approve on PayPal</span>
+        <span class="btn">Edit lines</span>
+        <span class="btn">Decline</span>
+      </div>
+      <div class="caption">Mockup with example data.</div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <span class="label">How the money moves</span>
+  <h2>One period, start to finish</h2>
+  <p class="col">The budget is a PayPal <em>authorization</em>: a hold on the user's funds that the platform can capture in pieces. Each purchase is a partial capture. PayPal holds funds for up to 29 days, which is enough for a one-week wallet.</p>
+  <div class="diagram">
+<pre class="mermaid">
+sequenceDiagram
+    autonumber
+    actor U as You
+    participant A as Claude agent
+    participant W as Wallet service
+    participant P as PayPal
+    participant C as Channel3
+    A->>C: Search prices for planned items
+    A->>W: request_budget(plan, $176.50)
+    W->>P: Create order (intent AUTHORIZE)
+    W-->>U: Approval link with the plan
+    U->>P: Sign in and approve
+    P-->>W: Order approved
+    W->>P: Authorize order (hold $176.50)
+    Note over W: Wallet opens, balance $176.50
+    A->>C: Find dog food, compare offers
+    A->>W: spend($32.50, plan line "Dog food")
+    W->>W: Check balance and plan line
+    W->>P: Capture $32.50 (final_capture false)
+    P-->>W: Captured, $144.00 still held
+    A->>W: spend($95.00, "gift")
+    W-->>A: Refused, over line and balance rules
+    A->>W: request_topup($20, reason)
+    W-->>U: Top-up request (new hold, new approval)
+    Note over W,P: End of period: last capture is final, or void if nothing was spent
+</pre>
+  </div>
+</section>
+
+<section>
+  <span class="label">PayPal mapping</span>
+  <h2>Which PayPal piece does each job</h2>
+  <p class="col">The PayPal Agent Toolkit (v1.11) creates orders with <code>intent: CAPTURE</code> only, so it has no holds. The wallet calls the Orders and Payments REST APIs directly for the hold, and uses the Toolkit for everything around it. Adding hold tools to the open-source Toolkit is one of the stretch ideas below.</p>
+  <div class="tablebox">
+    <table>
+      <thead><tr><th>Wallet step</th><th>PayPal call</th><th>Via</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Create budget request</td><td><code>POST /v2/checkout/orders</code><br>intent <code>AUTHORIZE</code></td><td><span class="pill rest">REST</span></td><td>Line items mirror the plan, so the PayPal approval page shows them too.</td></tr>
+        <tr><td>You approve</td><td>PayPal approve link (or JS SDK button)</td><td><span class="pill rest">REST</span></td><td>Sign-in and approval happen on PayPal. Sandbox uses a test personal account.</td></tr>
+        <tr><td>Open the wallet</td><td><code>POST /v2/checkout/orders/{id}/authorize</code></td><td><span class="pill rest">REST</span></td><td>Returns the authorization ID. The hold lasts 29 days, with a 3-day honor period.</td></tr>
+        <tr><td>Agent buys something</td><td><code>POST /v2/payments/authorizations/{id}/capture</code><br><code>final_capture: false</code></td><td><span class="pill rest">REST</span></td><td>Partial capture. PayPal returns <code>MAX_CAPTURE_AMOUNT_EXCEEDED</code> above the hold, a second limit after our own check.</td></tr>
+        <tr><td>Close the period</td><td>Last capture with <code>final_capture: true</code>, or <code>POST …/void</code></td><td><span class="pill rest">REST</span></td><td>Void only works if nothing was captured yet. See risk 2.</td></tr>
+        <tr><td>Top-up</td><td>New order and new authorization</td><td><span class="pill rest">REST</span></td><td>A top-up is always a new approval by you. The wallet holds several holds and spends from the oldest first.</td></tr>
+        <tr><td>Return an item</td><td><code>create_refund</code></td><td><span class="pill kit">Agent Toolkit</span></td><td>Refunds go back to you, and the ledger notes it.</td></tr>
+        <tr><td>Shipment updates</td><td><code>create_shipment_tracking</code></td><td><span class="pill kit">Agent Toolkit</span></td><td>Optional. Shows delivery status next to each purchase.</td></tr>
+        <tr><td>Learn your spending</td><td><code>list_transactions</code></td><td><span class="pill kit">Agent Toolkit</span></td><td>Input for the forecast, if you connect your own sandbox history.</td></tr>
+        <tr><td>Keep the ledger in sync</td><td>Webhooks: <code>PAYMENT.AUTHORIZATION.CREATED</code>, <code>PAYMENT.CAPTURE.COMPLETED</code>, <code>PAYMENT.AUTHORIZATION.VOIDED</code></td><td><span class="pill rest">REST</span></td><td>Nice to have. Polling with <code>GET</code> works for the demo.</td></tr>
+        <tr><td>Balance and plan checks</td><td>None. Our server code and database.</td><td><span class="pill ours">Ours</span></td><td>The agent's tools call the wallet service, never PayPal directly.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <span class="label">Architecture</span>
+  <h2>Five parts</h2>
+  <div class="col">
+    <ol>
+      <li><strong>Wallet service</strong> (Node/TypeScript). Owns the ledger (SQLite), the PayPal credentials and every money rule. The only part that talks to PayPal for money.</li>
+      <li><strong>Agent</strong> (Claude with tool use). Its only money tools are <code>get_balance</code>, <code>request_budget</code>, <code>request_topup</code> and <code>spend</code>, served by the wallet. It never sees PayPal keys.</li>
+      <li><strong>Product search</strong> (Channel3 API). Real products, prices and buy links for planning and shopping.</li>
+      <li><strong>Web app</strong>. A chat with the agent, the wallet meter, budget requests to approve, and the ledger with reasons.</li>
+      <li><strong>Wallet MCP server</strong>. The same four tools exposed over MCP, so other agents (Claude Desktop, Cursor, any MCP client) can use the wallet too.</li>
+    </ol>
+  </div>
+  <p class="col caption">Rule of thumb for the build: if a check protects money, it lives in the wallet service, never in the prompt.</p>
+</section>
+
+<section>
+  <span class="label">Design decisions</span>
+  <h2>Hold or prepaid</h2>
+  <p class="col">There are two ways to give the agent money on PayPal. I recommend the hold, and keeping prepaid as the fallback if the sandbox test on day 1 shows a problem.</p>
+  <div class="tablebox">
+    <table>
+      <thead><tr><th></th><th>Hold (recommended)</th><th>Prepaid with refund</th></tr></thead>
+      <tbody>
+        <tr><td>How it works</td><td>Order with intent <code>AUTHORIZE</code>. Each purchase is a partial capture.</td><td>Order with intent <code>CAPTURE</code> for the full budget. Leftover is a partial refund at the end.</td></tr>
+        <tr><td>Your money</td><td>Stays yours until spent</td><td>Moves to the platform on approval</td></tr>
+        <tr><td>Overspend protection</td><td>Our check, and PayPal refuses to capture more than the hold</td><td>Our check only</td></tr>
+        <tr><td>Time limit</td><td>29 days. Captures after day 3 aren't guaranteed.</td><td>Refunds allowed for 180 days</td></tr>
+        <tr><td>Uses the Agent Toolkit</td><td>Around the edges (refunds, tracking, transactions)</td><td>More of it (<code>create_order</code>, <code>pay_order</code>, <code>create_refund</code>)</td></tr>
+        <tr><td>Story for judges</td><td>Stronger. "The agent never holds your money."</td><td>Simpler, but feels like a prepaid card</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <span class="label">Risks to check on day 1</span>
+  <h2>Three things the sandbox has to confirm</h2>
+  <div class="risks">
+    <div class="risk">
+      <h3>1. Captures after the 3-day honor period</h3>
+      <p>PayPal guarantees funds for 3 days. Between day 4 and day 29 a capture usually works but "is subject to risk and money availability". Plan: the wallet re-authorizes the remaining amount after day 3 (allowed within the original approval, so you don't need to approve again). If a capture still fails, the agent asks you for a new budget.</p>
+    </div>
+    <div class="risk">
+      <h3>2. Releasing the leftover after partial captures</h3>
+      <p>PayPal refuses to void an authorization that has already been captured (<code>PREVIOUSLY_CAPTURED</code>). So the period has to end with a capture marked <code>final_capture: true</code>. Test whether that releases the rest of the hold right away. If it doesn't, the fallback is the prepaid model, where the leftover is an explicit refund.</p>
+    </div>
+    <div class="risk">
+      <h3>3. Who gets paid in the sandbox</h3>
+      <p>Captures land in Remit's sandbox business account. The sandbox can't buy from real stores, so the demo finds real products through Channel3, takes the payment from the hold, and simulates the store's checkout. The write-up says so openly. The production path is the platform paying the store (PayPal Payouts) or stores accepting agent payments directly.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <span class="label">Room to innovate</span>
+  <h2>Where it can go further</h2>
+  <p class="col">Blue items are in scope for this week. Amber items are stretch goals if the core is done by Nov 9. Grey items go in the pitch as the roadmap.</p>
+  <div class="ideas">
+    <div class="idea"><div class="tags"><span class="tag now">This week</span><span class="tag">Agentic Commerce</span></div><h3>Wallet as an MCP server</h3><p>Any agent gets a budget, not only ours. Connect Claude Desktop to the wallet and it can shop safely under your approved limit. This is the "infrastructure" angle that sets it apart from one more shopping bot.</p></div>
+    <div class="idea"><div class="tags"><span class="tag now">This week</span><span class="tag">PayPal + AI</span></div><h3>Plan lines as envelopes</h3><p>Each approved line becomes its own small budget. The agent can't spend gift money on groceries without asking. Gives you control without per-purchase approvals.</p></div>
+    <div class="idea"><div class="tags"><span class="tag now">This week</span><span class="tag">Security</span></div><h3>A second opinion before each purchase</h3><p>A separate Claude call, with no access to the web page the agent was reading, checks that the purchase matches the approved line. Code catches the amount. The reviewer catches intent, like a product page that tricked the agent.</p></div>
+    <div class="idea"><div class="tags"><span class="tag stretch">Stretch</span><span class="tag">Design</span></div><h3>Forecasts that learn</h3><p>At the end of each period, compare the plan with what was actually spent and show how accurate the agent was. Better track record, tighter buffers, smaller holds.</p></div>
+    <div class="idea"><div class="tags"><span class="tag stretch">Stretch</span><span class="tag">Open source</span></div><h3>Hold tools for the PayPal Agent Toolkit</h3><p>Contribute <code>authorize_order</code>, <code>capture_authorization</code> and <code>void_authorization</code> upstream. The judges include PayPal developer advocates who maintain these tools.</p></div>
+    <div class="idea"><div class="tags"><span class="tag stretch">Stretch</span><span class="tag">Render</span></div><h3>Scheduled close-out</h3><p>A Render Workflow closes each period, releases the leftover, drafts next week's plan and sends you the approval link. Also qualifies for the Render prize.</p></div>
+    <div class="idea"><div class="tags"><span class="tag">Roadmap</span><span class="tag">Most Impactful</span></div><h3>Family and team wallets</h3><p>Several agents, each with its own wallet, all approved by one parent or manager. A teen's allowance agent, a team's software-purchase agent.</p></div>
+    <div class="idea"><div class="tags"><span class="tag">Roadmap</span><span class="tag">Most Creative</span></div><h3>Agents paying agents</h3><p>A research agent buys a dataset from another agent's service. Both sides run on wallets, so neither can be drained.</p></div>
+    <div class="idea"><div class="tags"><span class="tag">Roadmap</span><span class="tag">AG Grid</span></div><h3>Ledger in AG Studio</h3><p>Turn the ledger into an AG Studio dashboard and let the agent build widgets on request ("show gift spend by month"). Only worth it if aiming for the AG Grid prize.</p></div>
+  </div>
+</section>
+
+<section>
+  <span class="label">Hackathon fit</span>
+  <h2>Prizes and judging</h2>
+  <div class="col" style="display:grid;gap:14px">
+    <p><strong>Prizes it targets.</strong> Best Use of Agentic Commerce, Best Use of PayPal + AI, plus the Channel3 sponsor prize. Render if we host there. One project can win one top-three or $5K award plus one sponsor prize.</p>
+    <p><strong>Judging criteria</strong>, which carry equal weight:</p>
+    <ul>
+      <li><strong>Technical:</strong> real holds, partial captures, refunds, webhooks and an agent with tool use. It goes well beyond a single checkout button.</li>
+      <li><strong>Design:</strong> one coherent flow, from request to approval to spending to close-out, with a meter you understand at a glance.</li>
+      <li><strong>Impact:</strong> it solves the trust problem that keeps people from letting agents spend.</li>
+      <li><strong>Originality:</strong> the agent writes and justifies its own budget, and the wallet works with other agents over MCP.</li>
+      <li><strong>Presentation:</strong> the refused purchase and the top-up request make a clear moment in the video.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <span class="label">Build plan</span>
+  <h2>Seven days</h2>
+  <div class="days">
+    <div class="day"><span class="d">Thu Nov 6</span><span>Sandbox test: create an authorize order, approve it with a test buyer, run two partial captures, a final capture and a void. Decide hold or prepaid.</span></div>
+    <div class="day"><span class="d">Fri Nov 7</span><span>Wallet service: ledger, budget request, approval return, the <code>spend</code> check, top-ups, close-out.</span></div>
+    <div class="day"><span class="d">Sat Nov 8</span><span>Claude agent with wallet tools and Channel3 search. Budget plan drafting with reasons.</span></div>
+    <div class="day"><span class="d">Sun Nov 9</span><span>Web app: chat, meter, approval cards, ledger. End-to-end run in the sandbox.</span></div>
+    <div class="day"><span class="d">Mon Nov 10</span><span>Wallet MCP server, the second-opinion check, refunds. Stretch items if time allows.</span></div>
+    <div class="day"><span class="d">Tue Nov 11</span><span>Host on Render, README and Devpost write-up, record the video.</span></div>
+    <div class="day"><span class="d">Wed Nov 12</span><span>Buffer. Submit by IST evening, well before the 1:30 AM IST cutoff.</span></div>
+  </div>
+</section>
+
+<section>
+  <span class="label">Demo video · under 3 minutes</span>
+  <h2>The story to show</h2>
+  <div class="col">
+    <ol>
+      <li><strong>0:00 The problem.</strong> Would you give an AI your card? (15 seconds)</li>
+      <li><strong>0:15 The request.</strong> The agent proposes a week's budget with reasons. You remove one line and approve on PayPal's sandbox page.</li>
+      <li><strong>0:50 Spending.</strong> "Order dog food and find Sam a gift." The agent searches Channel3, buys, and the meter drops with each capture.</li>
+      <li><strong>1:40 The refusal.</strong> The agent tries a $95 gift. The wallet refuses it, and the agent sends a top-up request with its reason.</li>
+      <li><strong>2:10 Any agent.</strong> Claude Desktop connects to the wallet over MCP and makes a purchase under the same limit.</li>
+      <li><strong>2:35 Close-out.</strong> The week ends, the leftover is released, the ledger shows a reason for every dollar.</li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <span class="label">Your part</span>
+  <h2>What only you can do</h2>
+  <ul class="checklist col">
+    <li><span>Create a PayPal Developer account and a sandbox app. Keep the client ID and secret for the <code>.env</code> file.</span></li>
+    <li><span>Note the default sandbox personal account (buyer) and business account (Remit) from the dashboard.</span></li>
+    <li><span>Get an Anthropic API key for Claude.</span></li>
+    <li><span>Sign up for a Channel3 developer key and apply the promo code <code>PAYPAL-HACKATHON-2026</code> for 20,000 free searches.</span></li>
+    <li><span>Create the public GitHub repo. Check that the license shows in the About section.</span></li>
+    <li><span>Record the video, upload it to YouTube as public, with no copyrighted music.</span></li>
+    <li><span>Fill in the Devpost form and submit before Nov 12, 12:00 PT.</span></li>
+  </ul>
+</section>
+
+</div>
