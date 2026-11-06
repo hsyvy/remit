@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Remit Wallet</title>
+  <meta name="description" content="A spending wallet for AI agents. The agent spends only what you approved on PayPal.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>Remit</h1>
+      <span class="tagline">Your agent spends within its remit.</span>
+    </div>
+    <div class="modes" id="modes"></div>
+  </header>
+  <div class="flash" id="flash"></div>
+
+  <main class="layout">
+    <div class="stack">
+      <section class="card" id="meter" aria-live="polite"></section>
+      <div class="stack" id="requests"></div>
+      <section class="card" id="lines-card" hidden>
+        <div class="card-head"><h2>Plan lines</h2><span class="label">each line is its own budget</span></div>
+        <div class="lines" id="lines"></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>Ledger</h2><span class="label">every dollar has a reason</span></div>
+        <div class="ledger" id="purchases"></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>Activity</h2></div>
+        <ul class="plain events" id="events"></ul>
+      </section>
+    </div>
+
+    <section class="card chat" aria-label="Chat with your agent">
+      <div class="card-head">
+        <h2>Agent</h2>
+        <button class="btn small" id="reset" type="button">New chat</button>
+      </div>
+      <div class="log" id="log" aria-live="polite"></div>
+      <div class="composer">
+        <div class="suggest" id="suggest">
+          <button type="button">Plan my budget for this week</button>
+          <button type="button">Order dog food and find Sam a birthday gift</button>
+          <button type="button">How much is left?</button>
+          <button type="button">Why did you spend what you spent?</button>
+        </div>
+        <form id="chat-form">
+          <textarea id="chat-input" rows="1" placeholder="Ask your agent…" aria-label="Message"></textarea>
+          <button class="btn primary" type="submit" id="send">Send</button>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>
