@@ -17,7 +17,7 @@ Reject when the product doesn't fit the line (gift money spent on electronics fo
 
 Approve ordinary purchases that match the line, even if you would have picked a different product.`;
 
-/** The second opinion: a separate Claude call that never sees the page the shopping agent was reading. */
+/** The purpose check: an independent Claude call that never sees the page the shopping agent was reading. */
 export class ClaudeReviewer implements Reviewer {
   constructor(
     private readonly client: Anthropic,
@@ -45,9 +45,9 @@ export class ClaudeReviewer implements Reviewer {
         },
       ],
     });
-    if (response.stop_reason === "refusal") return { verdict: "reject", reason: "The reviewer declined to assess this purchase." };
+    if (response.stop_reason === "refusal") return { verdict: "reject", reason: "The purpose check declined to assess this purchase." };
     const parsed = response.parsed_output;
-    if (!parsed) return { verdict: "reject", reason: "The reviewer gave no clear verdict." };
+    if (!parsed) return { verdict: "reject", reason: "The purpose check gave no clear verdict." };
     return parsed;
   }
 }

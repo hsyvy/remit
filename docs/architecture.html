@@ -1,0 +1,657 @@
+<title>Remit Architecture</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Reference document: one wide column for diagrams, component specs as a stack of spec sheets. Same tokens as the app. */
+:root {
+  --paper: #f6f7f9; --sheet: #ffffff; --ink: #17223b; --ink-soft: #4a5672; --rule: #d9dde6;
+  --accent: #2348c9; --hold: #b7791f; --free: #2f7d5b; --danger: #b4322b; --tint: #eef1fb; --demo: #7a6a9a;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #10141d; --sheet: #171c28; --ink: #e6e9f2; --ink-soft: #a3abc2; --rule: #2c3346;
+    --accent: #7d9bff; --hold: #e0a84a; --free: #5fc495; --danger: #f07a72; --tint: #1c2338; --demo: #b9a8db; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #10141d; --sheet: #171c28; --ink: #e6e9f2; --ink-soft: #a3abc2; --rule: #2c3346;
+  --accent: #7d9bff; --hold: #e0a84a; --free: #5fc495; --danger: #f07a72; --tint: #1c2338; --demo: #b9a8db; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 15.5px; line-height: 1.6; }
+.page {
+  max-width: 1040px; margin: 0 auto; display: grid; gap: 64px;
+  padding-block: 48px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+section { display: grid; gap: 18px; min-width: 0; scroll-margin-top: 16px; }
+h1, h2, h3 { font-family: var(--f-display); line-height: 1.15; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(2.1rem, 6vw, 3rem); font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 1.6rem; font-weight: 700; }
+h3 { font-size: 1.15rem; font-weight: 700; }
+p { margin: 0; max-width: 70ch; }
+code, .mono { font-family: var(--f-mono); font-size: 0.86em; }
+.eyebrow { font-family: var(--f-mono); font-size: 0.76rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+.lede { font-size: 1.12rem; color: var(--ink-soft); }
+.muted { color: var(--ink-soft); }
+.small { font-size: 0.88rem; }
+.rule-box { border-left: 3px solid var(--accent); padding: 4px 0 4px 16px; font-family: var(--f-display); font-size: 1.2rem; font-weight: 500; max-width: 60ch; }
+
+nav.toc { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 0.92rem; }
+nav.toc a { color: var(--accent); text-decoration: none; }
+nav.toc a:hover { text-decoration: underline; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.chip { display: inline-block; font-family: var(--f-mono); font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; vertical-align: 2px; }
+.chip.product { color: var(--accent); }
+.chip.demo { color: var(--demo); border-style: dashed; }
+.chip.planned { color: var(--hold); }
+
+/* Diagrams */
+figure { margin: 0; display: grid; gap: 10px; min-width: 0; }
+.diagram { overflow-x: auto; background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 12px; color: var(--ink); }
+.diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+figcaption { font-size: 0.9rem; color: var(--ink-soft); max-width: 75ch; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 0.86rem; color: var(--ink-soft); }
+
+/* Spec sheets */
+.layer { display: grid; gap: 14px; }
+.layer > header { display: grid; gap: 4px; }
+.spec { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 18px 20px; display: grid; gap: 12px; min-width: 0; }
+.spec.is-demo { border-style: dashed; }
+.spec-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.spec-head .path { font-family: var(--f-mono); font-size: 0.8rem; color: var(--ink-soft); }
+.spec dl { margin: 0; display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: 8px 16px; }
+.spec dt { font-family: var(--f-mono); font-size: 0.74rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); padding-top: 3px; }
+.spec dd { margin: 0; min-width: 0; }
+.spec dd ul { margin: 0; padding-left: 1.1rem; display: grid; gap: 3px; }
+.spec dd.next { color: var(--ink); }
+@media (max-width: 560px) { .spec dl { grid-template-columns: minmax(0, 1fr); gap: 2px; } .spec dd { margin-bottom: 8px; } }
+
+/* Tables */
+.table-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; font-size: 0.92rem; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-top: 1px solid var(--rule); }
+thead th { border-top: 0; font-family: var(--f-mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); font-weight: 500; }
+td code, th code { white-space: nowrap; }
+ol.flow { margin: 0; padding-left: 1.3rem; display: grid; gap: 8px; max-width: 75ch; }
+ol.flow li::marker { font-family: var(--f-mono); color: var(--ink-soft); }
+footer { border-top: 1px solid var(--rule); padding-top: 20px; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+</style>
+
+<main class="page">
+  <section>
+    <span class="eyebrow">Remit · system design · Nov 2026</span>
+    <h1>Remit Architecture</h1>
+    <p class="lede">How Remit is put together: every component, what it is responsible for, what goes in and comes out, and how the parts talk. Use it as the map for building the next version.</p>
+    <p class="rule-box">Agents are untrusted. Every money rule lives in the wallet and in PayPal, never in an agent's prompt.</p>
+    <div class="legend">
+      <span><span class="chip product">product</span> part of what we ship</span>
+      <span><span class="chip demo">demo</span> stands in for the user's own agent or a real store</span>
+      <span><span class="chip planned">planned</span> designed here, not built yet</span>
+    </div>
+    <nav class="toc" aria-label="Contents">
+      <a href="#system">System diagram</a>
+      <a href="#states">Lifecycles</a>
+      <a href="#flows">Key flows</a>
+      <a href="#core">Money core</a>
+      <a href="#interfaces">Interfaces</a>
+      <a href="#demo">Demo parts</a>
+      <a href="#external">External services</a>
+      <a href="#data">Data model</a>
+      <a href="#contracts">Contracts</a>
+      <a href="#planned">What to build next</a>
+    </nav>
+  </section>
+
+  <!-- ============================================================ SYSTEM DIAGRAM -->
+  <section id="system">
+    <h2>System diagram</h2>
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 1000 612" role="img" aria-label="Remit system diagram. The owner uses the web app and approves on PayPal's page. Outside agents reach the wallet through the MCP server and the agent API; the demo shopping agent reaches it in process. Every tool call goes through the agent tool contract into the wallet. The wallet, purpose check, database, PayPal gateway and close-out timer form the money core.">
+          <defs>
+            <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+            </marker>
+            <marker id="arr-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+            </marker>
+          </defs>
+
+          <!-- money core boundary -->
+          <rect x="8" y="408" width="726" height="180" rx="14" fill="var(--tint)" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="6 5"/>
+          <text x="16" y="604" font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--accent)">MONEY CORE · the only place money rules are enforced</text>
+
+          <g font-family="IBM Plex Sans, system-ui, sans-serif" fill="currentColor">
+            <!-- row 1 -->
+            <rect x="20" y="40" width="200" height="56" rx="10" fill="var(--sheet)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="120" y="64" text-anchor="middle" font-size="14" font-weight="600">Owner</text>
+            <text x="120" y="82" text-anchor="middle" font-size="11.5" fill="var(--ink-soft)">the person whose money it is</text>
+
+            <rect x="260" y="40" width="200" height="56" rx="10" fill="var(--sheet)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="360" y="64" text-anchor="middle" font-size="14" font-weight="600">Your agent</text>
+            <text x="360" y="82" text-anchor="middle" font-size="11.5" fill="var(--ink-soft)">Claude Desktop, any MCP client</text>
+
+            <rect x="780" y="40" width="200" height="56" rx="10" fill="var(--sheet)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="880" y="64" text-anchor="middle" font-size="14" font-weight="600">PayPal approval page</text>
+            <text x="880" y="82" text-anchor="middle" font-size="11.5" fill="var(--ink-soft)">owner signs in, approves</text>
+
+            <!-- row 2 -->
+            <rect x="20" y="136" width="200" height="56" rx="10" fill="var(--sheet)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="120" y="160" text-anchor="middle" font-size="14" font-weight="600">Owner web app</text>
+            <text x="120" y="178" text-anchor="middle" font-size="11.5" fill="var(--ink-soft)">web/</text>
+
+            <rect x="260" y="136" width="200" height="56" rx="10" fill="var(--sheet)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="360" y="160" text-anchor="middle" font-size="14" font-weight="600">MCP server</text>
+            <text x="360" y="178" text-anchor="middle" font-size="11.5" fill="var(--ink-soft)">src/mcp · holds no keys</text>
+
+            <!-- row 3 -->
+            <rect x="20" y="232" width="700" height="56" rx="10" fill="var(--sheet)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="370" y="256" text-anchor="middle" font-size="14" font-weight="600">API server</text>
+            <text x="370" y="274" text-anchor="middle" font-size="11.5" fill="var(--ink-soft)">src/server · owner routes /api · PayPal return /paypal/return · agent API /agent/v1 (token)</text>
+
+            <!-- row 4 -->
+            <rect x="260" y="328" width="200" height="56" rx="10" fill="var(--sheet)" stroke="var(--accent)" stroke-width="1.6"/>
+            <text x="360" y="352" text-anchor="middle" font-size="14" font-weight="600">Agent tool contract</text>
+            <text x="360" y="370" text-anchor="middle" font-size="11.5" fill="var(--ink-soft)">src/wallet/tools.ts · 4 tools</text>
+
+            <rect x="500" y="328" width="220" height="56" rx="10" fill="var(--sheet)" stroke="var(--demo)" stroke-width="1.2" stroke-dasharray="5 4"/>
+            <text x="610" y="352" text-anchor="middle" font-size="14" font-weight="600">Shopping agent</text>
+            <text x="610" y="370" text-anchor="middle" font-size="11.5" fill="var(--demo)">demo · src/agent</text>
+
+            <rect x="780" y="328" width="200" height="56" rx="10" fill="var(--sheet)" stroke="var(--demo)" stroke-width="1.2" stroke-dasharray="5 4"/>
+            <text x="880" y="352" text-anchor="middle" font-size="14" font-weight="600">Product search</text>
+            <text x="880" y="370" text-anchor="middle" font-size="11.5" fill="var(--demo)">demo · Channel3 or catalog</text>
+
+            <!-- row 5 -->
+            <rect x="20" y="424" width="440" height="56" rx="10" fill="var(--sheet)" stroke="var(--accent)" stroke-width="1.6"/>
+            <text x="240" y="448" text-anchor="middle" font-size="14" font-weight="600">Wallet</text>
+            <text x="240" y="466" text-anchor="middle" font-size="11.5" fill="var(--ink-soft)">src/wallet/wallet.ts · lines, buffer, holds, refusals, close-out</text>
+
+            <rect x="500" y="424" width="220" height="56" rx="10" fill="var(--sheet)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="610" y="448" text-anchor="middle" font-size="14" font-weight="600">Purpose check</text>
+            <text x="610" y="466" text-anchor="middle" font-size="11.5" fill="var(--ink-soft)">src/wallet/reviewer.ts</text>
+
+            <rect x="780" y="424" width="200" height="56" rx="10" fill="var(--sheet)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="880" y="448" text-anchor="middle" font-size="14" font-weight="600">Claude API</text>
+            <text x="880" y="466" text-anchor="middle" font-size="11.5" fill="var(--ink-soft)">claude-opus-5-5</text>
+
+            <!-- row 6 -->
+            <rect x="20" y="520" width="200" height="56" rx="10" fill="var(--sheet)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="120" y="544" text-anchor="middle" font-size="14" font-weight="600">Database</text>
+            <text x="120" y="562" text-anchor="middle" font-size="11.5" fill="var(--ink-soft)">SQLite · whole cents</text>
+
+            <rect x="260" y="520" width="200" height="56" rx="10" fill="var(--sheet)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="360" y="544" text-anchor="middle" font-size="14" font-weight="600">Close-out timer</text>
+            <text x="360" y="562" text-anchor="middle" font-size="11.5" fill="var(--ink-soft)">src/server/main.ts</text>
+
+            <rect x="500" y="520" width="220" height="56" rx="10" fill="var(--sheet)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="610" y="544" text-anchor="middle" font-size="14" font-weight="600">PayPal gateway</text>
+            <text x="610" y="562" text-anchor="middle" font-size="11.5" fill="var(--ink-soft)">src/paypal · REST or simulator</text>
+
+            <rect x="780" y="520" width="200" height="56" rx="10" fill="var(--sheet)" stroke="currentColor" stroke-width="1.2"/>
+            <text x="880" y="544" text-anchor="middle" font-size="14" font-weight="600">PayPal REST API</text>
+            <text x="880" y="562" text-anchor="middle" font-size="11.5" fill="var(--ink-soft)">Orders v2 · Payments v2</text>
+          </g>
+
+          <!-- arrows -->
+          <g stroke="currentColor" stroke-width="1.3" fill="none" marker-end="url(#arr)">
+            <line x1="120" y1="96" x2="120" y2="134"/>
+            <line x1="360" y1="96" x2="360" y2="134"/>
+            <line x1="120" y1="192" x2="120" y2="230"/>
+            <line x1="360" y1="192" x2="360" y2="230"/>
+            <path d="M120,40 V20 H880 V38"/>
+            <path d="M880,96 V260 H722"/>
+            <line x1="120" y1="288" x2="120" y2="422"/>
+            <line x1="360" y1="288" x2="360" y2="326"/>
+            <line x1="610" y1="288" x2="610" y2="326"/>
+            <line x1="500" y1="356" x2="462" y2="356"/>
+            <line x1="720" y1="356" x2="778" y2="356"/>
+            <line x1="720" y1="372" x2="778" y2="436"/>
+            <line x1="720" y1="452" x2="778" y2="452"/>
+            <line x1="460" y1="452" x2="498" y2="452"/>
+            <line x1="120" y1="480" x2="120" y2="518"/>
+            <line x1="360" y1="520" x2="360" y2="482"/>
+            <line x1="720" y1="548" x2="778" y2="548"/>
+          </g>
+          <line x1="360" y1="384" x2="360" y2="422" stroke="var(--accent)" stroke-width="2" marker-end="url(#arr-accent)"/>
+          <line x1="430" y1="480" x2="556" y2="518" stroke="var(--accent)" stroke-width="2" marker-end="url(#arr-accent)"/>
+
+          <!-- arrow labels -->
+          <g font-family="IBM Plex Sans, system-ui, sans-serif" font-size="11" fill="var(--ink-soft)">
+            <text x="128" y="120">reviews, approves</text>
+            <text x="368" y="120">tool calls (stdio)</text>
+            <text x="128" y="216">fetch /api/*</text>
+            <text x="368" y="216">HTTP + bearer token</text>
+            <text x="500" y="14" text-anchor="middle">owner approves the hold on PayPal</text>
+            <text x="888" y="180">redirects to</text>
+            <text x="888" y="194">/paypal/return</text>
+            <text x="128" y="350">checkout · decline</text>
+            <text x="128" y="364">close · refund</text>
+            <text x="368" y="312">runs a tool</text>
+            <text x="618" y="312">/api/chat</text>
+            <text x="481" y="348" text-anchor="middle">calls</text>
+            <text x="749" y="348" text-anchor="middle">search</text>
+            <text x="760" y="406">plans</text>
+            <text x="749" y="444" text-anchor="middle">verdict</text>
+            <text x="368" y="401">every tool goes here</text>
+            <text x="128" y="504">one transaction per change</text>
+            <text x="368" y="504">every 60 s</text>
+            <text x="749" y="540" text-anchor="middle">HTTPS</text>
+          </g>
+          <text x="566" y="500" font-family="IBM Plex Sans, system-ui, sans-serif" font-size="11" fill="var(--accent)">authorize · capture</text>
+          <text x="566" y="513" font-family="IBM Plex Sans, system-ui, sans-serif" font-size="11" fill="var(--accent)">void · refund</text>
+          <text x="465" y="446" font-family="IBM Plex Sans, system-ui, sans-serif" font-size="10" fill="var(--ink-soft)">asks</text>
+        </svg>
+      </div>
+      <figcaption>Two doors lead into the money: the agent tool contract (for agents) and the owner routes (for the person). Every agent, whether yours over MCP or the built-in demo agent, goes through the same four tools, so the same rules apply to all of them. Only the owner's PayPal approval creates money an agent can spend.</figcaption>
+    </figure>
+  </section>
+
+  <!-- ============================================================ STATE DIAGRAM -->
+  <section id="states">
+    <h2>Lifecycles</h2>
+    <p>Three records carry the money: a <strong>request</strong> (what the agent asked for), a <strong>hold</strong> (money PayPal reserved) and a <strong>purchase</strong> (money taken). Each moves through a fixed set of states, stored in the <code>status</code> column.</p>
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 1000 410" role="img" aria-label="State diagram. A request goes from pending to checkout to approved, or to declined, or expires when the period closes first. A hold starts active, can be renewed once, and ends captured, voided, or lapsing. A purchase starts pending and ends captured, refused or failed; a captured purchase can be refunded. Refusals for being over a line are recorded straight as refused.">
+          <defs>
+            <marker id="sarr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+            </marker>
+          </defs>
+          <g font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--ink-soft)" letter-spacing="0.06em">
+            <text x="20" y="62">REQUEST</text>
+            <text x="20" y="182">HOLD</text>
+            <text x="20" y="332">PURCHASE</text>
+          </g>
+
+          <g font-family="IBM Plex Mono, monospace" font-size="12.5" text-anchor="middle" fill="currentColor">
+            <rect x="120" y="40" width="110" height="34" rx="17" fill="var(--sheet)" stroke="currentColor"/><text x="175" y="62">pending</text>
+            <rect x="380" y="40" width="110" height="34" rx="17" fill="var(--sheet)" stroke="currentColor"/><text x="435" y="62">checkout</text>
+            <rect x="640" y="40" width="110" height="34" rx="17" fill="var(--sheet)" stroke="var(--free)" stroke-width="1.5"/><text x="695" y="62">approved</text>
+            <rect x="640" y="92" width="110" height="34" rx="17" fill="var(--sheet)" stroke="currentColor"/><text x="695" y="114">declined</text>
+            <rect x="860" y="40" width="110" height="34" rx="17" fill="var(--sheet)" stroke="currentColor"/><text x="915" y="62">expired</text>
+
+            <rect x="120" y="160" width="110" height="34" rx="17" fill="var(--sheet)" stroke="var(--hold)" stroke-width="1.5"/><text x="175" y="182">active</text>
+            <rect x="480" y="140" width="110" height="34" rx="17" fill="var(--sheet)" stroke="currentColor"/><text x="535" y="162">captured</text>
+            <rect x="480" y="196" width="110" height="34" rx="17" fill="var(--sheet)" stroke="var(--free)" stroke-width="1.5"/><text x="535" y="218">voided</text>
+            <rect x="800" y="196" width="110" height="34" rx="17" fill="var(--sheet)" stroke="currentColor"/><text x="855" y="218">lapsing</text>
+
+            <rect x="120" y="310" width="110" height="34" rx="17" fill="var(--sheet)" stroke="currentColor"/><text x="175" y="332">pending</text>
+            <rect x="480" y="282" width="110" height="34" rx="17" fill="var(--sheet)" stroke="var(--accent)" stroke-width="1.5"/><text x="535" y="304">captured</text>
+            <rect x="480" y="338" width="110" height="34" rx="17" fill="var(--sheet)" stroke="var(--danger)" stroke-width="1.5"/><text x="535" y="360">refused</text>
+            <rect x="680" y="338" width="110" height="34" rx="17" fill="var(--sheet)" stroke="var(--danger)" stroke-width="1.5"/><text x="735" y="360">failed</text>
+            <rect x="800" y="282" width="110" height="34" rx="17" fill="var(--sheet)" stroke="currentColor"/><text x="855" y="304">refunded</text>
+          </g>
+
+          <g stroke="currentColor" stroke-width="1.2" fill="none" marker-end="url(#sarr)">
+            <line x1="230" y1="57" x2="378" y2="57"/>
+            <line x1="490" y1="57" x2="638" y2="57"/>
+            <path d="M175,74 V109 H638"/>
+            <path d="M435,74 V100 H638" stroke-dasharray="3 3"/>
+            <path d="M435,40 V24 H915 V38"/>
+            <path d="M230,177 H330 V157 H478"/>
+            <path d="M330,177 V213 H478"/>
+            <path d="M175,194 V250 H855 V232"/>
+            <path d="M150,160 C150,128 200,128 200,158"/>
+            <path d="M230,327 H330 V299 H478"/>
+            <path d="M330,327 V355 H478"/>
+            <path d="M330,327 V392 H735 V374"/>
+            <line x1="590" y1="299" x2="798" y2="299"/>
+            <path d="M60,365 H478" stroke-dasharray="3 3"/>
+          </g>
+
+          <g font-family="IBM Plex Sans, system-ui, sans-serif" font-size="11" fill="var(--ink-soft)">
+            <text x="304" y="51" text-anchor="middle">owner clicks Approve</text>
+            <text x="564" y="51" text-anchor="middle">PayPal authorizes</text>
+            <text x="188" y="104">owner declines</text>
+            <text x="675" y="19" text-anchor="middle">period closes before approval</text>
+            <text x="175" y="124" text-anchor="middle">renewed once after 3 days</text>
+            <text x="342" y="151">capture empties it</text>
+            <text x="342" y="207">close-out, untouched</text>
+            <text x="610" y="245">close-out after a partial capture, released at expiry</text>
+            <text x="342" y="293">approved, captured</text>
+            <text x="342" y="349">purpose check rejects</text>
+            <text x="694" y="293" text-anchor="middle">owner refunds</text>
+            <text x="600" y="387" text-anchor="middle">PayPal capture fails</text>
+            <text x="64" y="360">over line, no such line</text>
+          </g>
+        </svg>
+      </div>
+      <figcaption>Dashed arrows are shortcuts: a request already in checkout can still be declined, and a purchase that breaks a line or total rule is recorded straight as refused without becoming pending. A hold in <code>lapsing</code> is one PayPal won't release early because part of it was captured (<code>PREVIOUSLY_CAPTURED</code>).</figcaption>
+    </figure>
+  </section>
+
+  <!-- ============================================================ FLOWS -->
+  <section id="flows">
+    <h2>Key flows</h2>
+    <div class="layer">
+      <h3>Get a budget</h3>
+      <ol class="flow">
+        <li>The agent calls <code>request_budget</code> with dates, lines (key, label, amount, reason) and an optional buffer.</li>
+        <li>The wallet checks the rules (1 to 12 lines, period of 28 days or less, under <code>REMIT_MAX_REQUEST</code>) and saves a <code>pending</code> request and a <code>pending</code> period. It returns a review link.</li>
+        <li>The owner opens the request card, can change or remove lines, and clicks Approve. The wallet creates a PayPal order with intent AUTHORIZE and the request moves to <code>checkout</code>.</li>
+        <li>The owner approves on PayPal's page. PayPal redirects to <code>/paypal/return</code>.</li>
+        <li>The wallet authorizes the order. Only a successful authorization counts as approval, so visiting the return link by hand does nothing. It then creates the hold and one envelope per approved line, and the period opens.</li>
+      </ol>
+    </div>
+    <div class="layer">
+      <h3>Spend</h3>
+      <ol class="flow">
+        <li>The agent calls <code>spend</code> with line, amount, title, store and its reasoning.</li>
+        <li>The wallet takes the next turn in its one-at-a-time queue, so two purchases can't both pass the checks.</li>
+        <li>Line rule: take from the line first, then the buffer, never from another line. Total rule: never more than what is still held. If either fails, a <code>refused</code> purchase is recorded and the agent gets the reason.</li>
+        <li>The purchase is saved as <code>pending</code>, then the purpose check judges whether it fits the line's reason. A rejection, or a purpose check that can't be reached, refuses the purchase.</li>
+        <li>The wallet captures from the oldest active hold first, spreading across holds if needed. Each capture carries an ID so a retry can't charge twice. A hold past PayPal's 3-day guarantee is renewed first. If a later capture fails, earlier ones in the same purchase are refunded.</li>
+        <li>The purchase becomes <code>captured</code>, an event is logged, and the agent gets what's left on the line and in total.</li>
+      </ol>
+    </div>
+    <div class="layer">
+      <h3>Ask for more, then close</h3>
+      <ol class="flow">
+        <li>After a refusal, the agent calls <code>request_topup</code> for an existing or new line. It follows the same approval path as a budget and ends in a second hold.</li>
+        <li>At the end date (checked every 60 seconds) or when the owner clicks Close, the wallet voids each active hold. Untouched holds are released at once. Holds with partial captures are marked <code>lapsing</code> and released when they expire. Open requests expire.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ============================================================ MONEY CORE -->
+  <section id="core" class="layer">
+    <header>
+      <h2>Money core</h2>
+      <p class="muted">These components enforce the guarantees. Treat changes here like changes to a payment system: tests first.</p>
+    </header>
+
+    <article class="spec">
+      <div class="spec-head"><h3>Wallet</h3><span class="chip product">product</span><span class="path">src/wallet/wallet.ts</span></div>
+      <dl>
+        <dt>Role</dt><dd>Owns every money rule: budgets, lines and buffer, holds, purchases, refusals, extra money, close-out and refunds. Nothing else changes money state.</dd>
+        <dt>Inputs</dt><dd><ul>
+          <li>From agents, through the tool contract: <code>requestBudget</code>, <code>requestTopup</code>, <code>spend</code>, <code>balance</code>, <code>history</code></li>
+          <li>From the owner, through the API: <code>checkout(requestId, edits)</code>, <code>decline</code>, <code>closePeriod</code>, <code>refund</code></li>
+          <li>From PayPal's redirect: <code>completeApproval(requestId, orderId)</code></li>
+          <li>From the timer: <code>closeIfEnded()</code></li>
+        </ul></dd>
+        <dt>Outputs</dt><dd><ul>
+          <li>Results with amounts in cents (line left, total left, capture IDs, the purpose check's verdict)</li>
+          <li>A <code>WalletError</code> with a code and a plain message the agent can act on, such as <code>OVER_LINE</code></li>
+          <li>Rows in the database and events in the activity log; calls to the PayPal gateway and the purpose check</li>
+        </ul></dd>
+        <dt>How it works</dt><dd>Money-changing calls run one at a time through a promise queue, and each change is one database transaction. It never trusts its caller: it checks every amount, line key, date and length itself.</dd>
+        <dt>Guarantees</dt><dd>A purchase never uses another line's money. Spending never exceeds what is held. Only an authorized PayPal order creates spendable money. Every refusal is recorded with its reason.</dd>
+        <dt>Next</dt><dd class="next">Owner-only <code>moveBetweenLines</code>; per-agent lines and pause; draw from the hold that funded the line instead of the oldest.</dd>
+      </dl>
+    </article>
+
+    <article class="spec">
+      <div class="spec-head"><h3>Agent tool contract</h3><span class="chip product">product</span><span class="path">src/wallet/tools.ts</span></div>
+      <dl>
+        <dt>Role</dt><dd>The single definition of what any agent can do with money. Both the MCP server and the demo agent use it, so they get identical rules.</dd>
+        <dt>Inputs</dt><dd>A tool name and raw JSON from an agent. Amounts are in dollars.</dd>
+        <dt>Outputs</dt><dd>A short JSON result with dollar strings (<code>"$32.49"</code>), or the wallet's error message.</dd>
+        <dt>How it works</dt><dd>Each tool has a zod schema and a description written for the agent. <code>runWalletTool</code> validates the input, converts dollars to cents, calls the wallet, and formats the answer. The descriptions carry the guidance an outside agent needs, such as giving every line a reason.</dd>
+        <dt>Next</dt><dd class="next">Add <code>get_history</code> so every agent can cite evidence; require a reason on every line; carry an agent ID on each call.</dd>
+      </dl>
+    </article>
+
+    <article class="spec">
+      <div class="spec-head"><h3>Purpose check</h3><span class="chip product">product</span><span class="path">src/wallet/reviewer.ts</span></div>
+      <dl>
+        <dt>Role</dt><dd>Checks each purchase against what its line is for, before any money moves. This is what limits the purpose of the money, not just the amount.</dd>
+        <dt>Inputs</dt><dd>The line's label and the owner-approved reason, plus the purchase: title, store, URL, price and the agent's reasoning. It never sees the pages the agent read.</dd>
+        <dt>Outputs</dt><dd><code>{ verdict: "approve" | "reject", reason }</code>. The reason is shown in the ledger.</dd>
+        <dt>How it works</dt><dd>One structured Claude call at low effort. The purchase text is marked as untrusted data. A model refusal, a missing verdict or an error all count as a rejection.</dd>
+        <dt>Next</dt><dd class="next">Let the owner override a rejection from the decision card; build a test set of misleading store listings to measure it.</dd>
+      </dl>
+    </article>
+
+    <article class="spec">
+      <div class="spec-head"><h3>PayPal gateway</h3><span class="chip product">product</span><span class="path">src/paypal/gateway.ts · rest.ts · simulated.ts</span></div>
+      <dl>
+        <dt>Role</dt><dd>The only code that talks to PayPal. It hides whether Remit is on the real sandbox or the local simulator.</dd>
+        <dt>Inputs</dt><dd><code>createAuthorizeOrder</code>, <code>getOrderStatus</code>, <code>authorizeOrder</code>, <code>capture(id, {cents, finalCapture, idempotencyKey})</code>, <code>reauthorize</code>, <code>voidAuthorization</code>, <code>refund</code>.</dd>
+        <dt>Outputs</dt><dd>Order ID and approval URL, authorization ID with amount and expiry, capture and refund IDs, or a <code>PayPalError</code> carrying PayPal's issue code (<code>MAX_CAPTURE_AMOUNT_EXCEEDED</code>, <code>PREVIOUSLY_CAPTURED</code>, <code>ORDER_NOT_APPROVED</code>).</dd>
+        <dt>How it works</dt><dd>The REST client caches the OAuth token and sends a <code>PayPal-Request-Id</code> with each write so retries are safe. The simulator stores its state in the database and enforces the same limits, so tests and keyless demos behave like PayPal.</dd>
+        <dt>Next</dt><dd class="next">Webhooks for order approved or declined and authorization voided or expired; a payout or merchant-payment call to pay real shops.</dd>
+      </dl>
+    </article>
+
+    <article class="spec">
+      <div class="spec-head"><h3>Database</h3><span class="chip product">product</span><span class="path">src/db.ts</span></div>
+      <dl>
+        <dt>Role</dt><dd>The record of every request, approval, hold, purchase and reason. It is the source for the ledger and for the agent's history.</dd>
+        <dt>Inputs</dt><dd>Writes from the wallet (and the simulator's own table).</dd>
+        <dt>Outputs</dt><dd>Reads for balances, history, the owner's state view and the chat transcript.</dd>
+        <dt>How it works</dt><dd>SQLite through <code>node:sqlite</code> in WAL mode. All money is integer cents. Multi-row changes use <code>BEGIN IMMEDIATE</code> transactions. The tables are listed under Data model below.</dd>
+        <dt>Next</dt><dd class="next">Agents table; a move between lines as its own record; move to Postgres when hosted for more than one owner.</dd>
+      </dl>
+    </article>
+
+    <article class="spec">
+      <div class="spec-head"><h3>Close-out timer</h3><span class="chip product">product</span><span class="path">src/server/main.ts</span></div>
+      <dl>
+        <dt>Role</dt><dd>Closes a budget period once its end date passes, so leftover money is released without anyone clicking.</dd>
+        <dt>Inputs</dt><dd>Time. It runs every 60 seconds.</dd>
+        <dt>Outputs</dt><dd>A call to <code>wallet.closeIfEnded()</code>.</dd>
+        <dt>Next</dt><dd class="next">Also start next week's planning: send the owner the weekly recap with the proposed next budget.</dd>
+      </dl>
+    </article>
+  </section>
+
+  <!-- ============================================================ INTERFACES -->
+  <section id="interfaces" class="layer">
+    <header>
+      <h2>Interfaces</h2>
+      <p class="muted">How people and agents reach the money core.</p>
+    </header>
+
+    <article class="spec">
+      <div class="spec-head"><h3>API server</h3><span class="chip product">product</span><span class="path">src/server/app.ts</span></div>
+      <dl>
+        <dt>Role</dt><dd>One HTTP server with three audiences: the owner's web app, PayPal's redirect, and agents.</dd>
+        <dt>Inputs</dt><dd>HTTP requests. Agent routes need <code>Authorization: Bearer REMIT_AGENT_TOKEN</code>. Owner routes need a password when <code>REMIT_OWNER_PASSWORD</code> is set.</dd>
+        <dt>Outputs</dt><dd>JSON. Errors are mapped to clear responses: wallet errors keep their code, PayPal errors become 502 with PayPal's issue, bad input becomes 400.</dd>
+        <dt>How it works</dt><dd>Hono on Node. Routes are thin and call the wallet. The routes are listed under Contracts below.</dd>
+        <dt>Next</dt><dd class="next">Detect PayPal declines (the request currently stays in <code>checkout</code> with no message); a webhook route; one token per agent.</dd>
+      </dl>
+    </article>
+
+    <article class="spec">
+      <div class="spec-head"><h3>MCP server</h3><span class="chip product">product</span><span class="path">src/mcp/main.ts</span></div>
+      <dl>
+        <dt>Role</dt><dd>Lets any agent the person already uses, such as Claude Desktop, use the wallet. This is how Remit becomes the wallet for your agent.</dd>
+        <dt>Inputs</dt><dd>MCP tool calls over stdio: <code>get_balance</code>, <code>request_budget</code>, <code>request_topup</code>, <code>spend</code>. Configured with <code>REMIT_URL</code> and <code>REMIT_AGENT_TOKEN</code>.</dd>
+        <dt>Outputs</dt><dd>The tool's JSON result as text, or an error result.</dd>
+        <dt>How it works</dt><dd>It registers the same schemas as the tool contract and forwards each call to <code>POST /agent/v1/tools/:name</code>. It holds no PayPal keys and no database, so a compromised agent machine can't reach money directly.</dd>
+        <dt>Next</dt><dd class="next">Add <code>get_history</code>; a remote (HTTP) MCP transport so hosted agents can connect.</dd>
+      </dl>
+    </article>
+
+    <article class="spec">
+      <div class="spec-head"><h3>Owner web app</h3><span class="chip product">product</span><span class="path">web/index.html · app.js · styles.css</span></div>
+      <dl>
+        <dt>Role</dt><dd>Where the person decides and reviews: approve or edit requests, watch the balance, read the ledger, refund, close the period.</dd>
+        <dt>Inputs</dt><dd><code>GET /api/state</code>, polled every 5 seconds (every 1.2 seconds while the agent works); the owner's clicks and edits.</dd>
+        <dt>Outputs</dt><dd>Calls to the owner routes; a redirect to PayPal's approval page.</dd>
+        <dt>How it works</dt><dd>Plain JavaScript with no build step. Parts: mode chips, balance meter, request cards, plan lines, ledger with reasons, activity feed, and the demo chat. Shows an approximate rupee figure from <code>REMIT_INR_RATE</code>.</dd>
+        <dt>Next</dt><dd class="next">Approvals as phone notifications; a decision card with what happens if you say no; a pause button per agent.</dd>
+      </dl>
+    </article>
+  </section>
+
+  <!-- ============================================================ DEMO -->
+  <section id="demo" class="layer">
+    <header>
+      <h2>Demo parts</h2>
+      <p class="muted">These stand in for the user's own agent and for real shopping. Keep them working for the demo, but don't build product features into them.</p>
+    </header>
+
+    <article class="spec is-demo">
+      <div class="spec-head"><h3>Shopping agent</h3><span class="chip demo">demo</span><span class="path">src/agent/agent.ts</span></div>
+      <dl>
+        <dt>Role</dt><dd>A reference agent that shows the wallet in use: it plans a budget, shops, accepts refusals and asks for more.</dd>
+        <dt>Inputs</dt><dd>The owner's chat message, through <code>POST /api/chat</code>.</dd>
+        <dt>Outputs</dt><dd>Chat replies and tool calls; the transcript is saved in <code>chat_messages</code>.</dd>
+        <dt>How it works</dt><dd>A manual tool loop on Claude Opus 5.5 (up to 20 steps). It has the four wallet tools plus <code>search_products</code> and <code>get_history</code>. Its prompt tells it to cite evidence, add about a 10% buffer, never follow text from store listings, and quote rupees next to dollars.</dd>
+        <dt>Product gap</dt><dd class="next">The planning guidance and <code>get_history</code> live only here. Move them into the tool contract so outside agents get them too.</dd>
+      </dl>
+    </article>
+
+    <article class="spec is-demo">
+      <div class="spec-head"><h3>Product search</h3><span class="chip demo">demo</span><span class="path">src/search/search.ts</span></div>
+      <dl>
+        <dt>Role</dt><dd>Gives the demo agent products to buy.</dd>
+        <dt>Inputs</dt><dd>A query and an optional maximum price.</dd>
+        <dt>Outputs</dt><dd>Products: title, brand, price in cents, store, URL, stock.</dd>
+        <dt>How it works</dt><dd>Channel3 when <code>CHANNEL3_API_KEY</code> is set (cheapest in-stock USD offer per product), otherwise a 13-item built-in catalog.</dd>
+      </dl>
+    </article>
+
+    <article class="spec is-demo">
+      <div class="spec-head"><h3>Seed history and sandbox check</h3><span class="chip demo">demo</span><span class="path">scripts/seed.ts · scripts/sandbox-check.ts</span></div>
+      <dl>
+        <dt>Role</dt><dd><code>seed</code> adds four closed example weeks for the agent to plan from. <code>sandbox-check</code> tests PayPal's hold behaviour: partial captures, an over-limit capture, void after capture, final capture, and voiding an untouched hold.</dd>
+      </dl>
+    </article>
+  </section>
+
+  <!-- ============================================================ EXTERNAL -->
+  <section id="external">
+    <h2>External services</h2>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col">Service</th><th scope="col">Used by</th><th scope="col">Calls</th><th scope="col">Without a key</th></tr></thead>
+        <tbody>
+          <tr><td>PayPal REST (sandbox)</td><td>PayPal gateway</td><td>Orders v2: create (AUTHORIZE), get, authorize. Payments v2: capture, reauthorize, void, refund</td><td>Local simulator with a "Simulated checkout" page</td></tr>
+          <tr><td>PayPal approval page</td><td>The owner, by redirect</td><td>Owner signs in as the buyer and approves; PayPal returns to <code>/paypal/return</code></td><td>Simulated approval page</td></tr>
+          <tr><td>Claude API</td><td>Purpose check; demo agent</td><td><code>messages.parse</code> with a structured verdict; <code>beta.messages.create</code> tool loop</td><td>Chat off; purpose check skipped</td></tr>
+          <tr><td>Channel3</td><td>Product search (demo)</td><td><code>POST /v1/search</code></td><td>Built-in catalog</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================================================ DATA -->
+  <section id="data">
+    <h2>Data model</h2>
+    <p>All amounts are integer cents. IDs are prefixed strings such as <code>hold_…</code> and <code>pur_…</code>.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col">Table</th><th scope="col">Holds</th><th scope="col">Key fields</th></tr></thead>
+        <tbody>
+          <tr><td><code>periods</code></td><td>One budget period</td><td><code>starts_on</code>, <code>ends_on</code>, <code>status</code> (pending, open, closed, declined), <code>source</code> (live or seed)</td></tr>
+          <tr><td><code>requests</code></td><td>A budget or top-up request</td><td><code>kind</code>, <code>status</code>, <code>reason</code>, <code>paypal_order_id</code></td></tr>
+          <tr><td><code>request_lines</code></td><td>Lines as asked and as approved</td><td><code>line_key</code>, <code>reason</code>, <code>amount_cents</code> (asked), <code>approved_cents</code> (sent to PayPal; 0 = removed)</td></tr>
+          <tr><td><code>envelopes</code></td><td>An approved line and its limit</td><td><code>line_key</code>, <code>label</code>, <code>reason</code>, <code>limit_cents</code> (top-ups add to it)</td></tr>
+          <tr><td><code>holds</code></td><td>A PayPal authorization</td><td><code>authorization_id</code>, <code>amount_cents</code>, <code>captured_cents</code>, <code>status</code>, <code>honor_until</code>, <code>expires_at</code>, <code>release_note</code></td></tr>
+          <tr><td><code>purchases</code></td><td>Every attempt, paid or refused</td><td><code>status</code>, <code>amount_cents</code>, <code>from_line_cents</code>, <code>from_buffer_cents</code>, <code>reasoning</code>, <code>review</code> (JSON), <code>refusal</code>, <code>agent</code></td></tr>
+          <tr><td><code>captures</code></td><td>The PayPal charges behind a purchase</td><td><code>hold_id</code>, <code>capture_id</code>, <code>amount_cents</code>, <code>final</code>, <code>refund_id</code></td></tr>
+          <tr><td><code>events</code></td><td>The activity feed</td><td><code>type</code>, <code>message</code></td></tr>
+          <tr><td><code>chat_messages</code></td><td>Demo agent transcript</td><td>Messages stored unchanged, including thinking blocks</td></tr>
+          <tr><td><code>sim_paypal</code></td><td>Simulator state</td><td>Orders, authorizations and captures as JSON</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================================================ CONTRACTS -->
+  <section id="contracts">
+    <h2>Contracts</h2>
+    <h3>Agent tools</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col">Tool</th><th scope="col">Input (dollars)</th><th scope="col">Output</th></tr></thead>
+        <tbody>
+          <tr><td><code>get_balance</code></td><td>nothing</td><td>Period, status, approved, spent, left, each line's approved and left, requests waiting for the owner</td></tr>
+          <tr><td><code>request_budget</code></td><td><code>summary</code>, <code>starts_on</code>, <code>ends_on</code>, <code>lines[]</code> {key, label, amount, reason}, optional <code>buffer</code> {amount, reason}</td><td>Status, total, review link</td></tr>
+          <tr><td><code>request_topup</code></td><td><code>line</code>, <code>label</code> (for a new line), <code>amount</code>, <code>reason</code></td><td>Status, amount, review link</td></tr>
+          <tr><td><code>spend</code></td><td><code>line</code>, <code>amount</code>, <code>title</code>, <code>merchant</code>, <code>url</code>, <code>reasoning</code></td><td>Paid amount, from buffer, line left, total left, purpose check</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Refusals an agent should expect</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col">Code</th><th scope="col">Means</th><th scope="col">What the agent should do</th></tr></thead>
+        <tbody>
+          <tr><td><code>OVER_LINE</code></td><td>More than the line plus buffer allows</td><td>Tell the owner; <code>request_topup</code> if still worth it</td></tr>
+          <tr><td><code>NO_SUCH_LINE</code></td><td>No approved line with that key</td><td>Use an approved line or ask for a new one</td></tr>
+          <tr><td><code>REVIEW_REJECTED</code></td><td>The purpose check says the purchase doesn't fit the line</td><td>Don't retry; explain to the owner</td></tr>
+          <tr><td><code>OVER_BALANCE</code></td><td>More than is still held</td><td><code>request_topup</code></td></tr>
+          <tr><td><code>PERIOD_ENDED</code>, <code>PERIOD_OPEN</code>, <code>REQUEST_PENDING</code></td><td>Wrong time for this call</td><td>Wait or ask for the next budget</td></tr>
+          <tr><td><code>TOO_LARGE</code>, <code>BAD_LINES</code>, <code>BAD_DATES</code>, <code>BAD_AMOUNT</code></td><td>Invalid request</td><td>Fix the input</td></tr>
+          <tr><td><code>CAPTURE_FAILED</code></td><td>PayPal refused the charge</td><td>Report it; no money moved</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>HTTP routes</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col">Route</th><th scope="col">Who</th><th scope="col">Does</th></tr></thead>
+        <tbody>
+          <tr><td><code>GET /api/state</code></td><td>Owner app</td><td>Everything the app shows: modes, period, lines, requests, holds, totals, purchases, events, chat</td></tr>
+          <tr><td><code>POST /api/requests/:id/checkout</code></td><td>Owner</td><td>Apply edits, create the PayPal order, return the approval URL</td></tr>
+          <tr><td><code>POST /api/requests/:id/decline</code></td><td>Owner</td><td>Decline a waiting request</td></tr>
+          <tr><td><code>POST /api/period/close</code></td><td>Owner</td><td>Close now and release holds</td></tr>
+          <tr><td><code>POST /api/purchases/:id/refund</code></td><td>Owner</td><td>Refund a paid purchase to the owner</td></tr>
+          <tr><td><code>POST /api/chat</code>, <code>/api/chat/reset</code></td><td>Owner (demo)</td><td>Send a message to the demo agent (runs in the background) or start over</td></tr>
+          <tr><td><code>GET /paypal/return</code>, <code>/paypal/cancel</code></td><td>PayPal redirect</td><td>Authorize and create the hold, or note the cancel</td></tr>
+          <tr><td><code>POST /agent/v1/tools/:name</code></td><td>Agents (token)</td><td>Run one wallet tool</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Settings</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col">Variable</th><th scope="col">Controls</th></tr></thead>
+        <tbody>
+          <tr><td><code>PAYPAL_CLIENT_ID</code>, <code>PAYPAL_CLIENT_SECRET</code></td><td>Real sandbox when both are set, simulator otherwise</td></tr>
+          <tr><td><code>ANTHROPIC_API_KEY</code>, <code>REMIT_MODEL</code>, <code>REMIT_REVIEWER</code></td><td>Claude for the purpose check and demo agent; purpose check on or off</td></tr>
+          <tr><td><code>REMIT_AGENT_TOKEN</code></td><td>Turns the agent API (and so MCP) on</td></tr>
+          <tr><td><code>REMIT_MAX_REQUEST</code></td><td>Largest single request, in dollars (default 500)</td></tr>
+          <tr><td><code>REMIT_INR_RATE</code></td><td>Rupees per dollar for display (default 88; 0 hides rupees)</td></tr>
+          <tr><td><code>CHANNEL3_API_KEY</code></td><td>Live product search for the demo agent</td></tr>
+          <tr><td><code>REMIT_OWNER_PASSWORD</code>, <code>APP_URL</code>, <code>PORT</code>, <code>REMIT_DB</code></td><td>Owner password, public URL for PayPal redirects, port, database path</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ============================================================ PLANNED -->
+  <section id="planned" class="layer">
+    <header>
+      <h2>What to build next</h2>
+      <p class="muted">New components, in the order we'd build them. Each one names what it changes in the existing parts.</p>
+    </header>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col">Component</th><th scope="col">Role</th><th scope="col">Inputs → outputs</th><th scope="col">Changes</th></tr></thead>
+        <tbody>
+          <tr><td><span class="chip planned">planned</span><br><strong>Approval status watcher</strong></td><td>Notice when PayPal declines or the owner abandons approval</td><td>Requests in <code>checkout</code> → order status from PayPal → a "PayPal didn't approve" message on the card</td><td>API server, web app; later replaced by webhooks</td></tr>
+          <tr><td><span class="chip planned">planned</span><br><strong>History for every agent</strong></td><td>Let any agent cite evidence when planning</td><td><code>get_history</code> tool → past periods, lines and purchases</td><td>Tool contract, MCP server; planning guidance moves into tool descriptions</td></tr>
+          <tr><td><span class="chip planned">planned</span><br><strong>Agent registry</strong></td><td>Give each connected agent its own allowance and pause</td><td>Owner adds an agent → token; each call carries the agent → lines scoped to that agent</td><td>Database (agents table), wallet, API auth, web app</td></tr>
+          <tr><td><span class="chip planned">planned</span><br><strong>Move between lines</strong></td><td>Fix most refusals without a new PayPal approval</td><td>Owner taps "move $10 from groceries" → envelope limits change, total unchanged</td><td>Wallet (owner-only method), web app, refusal message</td></tr>
+          <tr><td><span class="chip planned">planned</span><br><strong>Notifier</strong></td><td>Bring decisions to the owner's phone</td><td>New request, refusal or weekly recap → push or email with approve and decline links</td><td>New service; API server routes for one-tap links</td></tr>
+          <tr><td><span class="chip planned">planned</span><br><strong>PayPal webhooks</strong></td><td>Learn about approvals, declines, voids and expiry directly from PayPal</td><td>PayPal event → verified signature → wallet update</td><td>API server route, PayPal gateway, hosting with a public URL</td></tr>
+          <tr><td><span class="chip planned">planned</span><br><strong>Merchant payment</strong></td><td>Pay the real shop instead of Remit's own sandbox account</td><td>Captured purchase → payment to the merchant or order with a PayPal merchant</td><td>PayPal gateway, purchases table</td></tr>
+          <tr><td><span class="chip planned">planned</span><br><strong>AP2 mandate adapter</strong></td><td>Enforce budgets recorded as AP2 mandates</td><td>Mandate in → request lines; purchases checked against it</td><td>Tool contract, wallet</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="small muted">
+    <p>Written from the code on main (merge 8197fec). Source: github.com/hsyvy/remit. Paths are relative to the repository root.</p>
+  </footer>
+</main>

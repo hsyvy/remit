@@ -117,7 +117,7 @@ export async function runWalletTool(wallet: Wallet, name: WalletToolName, raw: u
         from_buffer: result.fromBufferCents ? fmt(result.fromBufferCents) : undefined,
         line_left: fmt(result.lineLeftCents),
         total_left: fmt(result.totalLeftCents),
-        second_opinion: result.review.verdict === "skipped" ? undefined : result.review.reason,
+        purpose_check: result.review.verdict === "skipped" ? undefined : result.review.reason,
         store_checkout: "Simulated: the payment was taken from the PayPal hold; this demo does not place a real store order.",
       };
     }

@@ -289,15 +289,15 @@ export class Wallet {
         .run(purchaseId, period.id, line.envelopeId, line.key, input.amountCents, fromLine, fromBuffer, title, merchant,
           input.url ?? null, reasoning, input.agent, this.iso());
 
-      // Second opinion: a separate model call that sees the plan line and the purchase, not the page the agent read.
+      // Purpose check: an independent model call that sees the plan line and the purchase, not the page the agent read.
       const review = this.opts.reviewer
         ? await this.opts.reviewer
             .review({ line: { label: line.label, reason: line.reason }, purchase: { title, merchant, url: input.url, amountCents: input.amountCents, reasoning } })
-            .catch((err): ReviewResult => ({ verdict: "reject", reason: `Reviewer unavailable, so the wallet refused to be safe: ${errorText(err)}` }))
-        : { verdict: "skipped" as const, reason: "No reviewer configured." };
+            .catch((err): ReviewResult => ({ verdict: "reject", reason: `Purpose check unavailable, so the wallet refused to be safe: ${errorText(err)}` }))
+        : { verdict: "skipped" as const, reason: "Purpose check is off." };
       this.db.prepare("UPDATE purchases SET review = ? WHERE id = ?").run(JSON.stringify(review), purchaseId);
       if (review.verdict === "reject") {
-        const message = `Second opinion refused this purchase: ${review.reason}`;
+        const message = `Purpose check refused this purchase: ${review.reason}`;
         this.db.prepare("UPDATE purchases SET status = 'refused', refusal = ? WHERE id = ?").run(message, purchaseId);
         this.event(period.id, "spend_refused", `Refused ${fmt(input.amountCents)} for "${title}". ${message}`);
         throw new WalletError("REVIEW_REJECTED", message, 409);

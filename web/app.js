@@ -58,7 +58,7 @@ function renderModes() {
     chip(m.paypal === "sandbox" ? "PayPal sandbox" : "PayPal simulated", m.paypal === "sandbox"),
     chip(m.search === "channel3" ? "Channel3 search" : "Demo catalog", m.search === "channel3"),
     chip(m.agent === "on" ? `Claude · ${m.model}` : "Claude off", m.agent === "on"),
-    chip(m.reviewer === "on" ? "Second opinion on" : "Second opinion off", m.reviewer === "on"),
+    chip(m.reviewer === "on" ? "Purpose check on" : "Purpose check off", m.reviewer === "on"),
   ].join("");
 }
 
@@ -230,7 +230,7 @@ function renderPurchases() {
         <span class="meta"><span class="status ${esc(p.status)}">${esc(statusText[p.status] ?? p.status)}</span>
           ${esc(p.merchant)} · ${esc(lineLabel(p.lineKey))}${p.fromBufferCents ? ` · ${money(p.fromBufferCents)} from buffer` : ""} · ${esc(time(p.createdAt))}${p.agent === "mcp" ? " · via MCP" : ""}</span>
         <span class="note">Why: ${esc(p.reasoning)}</span>
-        ${p.review && p.review.verdict !== "skipped" ? `<span class="note">Second opinion: ${esc(p.review.reason)}</span>` : ""}
+        ${p.review && p.review.verdict !== "skipped" ? `<span class="note">Purpose check: ${esc(p.review.reason)}</span>` : ""}
         ${p.refusal ? `<span class="note refusal">${esc(p.refusal)}</span>` : ""}
         ${p.status === "captured" ? `<span class="note"><button class="btn small" data-refund="${esc(p.id)}" type="button">Refund to me</button></span>` : ""}
       </div>`,
