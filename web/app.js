@@ -270,6 +270,8 @@ function toolLine(t) {
       return `request_topup ${r.amount ?? ""} · ${i.line} → waiting for you`;
     case "search_products":
       return `search "${i.query}" → ${r.products?.length ?? 0} results`;
+    case "get_history":
+      return `get_history → ${r.periods?.length ?? 0} earlier periods`;
     case "get_balance":
       return `get_balance → ${r.left ?? r.budget ?? ""}`;
     default:

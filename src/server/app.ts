@@ -4,7 +4,7 @@ import { bearerAuth } from "hono/bearer-auth";
 import { HTTPException } from "hono/http-exception";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { z } from "zod";
-import type { ShoppingAgent } from "../agent/agent.ts";
+import type { ShoppingAgent } from "../demo/agent.ts";
 import { fmt } from "../money.ts";
 import { PayPalError } from "../paypal/gateway.ts";
 import type { SimulatedPayPal } from "../paypal/simulated.ts";
