@@ -36,6 +36,9 @@ export function createApp(deps: AppDeps) {
     return c.json({ error: "INTERNAL", message: errorText(err) }, 500);
   });
 
+  // For the host's health check, so it sits in front of the owner password.
+  app.get("/healthz", (c) => c.json({ ok: true }));
+
   // ------------------------------------------------------------ agent API (used by the MCP server)
 
   if (deps.agentToken) {
