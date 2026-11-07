@@ -1,7 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { serve } from "@hono/node-server";
 import { ShoppingAgent } from "../agent/agent.ts";
-import { config, paypalMode } from "../config.ts";
+import { config, isLocalUrl, paypalMode } from "../config.ts";
 import { openDb } from "../db.ts";
 import { RestPayPal } from "../paypal/rest.ts";
 import { SimulatedPayPal } from "../paypal/simulated.ts";
@@ -9,6 +9,13 @@ import { Channel3Search, DemoSearch } from "../search/search.ts";
 import { ClaudeReviewer } from "../wallet/reviewer.ts";
 import { Wallet } from "../wallet/wallet.ts";
 import { createApp } from "./app.ts";
+
+// Anyone who can open a public web app can approve holds and run the agent, so it must have a password.
+if (!isLocalUrl(config.appUrl) && !config.ownerPassword) {
+  console.error(`Refusing to start: APP_URL is ${config.appUrl}, which is public, and REMIT_OWNER_PASSWORD is empty.`);
+  console.error("Set REMIT_OWNER_PASSWORD, or use a localhost APP_URL.");
+  process.exit(1);
+}
 
 const db = openDb(config.dbPath);
 
@@ -36,7 +43,7 @@ const app = createApp({
   modes,
   inrRate: config.inrRate,
   agentToken: config.agentToken || undefined,
-  ownerPassword: process.env.REMIT_OWNER_PASSWORD || undefined,
+  ownerPassword: config.ownerPassword || undefined,
 });
 
 serve({ fetch: app.fetch, port: config.port }, () => {

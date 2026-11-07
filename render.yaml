@@ -1,0 +1,30 @@
+# Render Blueprint: one web service from the Dockerfile, with a 1 GB disk for SQLite.
+# Free instances can't have a disk and sleep after 15 idle minutes, so this uses Starter.
+services:
+  - type: web
+    name: remit
+    runtime: docker
+    plan: starter
+    region: oregon
+    healthCheckPath: /healthz
+    autoDeploy: true
+    disk:
+      name: remit-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      # APP_URL defaults to RENDER_EXTERNAL_URL (https://<name>.onrender.com). Set it only for a custom domain.
+      - key: REMIT_DB
+        value: /var/data/remit.db
+      - key: REMIT_OWNER_PASSWORD
+        sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: CHANNEL3_API_KEY
+        sync: false
+      - key: REMIT_AGENT_TOKEN
+        generateValue: true
