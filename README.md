@@ -71,6 +71,7 @@ All of this is server code in [`src/wallet/wallet.ts`](src/wallet/wallet.ts). A 
 - **Lines are envelopes.** Each purchase names a plan line. It can use that line and then the shared buffer, never another line.
 - **No overspending.** The wallet checks the line and the total before capturing, and PayPal refuses to capture more than the hold (`MAX_CAPTURE_AMOUNT_EXCEEDED`). Spends are serialized so two at once can't both pass.
 - **Purpose check.** Before paying, an independent Claude call sees the plan line and the purchase, but not the page the agent read, and can refuse a purchase that doesn't fit the line. If the purpose check is unreachable, the wallet refuses.
+- **Every line has a reason.** A budget line or top-up with an empty or trivially short reason is rejected, and the agent is told to cite evidence such as when something was last bought.
 - **Refusals are recorded.** A refused purchase shows in the ledger with the reason. The agent is told to ask for a top-up rather than work around it.
 - **Top-ups are new approvals.** Each one is a new PayPal order and a new hold. Purchases capture from the oldest hold first.
 - **Close-out.** At the end date (or when you click Close), holds with nothing captured are voided right away. PayPal won't void a hold after a partial capture (`PREVIOUSLY_CAPTURED`), so that leftover is released when the authorization expires, and the ledger says so. `npm run sandbox-check` tests this against the real sandbox.
@@ -81,7 +82,7 @@ Store checkout is simulated: a purchase takes the money from your PayPal hold, b
 
 ## Use the wallet from another agent (MCP)
 
-The MCP server exposes `get_balance`, `request_budget`, `request_topup` and `spend`. It holds no PayPal keys; it calls the running wallet with `REMIT_AGENT_TOKEN`.
+The MCP server exposes `get_history`, `get_balance`, `request_budget`, `request_topup` and `spend`. The tool descriptions carry the planning rules: read the history first, cite evidence in every line's reason, add about a 10% buffer, default to a 7-day period, and ask with `request_topup` after a refusal. It holds no PayPal keys; it calls the running wallet with `REMIT_AGENT_TOKEN`.
 
 For Claude Desktop, add to `claude_desktop_config.json` (use your own absolute path and token):
 
@@ -109,10 +110,9 @@ npm run sandbox-check
 
 | Path | What |
 |---|---|
-| `src/wallet/` | Money rules, the four agent tools, the purpose check |
+| `src/wallet/` | Money rules, the five agent tools, the purpose check |
 | `src/paypal/` | Orders and Payments REST client, and the local simulator |
-| `src/agent/` | The Claude shopping agent (tool loop, planning, history) |
-| `src/search/` | Channel3 search and the demo catalog |
+| `src/demo/` | Demo only: the built-in Claude shopping agent, and Channel3 search with the demo catalog |
 | `src/server/` | Web app API, PayPal return handling, agent API |
 | `src/mcp/` | The MCP server |
 | `web/` | The owner's web app (no build step) |

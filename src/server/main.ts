@@ -1,11 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { serve } from "@hono/node-server";
-import { ShoppingAgent } from "../agent/agent.ts";
+import { ShoppingAgent } from "../demo/agent.ts";
 import { config, isLocalUrl, paypalMode } from "../config.ts";
 import { openDb } from "../db.ts";
 import { RestPayPal } from "../paypal/rest.ts";
 import { SimulatedPayPal } from "../paypal/simulated.ts";
-import { Channel3Search, DemoSearch } from "../search/search.ts";
+import { Channel3Search, DemoSearch } from "../demo/search.ts";
 import { ClaudeReviewer } from "../wallet/reviewer.ts";
 import { Wallet } from "../wallet/wallet.ts";
 import { createApp } from "./app.ts";
