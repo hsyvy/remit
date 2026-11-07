@@ -1,0 +1,26 @@
+The first screen (above the fold) of a desktop marketing website for "Remit", shown as a flat, pixel-perfect screenshot of the page itself at 1440 x 960, no browser chrome, no device frame, no perspective, no tilt.
+
+Remit is a wallet for AI agents. The agent proposes a weekly budget with a reason for every line. The owner approves it as a single hold on their own PayPal account. Every purchase is checked against what its line is for, anything that does not fit is refused, and whatever is unspent goes back to the owner.
+
+Quality bar: the restraint and precision of the very best fintech and consumer-technology websites. One focal point. Strict alignment to a 12-column grid with wide margins. Generous whitespace. A single typeface family used with discipline: large, tightly tracked headline; quiet grey subline; small, crisp navigation. The hero visual is the real product interface, rendered at high fidelity, like a polished product screenshot designed by a top product team: hairline borders, careful spacing, tabular figures, small caps labels, real data.
+Strictly avoid: illustrations, 3D blobs, gradient meshes, glassmorphism, neon glow, sparkles, robots, AI brains, circuit patterns, stock photos of people, emoji, icon-in-circle feature grids, fake customer logos, lorem ipsum, any text not listed below.
+
+Logo, top left: a small mark (a rounded square containing three short horizontal bars of decreasing length, like lines of a budget) followed by the wordmark "Remit" in the same sans-serif, semibold.
+Navigation: links "Product", "How it works", "Security", "Developers"; on the right a text link "Sign in" and a small button "Request access".
+Headline (exactly): "Your agent spends within its remit."
+Subline (exactly): "Approve a budget once on PayPal. Every purchase is checked against its reason. What's left comes back to you."
+Actions: a primary button "Request access" and a text link "See how it works →".
+
+The product interface in the hero is a Remit budget card with exactly this content:
+- Header: "This week · Nov 9 – 15" and on the right a small status label "Hold active on PayPal".
+- Big figure: "$55.20" with the label "left of $176.50".
+- Four lines, each with a name, a thin progress bar and an amount spent of its total:
+  "Groceries  $86.80 / $88.00"
+  "Dog food  $32.50 / $32.50"
+  "Gift for Sam  $0.00 / $40.00"
+  "Shared buffer  $2.00 / $16.00"
+And beside or overlapping it slightly, a smaller activity panel titled "Activity" with three rows:
+  "Groceries · $43.40 · Approved"
+  "Dog food · $32.50 · Approved"
+  "Phone case · $18.99 · Refused, not in the plan" (this row marked with a small red-orange dot)
+All text must be spelled exactly as given, in English, crisp, sharp and legible. Every number must be exactly as given.

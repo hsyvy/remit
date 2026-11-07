@@ -1,0 +1,13 @@
+Photorealistic editorial studio photograph of a finished brand identity for "Remit", a premium wallet that lets an AI agent spend only what its owner approved, with every purchase tied to a reason. The identity was made by a top brand studio for a private-banking level of trust: restrained, quiet, expensive, precise. Overhead flat-lay composition, generous negative space, soft directional daylight from the upper left, gentle natural shadows, true-to-life paper and metal textures, shallow depth of field at the edges. Magazine-quality, like an award-winning identity case study photo.
+Objects, carefully arranged with space between them (no hands, no people):
+On a pale warm-gray matte stone surface:
+1. A crisp bright-white rigid business card with the mark and the wordmark "remit" printed in graphite, and small text "Your agent spends within its remit." set in the same sans.
+2. A brushed aluminium card with the mark laser-etched small in one corner.
+3. A white A5 sheet with a precise statement layout: "remit" small at top, "Week of Nov 9 – 15", a thin bar, and three right-aligned figures "Spent $219.80", "Returned $61.20", "Approved $281.00".
+4. A smartphone lying flat, white screen showing the app: "remit" small at the top, a large figure "$55.20", small gray text "left this week", a thin graphite bar, and one cobalt button "Approve $104.50 on PayPal".
+IDENTITY "Precision":
+- Mark: the remit bar itself as a symbol: a short horizontal rounded bar, its left two-thirds solid graphite and its right third only a fine graphite outline, like a gauge that has never been exceeded. Exact, minimal, engineered.
+- Wordmark: "remit" in lowercase, a precise neo-grotesk sans in medium weight, tight but comfortable spacing, very clean.
+- Colors: pure white #FFFFFF, graphite #1C1F24, platinum gray #E4E5E8, cool mid gray #8A8F98, and one deep cobalt #1E3FAE used only for the one action. Held money shown as fine graphite hatching.
+- Typography: one neo-grotesk family in two weights, with tabular figures; a monospace only for IDs.
+Every piece of text must be crisp, correctly spelled exactly as given, and in English. Keep printed text minimal and elegant. No gradients, no glow, no neon, no sparkles, no robots, no AI imagery, no clutter, no props like plants, coffee or pens.

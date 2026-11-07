@@ -1,0 +1,15 @@
+Top bar, the same on every screen of this app: wordmark "Remit" on the left; then four text tabs exactly "This week", "History", "Agents", "Settings", with "Agents" shown selected (light gray pill behind it); on the far right two small outlined pill tags "PayPal sandbox" and "Claude · active". No sidebar, no other navigation.
+
+Desktop web app wireframe, 1440 wide, for "Remit". Screen: "Agents", the list of AI agents connected to the wallet.
+
+Below the top bar, header: title "Agents", subtitle "Each agent gets its own allowance. None of them can approve money." A button on the right "+ Connect an agent".
+
+A list of three agent rows, each a wide bordered row with: a plain square monogram (letters only, no faces), name, connection type, a thin allowance bar with "spent / approved this week" in monospace, last activity, a toggle switch labeled "Active" or "Paused", and a "…" menu.
+   "CL · Claude (household) · Remit web app · $219.80 / $281.00 · last purchase 2h ago · Active"
+   "CD · Claude Desktop · MCP · $0.00 / $40.00 · last call yesterday · Active"
+   "CU · Cursor · MCP · $12.00 / $25.00 · last call 3 days ago · Paused"
+
+Below, a bordered panel "Connect over MCP" showing: a small monospace code block with "REMIT_URL=http://localhost:3000" and "REMIT_AGENT_TOKEN=••••••••", a "Copy config" button, and a list of four tool names in monospace chips: "get_balance", "request_budget", "request_topup", "spend".
+
+Annotations: 1 one allowance per agent, 2 pause an agent without closing its holds, 3 the agent only gets four tools, 4 agents are named, never given faces.
+STYLE: a clean low-fidelity UX wireframe, the kind a senior product designer draws in Figma before visual design. Pure white background, grayscale only (#222 lines and text, #888 secondary text, #e5e5e5 placeholder fills), 1px hairline strokes, square-ish corners with 6px radius, a plain sans-serif for all text, monospace for every money amount. No colors, no gradients, no shadows, no glow, no 3D, no illustrations, no icons except simple outline glyphs, no device mockup, no hands, no perspective: a flat, straight-on screen. All text must be legible, spelled exactly as given, in English. Add 4 to 6 small numbered annotation circles (black circle, white number) placed next to key elements, with a narrow annotation column on the right edge listing what each number means in one short line.

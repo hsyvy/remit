@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Remit, a refused purchase</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#07080a}
+a{color:#f2f3f5}a:hover{color:#ffffff}
+.r{--bg:#07080a;--bg1:#0c0d10;--bg2:#121317;--bg3:#191a1f;--bg4:#24252c;--ln:rgba(255,255,255,.07);--ln2:rgba(255,255,255,.11);--ln3:rgba(255,255,255,.18);--fg:#f2f3f5;--fg2:#a6a9b1;--fg3:#80838c;--bar:#d9dbe1;--ok:#5fd3a0;--okb:rgba(95,211,160,.1);--no:#f27a5c;--nob:rgba(242,122,92,.11);--ask:#e8b85e;--askb:rgba(232,184,94,.11);font-family:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--fg);background:var(--bg);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:1080px;display:flex;flex-wrap:wrap;align-items:stretch}
+.r *{box-sizing:border-box}
+.side{flex:1 1 220px;max-width:240px;border-right:1px solid var(--ln);padding:16px 12px 20px;display:flex;flex-direction:column;gap:2px;background:#0a0b0d}
+.ws{display:flex;align-items:center;gap:10px;padding:6px 9px 18px;font-size:13.5px;font-weight:600}
+.av{width:22px;height:22px;border-radius:6px;background:var(--fg);color:var(--bg);display:grid;place-items:center;flex:none}
+.av svg{width:13px;height:13px}
+.ni{display:flex;align-items:center;gap:10px;min-height:34px;padding:0 9px;border-radius:7px;font-size:13.5px;color:var(--fg2);text-decoration:none}
+.ni:hover{background:var(--bg3);color:var(--fg)}
+.ni.on{background:var(--bg3);color:var(--fg)}
+.ni svg{width:15px;height:15px;color:var(--fg3);flex:none}
+.count{margin-left:auto;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--askb);color:var(--ask);font-size:11px;font-weight:600;display:grid;place-items:center}
+.side-foot{margin-top:auto;padding:14px 9px 0;border-top:1px solid var(--ln);font-size:12.5px;color:var(--fg3);line-height:1.5}
+.side-foot b{display:block;color:var(--fg2);font-weight:500}
+.main{flex:999 1 560px;min-width:0;padding:28px 40px 64px;display:flex;flex-direction:column;gap:24px}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.crumb{font-size:12.5px;color:var(--fg3);margin:0 0 8px}
+.crumb a{color:var(--fg3);text-decoration:none}
+.t{margin:0;font-size:26px;font-weight:560;letter-spacing:-.025em;line-height:1.15}
+.sub{margin:6px 0 0;font-size:14px;color:var(--fg2);max-width:64ch}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;color:var(--fg2);background:var(--bg3)}
+.chip i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.chip.ok{color:var(--ok);background:var(--okb)}
+.chip.no{color:var(--no);background:var(--nob)}
+.chip.ask{color:var(--ask);background:var(--askb)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 16px;border-radius:9px;font-family:inherit;font-size:14px;font-weight:500;border:1px solid transparent;text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn.pri{background:var(--fg);color:var(--bg)}
+.btn.sec{background:transparent;color:var(--fg);border-color:var(--ln3)}
+.card{background:var(--bg1);border:1px solid var(--ln2);border-radius:12px;min-width:0}
+.k{font-size:12.5px;color:var(--fg3)}
+@media (max-width:760px){.side{max-width:none;flex-basis:100%;border-right:0;border-bottom:1px solid var(--ln)}.main{padding:20px 16px 40px}}
+/* this screen */
+.grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,1fr);gap:20px;align-items:start}
+@media (max-width:1100px){.grid{grid-template-columns:minmax(0,1fr)}}
+.ch{padding:18px 22px;border-bottom:1px solid var(--ln);font-size:14px;font-weight:560}
+.checks{list-style:none;margin:0;padding:0}
+.ck{display:grid;grid-template-columns:26px minmax(0,1fr);gap:4px 14px;padding:18px 22px;border-bottom:1px solid var(--ln)}
+.ck:last-child{border-bottom:0}
+.ic{grid-row:1/3;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--ln3);color:var(--fg3);font:500 11px "Geist Mono",ui-monospace,Menlo,monospace}
+.ic svg{width:12px;height:12px}
+.ic.pass{background:var(--okb);color:var(--ok);border-color:transparent}
+.ic.fail{background:var(--nob);color:var(--no);border-color:transparent}
+.ck b{font-size:14.5px;font-weight:560}
+.ck p{margin:0;font-size:13.5px;color:var(--fg2)}
+.ck.skip{opacity:.42}
+.quote{grid-column:2;margin-top:12px;padding:14px 16px;border-radius:10px;background:var(--bg2);border:1px solid var(--ln);font-size:13.5px;color:var(--fg2)}
+.quote .k{display:block;margin-bottom:6px}
+.quote strong{color:var(--no);font-weight:500}
+.dl{margin:0;padding:6px 22px 10px}
+.dl div{display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;padding:12px 0;border-bottom:1px solid var(--ln);font-size:13.5px}
+.dl div:last-child{border-bottom:0}
+.dl dt{color:var(--fg3)}
+.dl dd{margin:0}
+.next{padding:20px 22px;display:flex;flex-direction:column;gap:14px}
+.next p{margin:0;font-size:13.5px;color:var(--fg2)}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.stack{display:flex;flex-direction:column;gap:20px;min-width:0}
+</style>
+</helmet>
+<div class="r">
+  <nav class="side" aria-label="Remit">
+    <div class="ws"><span class="av"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M10 4.5H4.5v23H10M22 4.5h5.5v23H22" fill="none" stroke="currentColor" stroke-width="3"></path><rect x="8" y="9.5" width="8.5" height="13" fill="currentColor"></rect></svg></span>Household</div>
+    <a class="ni" href="Main.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3" width="11" height="10.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"></rect><path d="M2.5 6.5h11M5.5 1.8v2.4M10.5 1.8v2.4" stroke="currentColor" stroke-width="1.3"></path></svg>This week</a>
+    <a class="ni" href="Topup.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.5h10v7H8.5L5.5 13v-2.5H3z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"></path></svg>Requests<span class="count">1</span></a>
+    <a class="ni on" href="Ledger.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10M3 8h10M3 12h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"></path></svg>Ledger</a>
+    <a class="ni" href="Statement.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h6l2.5 2.5v8.5H4z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"></path><path d="M6 8h4.5M6 10.5h3" stroke="currentColor" stroke-width="1.3"></path></svg>Statements</a>
+    <a class="ni" href="Agents.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="5.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.3"></circle><path d="M3 13.5c.6-2.4 2.6-3.8 5-3.8s4.4 1.4 5 3.8" fill="none" stroke="currentColor" stroke-width="1.3"></path></svg>Agents</a>
+    <div class="side-foot"><b>PayPal hold</b>$176.50 authorized Sun, Nov 8. Anything left is released on Sun, Nov 15.</div>
+  </nav>
+
+  <main class="main">
+    <div class="top">
+      <div>
+        <p class="crumb"><a href="Ledger.dc.html">Ledger</a> / Phone case</p>
+        <h1 class="t">Phone case, $18.99</h1>
+        <p class="sub">Thu, Nov 12 at 14:15. Claude tried to pay for it from Groceries. Nothing was taken from your hold.</p>
+      </div>
+      <span class="chip no"><i></i>Refused</span>
+    </div>
+
+    <div class="grid">
+      <section class="card" aria-label="Checks">
+        <div class="ch">The four checks</div>
+        <ol class="checks">
+          <li class="ck">
+            <span class="ic pass"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+            <b>The line is in your plan</b>
+            <p>Groceries is an approved line this week.</p>
+          </li>
+          <li class="ck">
+            <span class="ic pass"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+            <b>It fits what’s left</b>
+            <p>$18.99 fits the $44.60 left on Groceries.</p>
+          </li>
+          <li class="ck">
+            <span class="ic fail"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></span>
+            <b>Purpose check</b>
+            <p>A separate Claude call compared the purchase with the line. It did not see the page Claude was shopping on.</p>
+            <div class="quote"><span class="k">Purpose check, 14:15:06</span>The Groceries line was approved for food and household groceries, two orders a week. A clear phone case is an accessory, not groceries. <strong>Refuse.</strong></div>
+          </li>
+          <li class="ck skip">
+            <span class="ic">4</span>
+            <b>Capture from your PayPal hold</b>
+            <p>Not reached.</p>
+          </li>
+        </ol>
+      </section>
+
+      <div class="stack">
+        <section class="card" aria-label="The request">
+          <div class="ch">What Claude asked to buy</div>
+          <dl class="dl">
+            <div><dt>Item</dt><dd>Phone case, clear</dd></div>
+            <div><dt>Store</dt><dd>accessories.example</dd></div>
+            <div><dt>Line</dt><dd>Groceries</dd></div>
+            <div><dt>Price</dt><dd>$18.99 with shipping</dd></div>
+            <div><dt>Claude’s reason</dt><dd>Your case is cracked. This one fits your phone and is under $20.</dd></div>
+          </dl>
+        </section>
+        <section class="card" aria-label="What happens next">
+          <div class="ch">What happens next</div>
+          <div class="next">
+            <p>Claude was told why and that it can’t try another line. If you want the case, add it to the plan. That’s a new approval on PayPal.</p>
+            <div class="row">
+              <a class="btn sec" href="Topup.dc.html">Add a line for it</a>
+              <a class="btn sec" href="Main.dc.html">Leave it refused</a>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1080}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

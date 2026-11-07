@@ -1,0 +1,19 @@
+Desktop web app wireframe, 1440 wide, for "Remit". Screen: reviewing the agent's budget request before approving it.
+
+Top: back link "← This week", title "Budget request · Nov 9 – 15", subtitle "Written by Claude on Nov 8 from your last 4 weeks, your tasks, and today's prices."
+
+Main area: a table of plan lines. Each row has: a checkbox (checked), line name, an editable amount field in monospace, and below the name a gray "Why" sentence with a small evidence link.
+   "Groceries, 2 orders   [$88.00]   Why: your last 4 weeks averaged $43.70 per order.  (see 4 orders)"
+   "Dog food, 12 kg bag   [$32.50]   Why: last bought Oct 15, usually runs out after 4 weeks.  (see order)"
+   "Birthday gift for Sam   [$40.00]   Why: your task from Nov 4. Three options found, $28–$39.  (see options)"
+   "Shared buffer, 10%   [$16.00]   Why: for price changes and shipping. Any line can use it."
+Under the table: a link "+ Add a line".
+
+Right side panel, sticky, titled "What you're approving":
+   "Hold on your PayPal account" then big monospace "$176.50".
+   Three short rows with small outline glyphs: "Nothing is taken until Claude buys something." / "Each purchase must fit its line." / "Whatever is left returns to you on Nov 15."
+   A large full-width button "Approve $176.50 on PayPal", under it a smaller text button "Decline request".
+   Small gray footnote: "You'll sign in on PayPal's own page. Claude can't approve this."
+
+Annotations: 1 every line carries its reason and evidence, 2 owner can trim or uncheck lines, total updates live, 3 the approval summary says what a hold means in plain words, 4 approval always happens on PayPal, never in Remit.
+STYLE: a clean low-fidelity UX wireframe, the kind a senior product designer draws in Figma before visual design. Pure white background, grayscale only (#222 lines and text, #888 secondary text, #e5e5e5 placeholder fills), 1px hairline strokes, square-ish corners with 6px radius, a plain sans-serif for all text, monospace for every money amount. No colors, no gradients, no shadows, no glow, no 3D, no illustrations, no icons except simple outline glyphs, no device mockup, no hands, no perspective: a flat, straight-on screen. All text must be legible, spelled exactly as given, in English. Add 4 to 6 small numbered annotation circles (black circle, white number) placed next to key elements, with a narrow annotation column on the right edge listing what each number means in one short line.

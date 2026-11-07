@@ -1,0 +1,747 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Remit Live Concepts</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Six interactive web hero concepts for Remit, all driven by the same simulated week of an AI agent spending from a PayPal hold.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Display&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&family=Hanken+Grotesk:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=Big+Shoulders+Display:wght@700;800&family=Archivo:wdth,wght@62..125,100..900&family=Albert+Sans:wght@300;400;500;600&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500;600&family=Cinzel:wght@500;600;700&family=Work+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one live landing-page hero at a time, full width, with a slim control rail on top.
+   Every concept is its own single-theme world, so tokens are set per concept on <body data-c>.
+   Bare :root carries Vault's values so the page reads correctly before the script runs. */
+:root {
+  --bg: #15110d; --fg: #efe7da; --muted: #b9ab95; --line: rgba(239,231,218,.16);
+  --act: #3f7d6e; --act-fg: #f4efe6; --panel: #1c1712; --warn: #b5523f; --hold: #c99a52; --ok: #8fb59e;
+  --fd: "Libre Caslon Display", "Libre Caslon Text", Georgia, serif;
+  --fb: "Hanken Grotesk", "Segoe UI", system-ui, sans-serif;
+  --fm: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+body[data-c="board"] {
+  --bg: #e9e7e2; --fg: #1b1c1e; --muted: #5d5f63; --line: rgba(27,28,30,.16);
+  --act: #1f3a93; --act-fg: #ffffff; --panel: #dfddd7; --warn: #b8412f; --hold: #d19a2a; --ok: #5f9a72;
+  --fd: "Big Shoulders Display", "Barlow Condensed", Impact, sans-serif;
+  --fb: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --fm: "Barlow Condensed", "IBM Plex Mono", monospace;
+  color-scheme: light;
+}
+body[data-c="escapement"] {
+  --bg: #0d1b2e; --fg: #dfe3ea; --muted: #97a3b6; --line: rgba(201,206,214,.16);
+  --act: #9b1b30; --act-fg: #fbecef; --panel: #102238; --warn: #e0566b; --hold: #c9ced6; --ok: #9fc3b0;
+  --fd: "Archivo", "Segoe UI", system-ui, sans-serif;
+  --fb: "Archivo", "Segoe UI", system-ui, sans-serif;
+  --fm: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: dark;
+}
+body[data-c="aperture"] {
+  --bg: #f2f1ed; --fg: #222326; --muted: #6f7176; --line: rgba(34,35,38,.14);
+  --act: #24339a; --act-fg: #ffffff; --panel: #e8e7e2; --warn: #a63a2c; --hold: #b88a34; --ok: #4f8a6a;
+  --fd: "Albert Sans", "Segoe UI", system-ui, sans-serif;
+  --fb: "Albert Sans", "Segoe UI", system-ui, sans-serif;
+  --fm: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+body[data-c="envelopes"] {
+  --bg: #f4f4f1; --fg: #1b2433; --muted: #5b6577; --line: rgba(27,36,51,.14);
+  --act: #1b2433; --act-fg: #f4f4f1; --panel: #eaeae5; --warn: #9e3b35; --hold: #b38b3c; --ok: #5d8a68;
+  --fd: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --fb: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --fm: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+body[data-c="inscription"] {
+  --bg: #ebe6dd; --fg: #222222; --muted: #6e675c; --line: rgba(34,34,34,.14);
+  --act: #26408b; --act-fg: #ffffff; --panel: #e2dcd1; --warn: #8e2f2a; --hold: #9a7a3e; --ok: #4e7d62;
+  --fd: "Cinzel", "Trajan Pro", Georgia, serif;
+  --fb: "Work Sans", "Segoe UI", system-ui, sans-serif;
+  --fm: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html { background: var(--bg); }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--fb); font-size: 16px; line-height: 1.55;
+  transition: background-color .4s ease, color .4s ease;
+}
+button { font: inherit; color: inherit; }
+button:focus-visible, a:focus-visible { outline: 2px solid var(--act); outline-offset: 3px; }
+.gut { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1280px; margin: 0 auto; }
+.num { font-family: var(--fm); font-variant-numeric: tabular-nums; }
+
+/* Control rail */
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--panel); }
+.rail { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 9; background: var(--panel); border-bottom: 1px solid var(--line); font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 12.5px; }
+.rail .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding-block: 10px; }
+.rail-title { color: var(--muted); letter-spacing: .06em; text-transform: uppercase; font-size: 11px; white-space: nowrap; }
+.tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; min-width: 0; flex: 1 1 420px; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { border: 1px solid transparent; background: none; padding: 6px 11px; border-radius: 6px; cursor: pointer; white-space: nowrap; color: var(--muted); font-family: inherit; font-size: 12.5px; }
+.tab:hover { color: var(--fg); }
+.tab[aria-selected="true"] { color: var(--fg); border-color: var(--line); background: var(--bg); }
+.tab sup { color: var(--ok); font-size: 9.5px; margin-left: 4px; letter-spacing: .05em; }
+.player { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pbtn { border: 1px solid var(--line); background: var(--bg); color: var(--fg); padding: 5px 10px; border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 12px; }
+.pbtn:hover { border-color: var(--muted); }
+.dots { display: flex; gap: 5px; margin-left: 6px; }
+.dot { width: 18px; height: 18px; border-radius: 50%; border: 0; background: none; cursor: pointer; display: grid; place-items: center; padding: 0; }
+.dot::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--line); transition: background .2s, transform .2s; }
+.dot.done::before { background: var(--muted); }
+.dot.now::before { background: var(--act); transform: scale(1.35); }
+
+/* Hero shell shared by every concept */
+.hero { position: relative; overflow: hidden; }
+.hero .wrap { padding-block: 22px 56px; display: grid; gap: 36px; }
+.nav { display: flex; align-items: center; gap: 28px; flex-wrap: wrap; }
+.logo { display: flex; align-items: center; gap: 10px; color: var(--fg); text-decoration: none; }
+.links { display: flex; gap: 24px; color: var(--muted); font-size: 14.5px; }
+.nav-end { margin-left: auto; display: flex; align-items: center; gap: 18px; font-size: 14.5px; }
+.nav-end .signin { color: var(--fg); }
+.cta { background: var(--act); color: var(--act-fg); border: 0; border-radius: 6px; padding: 13px 22px; font-weight: 600; cursor: pointer; font-family: var(--fb); }
+.cta.small { padding: 8px 14px; font-size: 14px; }
+.hero-body { display: grid; gap: 40px; align-items: center; }
+.hero-body.split { grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr); }
+.hero-body.stack { grid-template-columns: minmax(0, 1fr); }
+@media (max-width: 900px) { .hero-body.split { grid-template-columns: minmax(0, 1fr); } .links { display: none; } }
+.copy { display: grid; gap: 22px; align-content: center; min-width: 0; }
+.copy h1 { margin: 0; font-family: var(--fd); font-weight: 400; font-size: clamp(2.5rem, 5.4vw, 4.6rem); line-height: 1.02; letter-spacing: -0.02em; text-wrap: balance; }
+.sub { margin: 0; font-size: 1.08rem; color: var(--muted); max-width: 46ch; }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 22px; }
+.textlink { color: var(--fg); font-weight: 500; }
+.live { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 14px; border-top: 1px solid var(--line); padding-top: 14px; font-size: 14px; max-width: 52ch; }
+.live-k { grid-column: 1 / -1; font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.live-k::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--act); }
+.live-time { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); white-space: nowrap; padding-top: 2px; }
+.live-text { min-height: 2.9em; }
+.live-bal { grid-column: 1 / -1; font-family: "IBM Plex Mono", monospace; font-variant-numeric: tabular-nums; font-size: 13px; color: var(--fg); }
+.stage { position: relative; min-width: 0; }
+
+/* Notes under the hero */
+.notes { border-top: 1px solid var(--line); }
+.notes .wrap { padding-block: 34px 70px; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.8fr); gap: 28px 40px; }
+@media (max-width: 860px) { .notes .wrap { grid-template-columns: minmax(0, 1fr); } }
+.notes h2 { margin: 0 0 6px; font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.notes p { margin: 0; max-width: 58ch; }
+.notes .verdict { font-family: var(--fd); font-size: 1.6rem; line-height: 1.15; margin-bottom: 10px; }
+.notes ul { margin: 0; padding-left: 1.1em; display: grid; gap: 6px; }
+.seefull { margin-top: 14px; background: none; border: 1px solid var(--line); border-radius: 6px; padding: 9px 14px; cursor: pointer; color: var(--fg); }
+.seefull:hover { border-color: var(--muted); }
+dialog { border: 0; padding: 0; background: transparent; width: 100vw; height: 100vh; max-width: 100vw; max-height: 100vh; }
+dialog::backdrop { background: rgba(8, 9, 12, .88); }
+dialog .inner { height: 100%; overflow: auto; display: grid; justify-items: center; padding: 56px 16px 24px; }
+dialog img { width: min(1024px, 100%); height: auto; border-radius: 4px; }
+dialog .close { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(14px + env(safe-area-inset-right, 0px)); background: #fff; color: #111; border: 0; border-radius: 6px; padding: 7px 12px; cursor: pointer; font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+
+/* ===== Vault ===== */
+.vault { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 6px; background: #0e0b08; border-radius: 4px; perspective: 1100px; transform-style: preserve-3d; position: relative; }
+.vault::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 4px;
+  background: radial-gradient(ellipse 70% 75% at 50% 42%, transparent 25%, rgba(10,7,4,.78) 92%); }
+.box { aspect-ratio: 1.6; position: relative; transform-style: preserve-3d; }
+.face { position: absolute; inset: 0; border-radius: 2px; background: #6b4f2e url("tex/bronze.webp") center / 260px; display: grid; grid-template-rows: 1fr auto; padding: 8% 7% 9%;
+  box-shadow: inset 0 1px 0 rgba(255,236,200,.35), inset 0 -3px 4px rgba(0,0,0,.45), inset 2px 0 2px rgba(255,236,200,.12);
+  transition: transform .55s cubic-bezier(.2,.75,.2,1), box-shadow .55s, filter .4s; }
+.face::before { content: ""; position: absolute; right: 7px; top: 50%; width: 8px; height: 13px; transform: translateY(-50%);
+  background: radial-gradient(circle at 50% 32%, #1b130b 3px, transparent 3.5px), linear-gradient(#1b130b, #1b130b) 50% 75% / 2.5px 6px no-repeat; }
+.plate { align-self: center; justify-self: start; display: grid; gap: 3px; padding: 5px 9px; border: 1px solid rgba(40,26,12,.45); border-radius: 2px; background: rgba(255,232,190,.08); max-width: calc(100% - 20px); overflow: hidden; }
+.plate b { font-family: "Libre Caslon Text", Georgia, serif; font-weight: 700; font-size: clamp(8px, .95vw, 12.5px); letter-spacing: .06em; color: #2a1c0e; text-shadow: 0 1px 0 rgba(255,232,190,.4); white-space: nowrap; }
+.plate i { font-style: normal; font-family: "IBM Plex Mono", monospace; font-size: clamp(7px, .78vw, 10.5px); color: #3a2814; text-shadow: 0 1px 0 rgba(255,232,190,.3); white-space: nowrap; }
+.box.out .face { transform: translateZ(70px); box-shadow: 0 30px 40px rgba(0,0,0,.65), inset 0 1px 0 rgba(255,236,200,.5); filter: brightness(1.25); }
+.box.empty .face { filter: brightness(.8) saturate(.85); }
+.box.sealed .face { filter: brightness(.7) saturate(.7); }
+.box.glint .face { animation: glint 1s ease; }
+@keyframes glint { 50% { filter: brightness(1.45); } }
+.box.refused .plate { border-color: rgba(120,30,20,.7); background: rgba(150,40,25,.18); }
+.box.refused .plate b, .box.refused .plate i { color: #4a120b; }
+.box.shake .face { animation: shake .5s ease; }
+@keyframes shake { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
+.box.asking .face { box-shadow: 0 0 0 2px rgba(110,190,165,.75), inset 0 1px 0 rgba(255,236,200,.35); animation: ask 2.4s ease-in-out infinite; }
+@keyframes ask { 50% { box-shadow: 0 0 0 2px rgba(110,190,165,.25), inset 0 1px 0 rgba(255,236,200,.35); } }
+@media (max-width: 560px) { .vault { grid-template-columns: repeat(3, minmax(0, 1fr)); } .box.edge { display: none; } .plate { max-width: 86%; } .face::before { display: none; } }
+
+/* ===== Departure board ===== */
+.board-wrap { overflow-x: auto; padding-bottom: 6px; }
+.board { display: inline-grid; gap: 6px; padding: 14px 16px 16px; background: #141517; border-radius: 6px; box-shadow: 0 2px 0 #303236 inset, 0 30px 50px -25px rgba(0,0,0,.6); font-size: clamp(11px, 1.32vw, 19px); }
+.brow { display: flex; gap: .7em; }
+.bhead { display: flex; gap: .7em; font-family: "Barlow Condensed", sans-serif; font-weight: 600; letter-spacing: .14em; color: #a9a59c; font-size: .62em; padding-bottom: 2px; }
+.bhead span { display: block; }
+.grp { display: flex; gap: .12em; }
+.f { display: inline-grid; place-items: center; width: 1.08em; height: 1.55em; border-radius: 2px; position: relative; overflow: hidden;
+  background: linear-gradient(#2a2d31 0 50%, #222428 50%); color: #f2eee6; font-family: "Barlow Condensed", sans-serif; font-weight: 600; font-size: 1em; line-height: 1; }
+.f::after { content: ""; position: absolute; left: 0; right: 0; top: calc(50% - .5px); height: 1px; background: #0b0c0d; }
+.f > span { display: block; }
+.brow[data-s="REFUSED"] .st .f { color: #e0745f; }
+.brow[data-s="ASKING"] .st .f { color: #e3b04f; }
+.brow[data-s="HOLD"] .st .f { color: #9fb4e8; }
+.brow[data-s="RETURNED"] .st .f { color: #8fc49f; }
+
+/* ===== Escapement ===== */
+.esc { width: 100%; max-width: 620px; justify-self: center; display: block; margin: 0 auto; }
+.hero[data-c="escapement"] { background: #0d1b2e; }
+.hero[data-c="escapement"]::before { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-conic-gradient(from 0deg at 72% 58%, rgba(255,255,255,.028) 0deg .6deg, transparent .6deg 2.2deg); }
+.hero[data-c="escapement"] .wrap { position: relative; }
+#wheel { transition: transform .11s cubic-bezier(.3,1.6,.5,1); transform-origin: 300px 350px; }
+#wheel.slow { transition: transform 1.2s cubic-bezier(.4,0,.2,1); }
+#fork { transition: transform .1s ease-out; transform-origin: 300px 118px; }
+#fork.locked .ruby { filter: drop-shadow(0 0 7px rgba(255,70,100,.95)); }
+.pivot-ruby.asking { animation: rubypulse 1.8s ease-in-out infinite; }
+@keyframes rubypulse { 50% { filter: drop-shadow(0 0 10px rgba(255,80,110,.9)); } }
+
+/* ===== Aperture ===== */
+.ap { width: 100%; max-width: 600px; display: block; margin: 0 auto; }
+.ap-ghost { transition: opacity .5s; }
+.ap-label { font-family: "IBM Plex Mono", monospace; font-size: 13px; fill: #24339a; }
+.ap-figure { font-family: "Albert Sans", sans-serif; font-weight: 300; font-size: 34px; fill: #222326; }
+
+/* ===== Envelopes ===== */
+.envs { display: flex; gap: 18px; justify-content: center; align-items: flex-end; flex-wrap: wrap; padding-top: 90px; perspective: 900px; }
+.env { position: relative; width: 132px; height: 178px; transform-style: preserve-3d; transition: transform .5s ease, opacity .5s; }
+.env .back, .env .front, .env .flap { position: absolute; left: 0; right: 0; background-color: var(--tone); background-image: url("tex/paper.webp"); background-size: 280px; background-blend-mode: multiply; }
+.env .back { top: 0; bottom: 0; border-radius: 3px; filter: brightness(.86); }
+.env .front { bottom: 0; height: 82%; border-radius: 0 0 3px 3px; clip-path: polygon(0 10%, 50% 0, 100% 10%, 100% 100%, 0 100%); display: grid; align-content: end; gap: 1px; padding: 0 12px 12px; box-shadow: 0 18px 24px -18px rgba(27,36,51,.5); z-index: 2; }
+.env .flap { top: 0; height: 46%; clip-path: polygon(0 0, 100% 0, 50% 100%); transform-origin: top; transition: transform .55s cubic-bezier(.3,.7,.2,1); z-index: 3; filter: brightness(.95); }
+.env.open .flap { transform: rotateX(180deg); z-index: 0; filter: brightness(.8); }
+.env .slip { position: absolute; left: 10%; right: 10%; top: 10%; height: 70%; background: #fbfbf8; border-radius: 2px; z-index: 1; display: grid; align-content: start; justify-items: center; padding-top: 10px; gap: 0; box-shadow: 0 1px 2px rgba(0,0,0,.12); transition: transform .9s cubic-bezier(.3,.7,.2,1), opacity .9s; }
+.env .slip b { font-family: "IBM Plex Mono", monospace; font-weight: 500; font-size: 13px; }
+.env .slip i { font-style: normal; font-size: 10.5px; color: #5b6577; }
+.env.fly .slip { transform: translateY(-120px); opacity: 0; }
+.env .tab { font-weight: 700; font-size: 14px; line-height: 1.2; }
+.env .left { font-family: "IBM Plex Mono", monospace; font-size: 17px; font-weight: 500; }
+.env .of { font-size: 11.5px; color: rgba(27,36,51,.72); }
+.env.empty .front { filter: saturate(.55) brightness(1.08); }
+.env.ghost { --tone: transparent; width: 116px; height: 118px; }
+.env.ghost .back, .env.ghost .flap, .env.ghost .slip { display: none; }
+.env.ghost .front { height: 100%; clip-path: none; background: none; border: 1.5px dashed currentColor; border-radius: 4px; box-shadow: none; align-content: center; padding: 12px; }
+.env.ghost.ref { color: var(--warn); }
+.env.ghost.ask { color: var(--fg); }
+.env.ghost .front .of { color: inherit; opacity: .8; }
+.env.arrive { animation: arrive .7s cubic-bezier(.2,.8,.2,1); }
+@keyframes arrive { from { transform: translateY(30px); opacity: 0; } }
+.env.ask.waiting .front { animation: breathe 2.4s ease-in-out infinite; }
+@keyframes breathe { 50% { border-color: transparent; } }
+@media (max-width: 560px) { .env { width: 104px; height: 146px; } .env .tab { font-size: 12.5px; } .env .left { font-size: 14px; } .envs { gap: 12px; padding-top: 70px; } }
+
+/* ===== Inscription ===== */
+.slab { position: relative; padding: clamp(26px, 4vw, 52px) clamp(22px, 4vw, 48px); border-radius: 2px; background: #ddd5c8 url("tex/stone.webp") center / 520px; display: grid; gap: 14px;
+  box-shadow: 0 40px 60px -36px rgba(40,30,20,.55), inset 0 1px 0 rgba(255,255,255,.45); }
+.slab::before { content: ""; position: absolute; inset: 0; border-radius: 2px; pointer-events: none; background: linear-gradient(100deg, rgba(255,250,240,.28), rgba(0,0,0,.14)); }
+.carve { position: relative; margin: 0; font-family: "Cinzel", Georgia, serif; font-weight: 600; letter-spacing: .09em; color: rgba(72,62,50,.62);
+  text-shadow: 0 1px 0 rgba(255,255,255,.62), 0 -1px 0 rgba(0,0,0,.26); transition: color .8s ease; }
+.rule { font-size: clamp(15px, 1.9vw, 25px); line-height: 1.25; }
+.rule.inlay { color: #26408b; text-shadow: 0 1px 0 rgba(255,255,255,.55), 0 -1px 1px rgba(0,0,0,.32); }
+.cutline { position: relative; height: 3px; margin: 10px 0 4px; background: linear-gradient(rgba(0,0,0,.22), rgba(255,255,255,.55)); }
+.ledger { font-size: clamp(12px, 1.25vw, 15.5px); min-height: 2.6em; }
+.ledger.warn { color: rgba(122,38,32,.85); }
+.ledger span { animation: chisel .25s ease-out backwards; }
+@keyframes chisel { from { opacity: 0; color: #fff; } }
+.tally { font-size: clamp(13px, 1.4vw, 17px); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+}
+</style>
+
+<div class="rail gut">
+  <div class="wrap">
+    <span class="rail-title">Remit · web concepts</span>
+    <div class="tabs" role="tablist" aria-label="Concept" id="tabs"></div>
+    <div class="player">
+      <button class="pbtn" id="play" type="button">Pause</button>
+      <button class="pbtn" id="next" type="button">Next</button>
+      <button class="pbtn" id="reset" type="button">Restart</button>
+      <div class="dots" id="dots" aria-label="Events in the example week"></div>
+    </div>
+  </div>
+</div>
+
+<section class="hero gut" id="hero"></section>
+<section class="notes gut"><div class="wrap" id="notes"></div></section>
+
+<dialog id="viewer" aria-label="Full landing page">
+  <div class="inner"><button class="close" type="button" id="viewer-close">Close</button><img id="viewer-img" alt=""></div>
+</dialog>
+
+<script>
+const LINES = { gro: { name: "Groceries", limit: 88 }, dog: { name: "Dog food", limit: 32.5 }, gift: { name: "Gift for Sam", limit: 40 }, buf: { name: "Buffer", limit: 16 } };
+const EVENTS = [
+  { t: "approve", amt: 176.5, time: "Sun, Nov 8 · 21:14", text: "You approved the plan on PayPal. A hold of $176.50 is placed.",
+    row: ["21:14", "PLAN APPROVED", "4 LINES", "176.50", "HOLD"] },
+  { t: "spend", line: "dog", amt: 32.5, item: "Dog food, 12 kg", time: "Tue, Nov 10 · 10:02", text: "Dog food, 12 kg · $32.50 · paid from Dog food.",
+    row: ["10:02", "DOG FOOD 12KG", "DOG FOOD", "32.50", "PAID"] },
+  { t: "spend", line: "gro", amt: 43.4, item: "Grocery order", time: "Tue, Nov 10 · 11:40", text: "Grocery order · $43.40 · paid from Groceries.",
+    row: ["11:40", "GROCERY ORDER", "GROCERIES", "43.40", "PAID"] },
+  { t: "refuse", amt: 18.99, item: "Phone case", time: "Thu, Nov 12 · 14:15", text: "Phone case · $18.99 · refused. No line in the plan covers it.",
+    row: ["14:15", "PHONE CASE", "NO LINE", "18.99", "REFUSED"] },
+  { t: "ask", amt: 104.5, item: "Gift for Sam", time: "Thu, Nov 12 · 16:30", text: "Claude asks you for $104.50 for Sam's birthday gift. Only you can approve it.",
+    row: ["16:30", "GIFT FOR SAM", "TOP-UP", "104.50", "ASKING"] },
+  { t: "spend", line: "gro", amt: 43.4, item: "Grocery order", time: "Fri, Nov 13 · 09:12", text: "Grocery order · $43.40 · paid from Groceries.",
+    row: ["09:12", "GROCERY ORDER", "GROCERIES", "43.40", "PAID"] },
+  { t: "spend", line: "buf", amt: 2, item: "Delivery fee", time: "Fri, Nov 13 · 09:13", text: "Delivery fee · $2.00 · paid from the shared buffer.",
+    row: ["09:13", "DELIVERY FEE", "BUFFER", "2.00", "PAID"] },
+  { t: "close", amt: 55.2, time: "Sun, Nov 15 · 23:59", text: "The week closes. The unspent $55.20 goes back to you.",
+    row: ["23:59", "WEEK CLOSES", "ALL LINES", "55.20", "RETURNED"] },
+];
+const REST = 7; // the resting frame: mid-week, everything visible except the close
+
+const r2 = (n) => Math.round(n * 100) / 100;
+const fmt = (n) => "$" + r2(n).toFixed(2);
+function compute(n) {
+  const s = { n, approved: 0, spent: { gro: 0, dog: 0, gift: 0, buf: 0 }, refused: null, ask: null, closed: false };
+  for (let i = 0; i < n; i++) {
+    const e = EVENTS[i];
+    if (e.t === "approve") s.approved = e.amt;
+    if (e.t === "spend") s.spent[e.line] = r2(s.spent[e.line] + e.amt);
+    if (e.t === "refuse") s.refused = e;
+    if (e.t === "ask") s.ask = e;
+    if (e.t === "close") s.closed = true;
+  }
+  s.total = r2(Object.values(s.spent).reduce((a, b) => a + b, 0));
+  s.left = r2(s.approved - s.total);
+  return s;
+}
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const wait = (ms) => new Promise((r) => setTimeout(r, reduced ? 0 : ms));
+function tweenNumber(from, to, ms, cb) {
+  if (reduced || ms <= 0) { cb(to); return; }
+  const t0 = performance.now();
+  const step = (t) => { const k = Math.min(1, (t - t0) / ms); const e = 1 - Math.pow(1 - k, 3); cb(from + (to - from) * e); if (k < 1) requestAnimationFrame(step); };
+  requestAnimationFrame(step);
+}
+const el = (html) => { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+
+/* ---------- Concepts ---------- */
+const CONCEPTS = [];
+
+/* Vault: each plan line is a safe-deposit box. */
+CONCEPTS.push({
+  id: "vault", name: "Vault", tag: "Recommended", layout: "split", img: "web/vault-landing.webp",
+  logo: `<svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><rect x="1.5" y="1.5" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="16.5" cy="11" r="2.4" fill="currentColor"/><rect x="15.6" y="12" width="1.8" height="6" fill="currentColor"/></svg><span style="font-family:var(--fb);font-weight:600;letter-spacing:.32em;font-size:15px">REMIT</span>`,
+  verdict: "Security you can see. Every line is its own locked compartment.",
+  idea: "Each line of the budget is a safe-deposit box. A purchase opens only the box it belongs to, so groceries can never borrow from the gift money. A refused purchase finds no box at all. A top-up is a new box that stays locked until you approve it.",
+  motion: ["The drawer for a line slides out when the agent pays from it, then closes again.", "A refused purchase rattles an empty, unlabelled box.", "A top-up request outlines a new box in verdigris until you decide.", "At the close, every box locks and the leftover goes back to you."],
+  build(stage) {
+    const pos = { "1,1": "gro", "1,2": "dog", "2,1": "gift", "2,2": "buf" };
+    const g = el(`<div class="vault" role="img" aria-label="A wall of bronze safe-deposit boxes, one per budget line"></div>`);
+    for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) {
+      const key = pos[`${r},${c}`];
+      const slot = r === 2 && c === 3 ? "refuse" : r === 1 && c === 3 ? "ask" : "";
+      const edge = c === 0 ? " edge" : "";
+      const b = el(`<div class="box${edge}"${key ? ` data-line="${key}"` : ""}${slot ? ` data-slot="${slot}"` : ""}><div class="face"></div></div>`);
+      if (key) b.firstChild.append(el(`<span class="plate"><b>${LINES[key].name.toUpperCase()}</b><i></i></span>`));
+      g.append(b);
+    }
+    stage.append(g);
+    const box = (k) => g.querySelector(`[data-line="${k}"]`);
+    const slot = (k) => g.querySelector(`[data-slot="${k}"]`);
+    function setPlate(b, title, sub) {
+      let p = b.querySelector(".plate");
+      if (!title) { p && p.remove(); return; }
+      if (!p) { p = el(`<span class="plate"><b></b><i></i></span>`); b.firstChild.append(p); }
+      p.querySelector("b").textContent = title; p.querySelector("i").textContent = sub;
+    }
+    const api = {
+      sync(s) {
+        for (const k in LINES) {
+          const b = box(k);
+          b.querySelector("i").textContent = `${fmt(s.spent[k])} / ${fmt(LINES[k].limit)}`;
+          b.classList.toggle("empty", s.spent[k] >= LINES[k].limit);
+          b.classList.toggle("sealed", s.closed);
+          b.classList.remove("out");
+        }
+        const rf = slot("refuse"); rf.classList.toggle("refused", !!s.refused);
+        setPlate(rf, s.refused ? "NO LINE" : "", s.refused ? "Refused $18.99" : "");
+        const ak = slot("ask"); ak.classList.toggle("asking", !!s.ask && !s.closed);
+        setPlate(ak, s.ask ? "GIFT · TOP-UP" : "", s.ask ? (s.closed ? "Not approved" : "$104.50 · awaiting you") : "");
+      },
+      async play(e, s) {
+        api.sync(s);
+        if (e.t === "approve") { for (const k of ["gro", "dog", "gift", "buf"]) { const b = box(k); b.classList.add("glint"); setTimeout(() => b.classList.remove("glint"), 1000); await wait(160); } }
+        if (e.t === "spend") { const b = box(e.line); b.classList.add("out"); await wait(1500); b.classList.remove("out"); }
+        if (e.t === "refuse") { const b = slot("refuse"); b.classList.add("shake"); await wait(600); b.classList.remove("shake"); }
+        if (e.t === "close") { for (const k of ["gro", "dog", "gift", "buf"]) { const b = box(k); b.classList.remove("sealed"); b.classList.add("out"); setTimeout(() => { b.classList.remove("out"); b.classList.add("sealed"); }, 700); await wait(140); } }
+      },
+    };
+    return api;
+  },
+});
+
+/* Departure board: the ledger as a split-flap board. */
+CONCEPTS.push({
+  id: "board", name: "Departure board", tag: "", layout: "stack", img: "web/board-landing.webp",
+  logo: `<span style="display:flex;gap:2px">${"REMIT".split("").map((c) => `<span class="f" style="font-size:16px">${c}</span>`).join("")}</span>`,
+  verdict: "The most hypnotic to watch. Every dollar flips into place with its reason.",
+  idea: "The agent's week is shown like a railway departure board. Every purchase flips in with its line and its status, including the refused one and the top-up it is asking for. Nothing is hidden, which is the point.",
+  motion: ["Each new event pushes the board down and every changed letter flips through the alphabet, like the real thing.", "Status colors carry the money state: paid in white, refused in red, asking in amber, returned in green."],
+  build(stage) {
+    const W = [5, 14, 10, 6, 8], HEAD = ["TIME", "ITEM", "LINE", "AMOUNT", "STATUS"], ROWS = 6;
+    const wrap = el(`<div class="board-wrap"><div class="board" role="img" aria-label="Split-flap board listing the agent's purchases"></div></div>`);
+    const board = wrap.firstChild;
+    const head = el(`<div class="bhead"></div>`);
+    W.forEach((w, i) => head.append(el(`<span style="width:${(w * 1.08 + (w - 1) * 0.12) / 0.62}em">${HEAD[i]}</span>`)));
+    board.append(head);
+    const rows = [];
+    for (let r = 0; r < ROWS; r++) {
+      const row = el(`<div class="brow"></div>`);
+      const cells = [];
+      W.forEach((w, i) => {
+        const grp = el(`<div class="grp${i === 4 ? " st" : ""}"></div>`);
+        for (let k = 0; k < w; k++) { const f = el(`<span class="f"><span> </span></span>`); grp.append(f); cells.push(f); }
+        row.append(grp);
+      });
+      board.append(row); rows.push({ row, cells });
+    }
+    stage.append(wrap);
+    const pad = (cols) => cols.map((v, i) => (i === 3 ? v.padStart(W[i]) : v.padEnd(W[i])).slice(0, W[i])).join("");
+    const lines = (s) => { const out = []; for (let i = s.n - 1; i >= 0 && out.length < ROWS; i--) out.push(EVENTS[i]); while (out.length < ROWS) out.push(null); return out; };
+    const CH = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-:";
+    function setRow(r, ev, animate) {
+      const text = ev ? pad(ev.row) : " ".repeat(W.reduce((a, b) => a + b, 0));
+      r.row.dataset.s = ev ? ev.row[4] : "";
+      r.cells.forEach((f, i) => {
+        const span = f.firstChild, want = text[i];
+        if (span.textContent === want) return;
+        if (!animate || reduced) { span.textContent = want; return; }
+        let n = 3 + Math.floor(Math.random() * 7);
+        const tick = () => {
+          span.textContent = n > 0 ? CH[Math.floor(Math.random() * CH.length)] : want;
+          span.animate([{ transform: "scaleY(1)" }, { transform: "scaleY(.08)" }, { transform: "scaleY(1)" }], { duration: 70 });
+          if (n-- > 0) setTimeout(tick, 72);
+        };
+        setTimeout(tick, Math.random() * 260);
+      });
+    }
+    return {
+      sync(s) { lines(s).forEach((ev, i) => setRow(rows[i], ev, false)); },
+      async play(e, s) { lines(s).forEach((ev, i) => setRow(rows[i], ev, true)); await wait(1200); },
+    };
+  },
+});
+
+/* Escapement: one tick per measured release of money. */
+CONCEPTS.push({
+  id: "escapement", name: "Escapement", tag: "", layout: "split", img: "web/escapement-landing.webp",
+  logo: `<svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><circle cx="13" cy="13" r="11.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M13 5 L17 9 L13 9 Z" fill="currentColor"/><circle cx="13" cy="15" r="2" fill="#9b1b30"/></svg><span style="font-family:var(--fd);font-stretch:118%;font-weight:500;font-size:19px;letter-spacing:.02em">Remit</span>`,
+  verdict: "No tick without a purchase. Money moves one measured beat at a time.",
+  idea: "In a mechanical watch the escapement releases energy one tick at a time and never all at once. Remit releases money the same way: one partial capture per purchase, never more than you approved. When nothing is being bought, the wheel is still.",
+  motion: ["A purchase advances the escape wheel a few teeth, and the balance window rolls down by exactly that amount.", "A refused purchase locks the pallet fork and the ruby pallets glow.", "A top-up request makes the center jewel pulse until you decide."],
+  build(stage) {
+    const cx = 300, cy = 350, rt = 168, rb = 136, N = 15;
+    const P = (a, r) => [cx + r * Math.sin(a * Math.PI / 180), cy - r * Math.cos(a * Math.PI / 180)].map((v) => v.toFixed(2)).join(" ");
+    let d = "";
+    for (let k = 0; k < N; k++) {
+      const a = k * (360 / N);
+      d += `${k ? "L" : "M"}${P(a - 9, rb)} L${P(a, rt)} L${P(a + 4, rt)} L${P(a + 6, rb)} A${rb} ${rb} 0 0 1 ${P(a + 360 / N - 9, rb)} `;
+    }
+    d += "Z " + `M${cx - 112} ${cy} A112 112 0 1 0 ${cx + 112} ${cy} A112 112 0 1 0 ${cx - 112} ${cy} Z`;
+    const spokes = [0, 72, 144, 216, 288].map((a) => `<rect x="${cx - 6}" y="${cy - 116}" width="12" height="96" rx="3" transform="rotate(${a} ${cx} ${cy})" fill="url(#steel)"/>`).join("");
+    const ticks = Array.from({ length: 60 }, (_, i) => { const a = i * 6, long = i % 5 === 0; return `<line x1="${P(a, 258).split(" ")[0]}" y1="${P(a, 258).split(" ")[1]}" x2="${P(a, long ? 242 : 250).split(" ")[0]}" y2="${P(a, long ? 242 : 250).split(" ")[1]}" stroke="rgba(201,206,214,${long ? .45 : .22})" stroke-width="${long ? 2 : 1}"/>`; }).join("");
+    const svg = el(`<svg class="esc" viewBox="0 0 600 660" role="img" aria-label="An escape wheel and pallet fork with a balance window">
+      <defs>
+        <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eef1f5"/><stop offset=".45" stop-color="#aeb6c2"/><stop offset=".7" stop-color="#d7dde5"/><stop offset="1" stop-color="#7f8896"/></linearGradient>
+        <linearGradient id="ruby" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#e2506a"/><stop offset="1" stop-color="#7d1226"/></linearGradient>
+      </defs>
+      <circle cx="${cx}" cy="${cy}" r="262" fill="none" stroke="rgba(201,206,214,.12)"/>
+      ${ticks}
+      <g id="wheel"><path d="${d}" fill="url(#steel)" fill-rule="evenodd" stroke="#5d6674" stroke-width=".8"/>${spokes}<circle cx="${cx}" cy="${cy}" r="26" fill="url(#steel)" stroke="#5d6674" stroke-width=".8"/></g>
+      <circle class="pivot-ruby ruby" cx="${cx}" cy="${cy}" r="8" fill="url(#ruby)"/>
+      <g id="fork">
+        <path d="M206 190 Q 300 92 394 190" fill="none" stroke="url(#steel)" stroke-width="13" stroke-linecap="round"/>
+        <path d="M300 118 V 52" stroke="url(#steel)" stroke-width="9" stroke-linecap="round"/>
+        <rect class="ruby" x="196" y="176" width="16" height="28" rx="2" fill="url(#ruby)" transform="rotate(-34 204 190)"/>
+        <rect class="ruby" x="388" y="176" width="16" height="28" rx="2" fill="url(#ruby)" transform="rotate(34 396 190)"/>
+        <circle cx="300" cy="118" r="13" fill="url(#steel)" stroke="#5d6674" stroke-width=".8"/><circle cx="300" cy="118" r="5" fill="url(#ruby)" class="ruby"/>
+      </g>
+      <rect x="196" y="600" width="208" height="46" rx="4" fill="#081322" stroke="rgba(201,206,214,.35)"/>
+      <text id="win" x="300" y="631" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="22" fill="#e7ebf1" letter-spacing="1">$0.00</text>
+      <text id="winlabel" x="300" y="590" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="#97a3b6" letter-spacing="2.5">HELD FOR CLAUDE</text>
+    </svg>`);
+    stage.append(svg);
+    const wheel = svg.querySelector("#wheel"), fork = svg.querySelector("#fork"), win = svg.querySelector("#win"), wl = svg.querySelector("#winlabel"), jewel = svg.querySelector(".pivot-ruby");
+    let angle = 0, side = 1, shown = 0;
+    const setAngle = (a, slow) => { wheel.classList.toggle("slow", !!slow); wheel.style.transform = `rotate(${a}deg)`; };
+    const showWin = (v) => { shown = v; win.textContent = fmt(v); };
+    const beat = () => { angle += 12; setAngle(angle); side = -side; fork.style.transform = `rotate(${side * 5}deg)`; };
+    const api = {
+      sync(s) {
+        angle = s.total * 3; setAngle(angle); fork.classList.remove("locked"); fork.style.transform = `rotate(${side * 5}deg)`;
+        jewel.classList.toggle("asking", !!s.ask && !s.closed);
+        wl.textContent = s.closed ? "RETURNED TO YOU" : "HELD FOR CLAUDE";
+        showWin(s.closed ? s.left : s.left);
+      },
+      async play(e, s) {
+        jewel.classList.toggle("asking", !!s.ask && !s.closed);
+        if (e.t === "approve") { tweenNumber(0, s.left, 1100, showWin); for (let i = 0; i < 12; i++) { beat(); await wait(85); } }
+        if (e.t === "spend") {
+          const beats = Math.max(4, Math.min(16, Math.round(e.amt / 3)));
+          tweenNumber(shown, s.left, beats * 125, showWin);
+          for (let i = 0; i < beats; i++) { beat(); await wait(125); }
+        }
+        if (e.t === "refuse") { fork.classList.add("locked"); fork.style.transform = `rotate(${side * 9}deg)`; setAngle(angle - 3); await wait(260); setAngle(angle); await wait(900); fork.classList.remove("locked"); fork.style.transform = `rotate(${side * 5}deg)`; }
+        if (e.t === "close") { wl.textContent = "RETURNED TO YOU"; fork.style.transform = "rotate(0deg)"; await wait(600); }
+      },
+    };
+    return api;
+  },
+});
+
+/* Aperture: the opening is exactly as wide as what's left. */
+CONCEPTS.push({
+  id: "aperture", name: "Aperture", tag: "New", layout: "split", img: "web/aperture-landing.webp",
+  logo: "", // filled in below with a tiny iris
+  verdict: "You set the opening. The agent works inside it, and it narrows as money is spent.",
+  idea: "Like a camera iris, the opening is exactly as wide as the budget you approved. Every purchase narrows it. A refused purchase can't get through. A top-up shows as a dashed ring: how wide it would open if you said yes.",
+  motion: ["Approving the plan opens the iris; each purchase closes it by exactly the share it spent.", "A refused purchase makes the blades shudder without moving.", "At the close the iris shuts and the light that was left is yours again."],
+  build(stage) {
+    const R = 250, rMax = 205, rMin = 10, NB = 9;
+    const svg = el(`<svg class="ap" viewBox="-300 -300 600 600" role="img" aria-label="An iris diaphragm whose opening shows what is left">
+      <defs>
+        <radialGradient id="light"><stop offset="0" stop-color="#fdf5e4"/><stop offset=".7" stop-color="#f4e3bf"/><stop offset="1" stop-color="#e3c995"/></radialGradient>
+        <clipPath id="house"><circle r="${R}"/></clipPath>
+      </defs>
+      <circle r="${R}" fill="url(#light)"/>
+      <text class="ap-figure" id="apfig" text-anchor="middle" y="12">$0.00</text>
+      <g clip-path="url(#house)"><path id="back" fill="#26272a" fill-rule="evenodd"/><g id="blades"></g></g>
+      <circle r="${R + 12}" fill="none" stroke="#1e1f22" stroke-width="24"/>
+      <circle r="${R + 1}" fill="none" stroke="#45474c" stroke-width="1.2"/>
+      <circle r="${R + 23}" fill="none" stroke="#3a3c41" stroke-width="1"/>
+      <circle class="ap-ghost" id="ghost" r="100" fill="none" stroke="#24339a" stroke-width="2" stroke-dasharray="6 7" opacity="0"/>
+      <text class="ap-label" id="ghostlabel" text-anchor="middle" y="0" opacity="0">+$104.50 if you approve</text>
+    </svg>`);
+    stage.append(svg);
+    const blades = svg.querySelector("#blades"), back = svg.querySelector("#back"), fig = svg.querySelector("#apfig"), ghost = svg.querySelector("#ghost"), gl = svg.querySelector("#ghostlabel");
+    const paths = Array.from({ length: NB }, (_, i) => { const p = document.createElementNS("http://www.w3.org/2000/svg", "path"); p.setAttribute("fill", ["#2b2c30", "#303236", "#35373c"][i % 3]); p.setAttribute("stroke", "#6a6d74"); p.setAttribute("stroke-width", "1.4"); blades.append(p); return p; });
+    let cur = { r: rMin, phi: 0 };
+    function draw(r, phi) {
+      const V = Array.from({ length: NB }, (_, i) => { const a = phi + i * 2 * Math.PI / NB; return [r * Math.cos(a), r * Math.sin(a)]; });
+      const L = R * 2.2;
+      paths.forEach((p, i) => {
+        const A = V[i], B = V[(i + 1) % NB];
+        let dx = B[0] - A[0], dy = B[1] - A[1]; const len = Math.hypot(dx, dy) || 1; dx /= len; dy /= len;
+        let nx = dy, ny = -dx; if (nx * (A[0] + B[0]) + ny * (A[1] + B[1]) < 0) { nx = -nx; ny = -ny; }
+        const pts = [A, [A[0] + dx * L, A[1] + dy * L], [A[0] + dx * L + nx * L, A[1] + dy * L + ny * L], [A[0] + nx * L, A[1] + ny * L]];
+        p.setAttribute("d", "M" + pts.map((q) => q.map((v) => v.toFixed(1)).join(" ")).join(" L") + " Z");
+      });
+      back.setAttribute("d", `M${-R} 0 A${R} ${R} 0 1 0 ${R} 0 A${R} ${R} 0 1 0 ${-R} 0 Z M` + V.map((q) => q.map((v) => v.toFixed(1)).join(" ")).join(" L") + " Z");
+      fig.style.opacity = r > 70 ? 1 : 0;
+      cur = { r, phi };
+    }
+    const target = (s) => { const r = s.closed || !s.approved ? rMin : rMin + (rMax - rMin) * (s.left / s.approved); return { r, phi: (1 - r / rMax) * 1.1 }; };
+    function tweenTo(t, ms) {
+      return new Promise((res) => {
+        if (reduced) { draw(t.r, t.phi); return res(); }
+        const f = { ...cur }, t0 = performance.now();
+        const step = (now) => { const k = Math.min(1, (now - t0) / ms), e = k < .5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2; draw(f.r + (t.r - f.r) * e, f.phi + (t.phi - f.phi) * e); k < 1 ? requestAnimationFrame(step) : res(); };
+        requestAnimationFrame(step);
+      });
+    }
+    function setGhost(s) {
+      const on = !!s.ask && !s.closed && s.approved;
+      const gr = rMin + (rMax - rMin) * Math.min(1, (s.left + 104.5) / s.approved);
+      ghost.setAttribute("r", gr.toFixed(1)); ghost.setAttribute("opacity", on ? 1 : 0);
+      gl.setAttribute("y", (-gr - 12).toFixed(1)); gl.setAttribute("opacity", on ? 1 : 0);
+    }
+    const api = {
+      sync(s) { const t = target(s); draw(t.r, t.phi); fig.textContent = fmt(s.left); setGhost(s); },
+      async play(e, s) {
+        setGhost(s);
+        const from = parseFloat(fig.textContent.slice(1)) || 0;
+        tweenNumber(from, s.left, 1000, (v) => (fig.textContent = fmt(v)));
+        if (e.t === "refuse") { const base = { ...cur }; for (let i = 0; i < 6; i++) { draw(base.r, base.phi + (i % 2 ? .025 : -.025)); await wait(55); } draw(base.r, base.phi); return; }
+        await tweenTo(target(s), e.t === "approve" ? 1500 : e.t === "close" ? 1300 : 1000);
+      },
+    };
+    return api;
+  },
+});
+
+/* Envelopes: the cash-envelope method, for agents. */
+CONCEPTS.push({
+  id: "envelopes", name: "Envelopes", tag: "New", layout: "split", img: "web/envelope-landing.webp",
+  logo: `<svg width="28" height="22" viewBox="0 0 28 22" aria-hidden="true"><rect x="1" y="1" width="26" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M1.5 2 L14 12 L22 5.6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M22 3.4 V7.8" stroke="currentColor" stroke-width="1.6"/></svg><span style="font-family:var(--fd);font-weight:700;font-size:20px;letter-spacing:-.02em">remit</span>`,
+  verdict: "The oldest household budgeting method, rebuilt for an AI agent.",
+  idea: "People have budgeted with cash envelopes for a century: one envelope per need, and when it's empty it's empty. Remit gives the agent the same rule. Each purchase comes out of one envelope, a purchase with no envelope is refused, and more money arrives only as a new envelope you approve.",
+  motion: ["The envelope opens and the slip for the purchase lifts out; the amount left counts down.", "An empty envelope stays open.", "A refused purchase shows as a dashed outline with no envelope behind it.", "At the close, what's left in each envelope is marked as returned to you."],
+  build(stage) {
+    const tones = { gro: "#a9b8a0", dog: "#d9c9a8", gift: "#8da0b3", buf: "#c9a3a0" };
+    const box = el(`<div class="envs" role="img" aria-label="Four paper envelopes, one per budget line"></div>`);
+    const envs = {};
+    for (const k in LINES) {
+      const e = el(`<div class="env" style="--tone:${tones[k]}"><div class="back"></div><div class="slip"><b></b><i></i></div><div class="front"><span class="tab">${LINES[k].name}</span><span class="left"></span><span class="of"></span></div><div class="flap"></div></div>`);
+      envs[k] = e; box.append(e);
+    }
+    const ref = el(`<div class="env ghost ref" hidden><div class="front"><span class="tab">Phone case</span><span class="left">$18.99</span><span class="of">Refused · no envelope</span></div></div>`);
+    const ask = el(`<div class="env ghost ask" hidden><div class="front"><span class="tab">Gift top-up</span><span class="left">$104.50</span><span class="of">Waiting for you</span></div></div>`);
+    box.append(ref, ask); stage.append(box);
+    const api = {
+      sync(s) {
+        for (const k in LINES) {
+          const e = envs[k], left = r2(LINES[k].limit - s.spent[k]);
+          e.querySelector(".left").textContent = fmt(s.approved ? left : 0);
+          e.querySelector(".of").textContent = s.closed ? (left > 0 ? "returned to you" : "spent") : `left of ${fmt(LINES[k].limit)}`;
+          e.classList.toggle("empty", s.approved > 0 && left <= 0);
+          e.classList.toggle("open", s.approved > 0 && left <= 0);
+          e.classList.remove("fly");
+          e.style.opacity = s.approved ? 1 : .35;
+        }
+        ref.hidden = !s.refused;
+        ask.hidden = !s.ask; ask.classList.toggle("waiting", !!s.ask && !s.closed);
+        ask.querySelector(".of").textContent = s.closed ? "Not approved" : "Waiting for you";
+      },
+      async play(e, s) {
+        if (e.t === "spend") {
+          const env = envs[e.line], before = r2(LINES[e.line].limit - s.spent[e.line] + e.amt);
+          env.querySelector(".slip b").textContent = fmt(e.amt); env.querySelector(".slip i").textContent = e.item;
+          env.classList.add("open"); await wait(450);
+          env.classList.add("fly");
+          tweenNumber(before, before - e.amt, 900, (v) => (env.querySelector(".left").textContent = fmt(v)));
+          await wait(1000);
+          api.sync(s); return;
+        }
+        api.sync(s);
+        if (e.t === "approve") { for (const k in envs) { envs[k].classList.add("arrive"); setTimeout(() => envs[k].classList.remove("arrive"), 700); await wait(120); } }
+        if (e.t === "refuse") { ref.classList.add("arrive"); setTimeout(() => ref.classList.remove("arrive"), 700); }
+        if (e.t === "ask") { ask.classList.add("arrive"); setTimeout(() => ask.classList.remove("arrive"), 700); }
+      },
+    };
+    return api;
+  },
+});
+
+/* Inscription: the rules are set in stone. */
+CONCEPTS.push({
+  id: "inscription", name: "Inscription", tag: "New", layout: "split", img: "web/inscription-landing.webp",
+  logo: `<span style="display:grid;gap:3px;justify-items:center"><span style="font-family:var(--fd);font-weight:700;letter-spacing:.3em;font-size:16px;padding-left:.3em">REMIT</span><span style="width:100%;height:2px;background:linear-gradient(rgba(0,0,0,.35),rgba(255,255,255,.7))"></span></span>`,
+  verdict: "Some rules are set in stone. These ones live in code a prompt can't change.",
+  idea: "Remit's money rules aren't instructions the agent might ignore. They live in server code that no prompt can change. The page carves them in stone, and each event inlays the rule that just did its job in lapis blue, with the event chiselled into the ledger line below.",
+  motion: ["Each event lights the rule that applied: approvals light the first, purchases and refusals the second, the close the third.", "The event is chiselled letter by letter into the ledger line."],
+  build(stage) {
+    const slab = el(`<div class="slab" role="img" aria-label="A stone slab carved with Remit's three rules">
+      <p class="carve rule" data-r="1">Only you approve money.</p>
+      <p class="carve rule" data-r="2">Every purchase must fit its line.</p>
+      <p class="carve rule" data-r="3">What is left comes back.</p>
+      <div class="cutline"></div>
+      <p class="carve ledger"></p>
+      <p class="carve tally"></p>
+    </div>`);
+    stage.append(slab);
+    const rules = [...slab.querySelectorAll(".rule")], ledger = slab.querySelector(".ledger"), tally = slab.querySelector(".tally");
+    const which = (e) => (!e ? 0 : e.t === "approve" || e.t === "ask" ? 1 : e.t === "close" ? 3 : 2);
+    const tallyText = (s) => (!s.approved ? "Nothing approved yet" : s.closed ? `${fmt(s.left)} returned to you` : `${fmt(s.left)} remains of ${fmt(s.approved)}`);
+    function light(n) { rules.forEach((r) => r.classList.toggle("inlay", +r.dataset.r === n)); }
+    const api = {
+      sync(s) {
+        const e = EVENTS[s.n - 1];
+        light(which(e)); ledger.textContent = e ? e.text : ""; ledger.classList.toggle("warn", !!e && e.t === "refuse"); tally.textContent = tallyText(s);
+      },
+      async play(e, s) {
+        light(which(e)); ledger.textContent = ""; ledger.classList.toggle("warn", e.t === "refuse"); tally.textContent = tallyText(s);
+        if (reduced) { ledger.textContent = e.text; return; }
+        for (const ch of e.text) { const sp = document.createElement("span"); sp.textContent = ch; ledger.append(sp); await wait(18); }
+      },
+    };
+    return api;
+  },
+});
+
+/* tiny iris for the Aperture logo */
+(() => {
+  const c = CONCEPTS.find((x) => x.id === "aperture");
+  const pts = Array.from({ length: 9 }, (_, i) => { const a = i * 40 * Math.PI / 180 + .5; return `${(13 + 5 * Math.cos(a)).toFixed(1)} ${(13 + 5 * Math.sin(a)).toFixed(1)}`; }).join(" L");
+  const lines = Array.from({ length: 9 }, (_, i) => { const a = i * 40 * Math.PI / 180 + .5, b = a + 40 * Math.PI / 180; const x1 = 13 + 5 * Math.cos(a), y1 = 13 + 5 * Math.sin(a); const x2 = 13 + 5 * Math.cos(b), y2 = 13 + 5 * Math.sin(b); const dx = x2 - x1, dy = y2 - y1; return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${(x1 + dx * 2.6).toFixed(1)}" y2="${(y1 + dy * 2.6).toFixed(1)}"/>`; }).join("");
+  c.logo = `<svg width="26" height="26" viewBox="0 0 26 26" aria-hidden="true"><defs><clipPath id="lc"><circle cx="13" cy="13" r="11"/></clipPath></defs><circle cx="13" cy="13" r="11.6" fill="currentColor"/><path d="M${pts} Z" fill="#f2f1ed"/><g clip-path="url(#lc)" stroke="#5a5c62" stroke-width=".8">${lines}</g></svg><span style="font-family:var(--fd);font-weight:500;font-size:20px;letter-spacing:.01em">Remit</span>`;
+})();
+
+/* ---------- App shell ---------- */
+const $ = (id) => document.getElementById(id);
+let current = null, api = null, idx = REST, playing = !reduced, timer = null, busy = false;
+
+function renderTabs() {
+  $("tabs").innerHTML = "";
+  for (const c of CONCEPTS) {
+    const b = el(`<button class="tab" role="tab" type="button" aria-selected="${c === current}" id="tab-${c.id}">${c.name}${c.tag ? `<sup>${c.tag.toUpperCase()}</sup>` : ""}</button>`);
+    b.addEventListener("click", () => select(c.id, true));
+    $("tabs").append(b);
+  }
+}
+function renderDots() {
+  $("dots").innerHTML = "";
+  EVENTS.forEach((e, i) => {
+    const b = el(`<button class="dot${i < idx - 1 ? " done" : ""}${i === idx - 1 ? " now" : ""}" type="button" aria-label="${e.time}: ${e.text}" title="${e.time}"></button>`);
+    b.addEventListener("click", () => { stop(); jumpTo(i); });
+    $("dots").append(b);
+  });
+}
+function setLive(s) {
+  const e = EVENTS[s.n - 1], hero = $("hero");
+  hero.querySelector(".live-time").textContent = e ? e.time : "Sat, Nov 7";
+  hero.querySelector(".live-text").textContent = e ? e.text : "Claude has drafted a budget request for the week of Nov 9 to 15.";
+  hero.querySelector(".live-bal").textContent = !s.approved ? "Nothing approved yet" : s.closed ? `Returned to you ${fmt(s.left)} · spent ${fmt(s.total)}` : `${fmt(s.left)} left of ${fmt(s.approved)} · spent ${fmt(s.total)}`;
+}
+function select(id, user) {
+  const c = CONCEPTS.find((x) => x.id === id) || CONCEPTS[0];
+  current = c;
+  document.body.dataset.c = c.id;
+  const hero = $("hero");
+  hero.dataset.c = c.id;
+  hero.innerHTML = `<div class="wrap">
+    <header class="nav"><a class="logo" href="#${c.id}" aria-label="Remit">${c.logo}</a>
+      <nav class="links" aria-label="Site"><span>How it works</span><span>Security</span><span>Developers</span></nav>
+      <div class="nav-end"><span class="signin">Sign in</span><button class="cta small" type="button">Request access</button></div></header>
+    <div class="hero-body ${c.layout}">
+      <div class="copy">
+        <h1>Your agent spends within its remit.</h1>
+        <p class="sub">Give an AI agent a budget it has to justify. You approve a hold on PayPal, every purchase is checked against what the money is for, and whatever is left comes back to you.</p>
+        <div class="actions"><button class="cta" type="button">Request access</button><span class="textlink">See how it works →</span></div>
+        <div class="live" aria-live="polite"><span class="live-k">Example week, playing live</span><span class="live-time"></span><span class="live-text"></span><span class="live-bal"></span></div>
+      </div>
+      <div class="stage"></div>
+    </div></div>`;
+  if (c.id === "board") { const copy = hero.querySelector(".copy"); copy.style.gridTemplateColumns = "minmax(0,1fr)"; }
+  api = c.build(hero.querySelector(".stage"));
+  const s = compute(idx); api.sync(s); setLive(s);
+  $("notes").innerHTML = `
+    <div><h2>${c.name}${c.tag ? ` · ${c.tag}` : ""}</h2><p class="verdict">${c.verdict}</p><p>${c.idea}</p></div>
+    <div><h2>What moves</h2><ul>${c.motion.map((m) => `<li>${m}</li>`).join("")}</ul></div>
+    <div><h2>Full landing page</h2><p>The generated page shows the rest of the site in this direction: how it works, the budget request and the footer.</p><button class="seefull" type="button" id="seefull">See the full page</button></div>`;
+  $("seefull").addEventListener("click", () => { $("viewer-img").src = c.img; $("viewer-img").alt = `${c.name} landing page`; $("viewer").showModal(); });
+  renderTabs();
+  if (user) { try { history.replaceState(null, "", "#" + c.id); } catch (e) {} try { localStorage.setItem("remit-concept", c.id); } catch (e) {} }
+}
+async function step() {
+  if (busy) return;
+  busy = true;
+  if (idx >= EVENTS.length) { idx = 0; const s0 = compute(0); api.sync(s0); setLive(s0); renderDots(); await wait(900); }
+  const e = EVENTS[idx]; idx++;
+  const s = compute(idx);
+  setLive(s); renderDots();
+  const mine = api;
+  await api.play(e, s);
+  if (mine === api) api.sync(s);
+  busy = false;
+}
+function jumpTo(i) {
+  idx = i; const s = compute(idx); api.sync(s); setLive(s); renderDots();
+  step();
+}
+function loop() {
+  clearTimeout(timer);
+  if (!playing) return;
+  timer = setTimeout(async () => { await step(); loop(); }, idx >= EVENTS.length ? 3200 : 2300);
+}
+function stop() { playing = false; clearTimeout(timer); $("play").textContent = "Play"; }
+$("play").addEventListener("click", () => { playing = !playing; $("play").textContent = playing ? "Pause" : "Play"; if (playing) { step().then(loop); } else clearTimeout(timer); });
+$("next").addEventListener("click", () => { stop(); step(); });
+$("reset").addEventListener("click", () => { idx = 0; const s = compute(0); api.sync(s); setLive(s); renderDots(); if (playing) loop(); });
+$("viewer-close").addEventListener("click", () => $("viewer").close());
+$("viewer").addEventListener("click", (e) => { if (e.target.classList.contains("inner")) $("viewer").close(); });
+
+let start = location.hash.slice(1);
+if (!CONCEPTS.some((c) => c.id === start)) { try { start = localStorage.getItem("remit-concept") || "vault"; } catch (e) { start = "vault"; } }
+select(start, false);
+renderDots();
+if (reduced) $("play").textContent = "Play";
+// Rest on the mid-week frame, then replay the week from the start.
+if (playing) timer = setTimeout(() => { idx = 0; const s = compute(0); api.sync(s); setLive(s); renderDots(); loop(); }, 2600);
+</script>

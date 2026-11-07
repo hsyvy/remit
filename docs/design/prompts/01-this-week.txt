@@ -1,0 +1,23 @@
+Desktop web app wireframe, 1440 wide, for "Remit", a spending wallet for an AI agent. Screen: the owner's weekly wallet, mid-week.
+
+Top bar: wordmark "Remit" on the left; tabs "This week", "History", "Agents", "Settings"; on the right small pill tags "PayPal sandbox" and "Claude · active".
+
+Directly under the top bar, a full-width bordered strip titled "Needs you (1)": "Top-up request · $104.50 for Sam's birthday gift · 'You picked the headphones, $95.00 plus about 10% for shipping.'" with buttons "Review" and "Decline".
+
+Left column (wide):
+1. Balance header: "$55.20 left" in big monospace; under it "of $176.50 approved on PayPal · unspent money returns to you Nov 15".
+   Below it ONE long horizontal bar split into three parts: a solid dark part labeled "Spent $121.30", a diagonally hatched part labeled "Held $55.20", an empty outlined part labeled "Released $0.00".
+2. Section "Plan lines" with four rows; each row: line name, a thin bar, "spent / limit" in monospace:
+   "Groceries, 2 orders  $86.80 / $88.00" (bar almost full)
+   "Dog food, 12 kg bag  $32.50 / $32.50" (bar full)
+   "Birthday gift for Sam  $0.00 / $40.00" (bar empty)
+   "Shared buffer  $2.00 / $16.00" (bar one eighth)
+3. Section "Ledger" as a list. Each entry: date, item, the line it drew from, amount in monospace, and a status word. Under each, one gray line with the agent's reason.
+   "Nov 10  Dog food 12 kg  · Dog food  $32.50  Paid" / "Same bag and price as the Oct 15 order."
+   "Nov 11  Grocery order  · Groceries  $43.40  Paid" / "Second weekly order, in line with the last 4 weeks."
+   "Nov 12  Phone case  · no line  $18.99  Refused" / "Purpose check: nothing in the plan covers a phone case."
+
+Right column (narrow): panel titled "Claude". Message bubbles: agent "I bought the dog food. Same bag and price as Oct 15."; user "Find Sam a birthday gift."; agent "Nothing in the plan covers a gift, so I asked for a top-up. It's waiting for you." At the bottom a text input "Ask Claude…" and a "Send" button.
+
+Annotations: 1 "Needs you" holds only decisions that move money, 2 the remit bar: spent / held / released, 3 each line is its own envelope, 4 refused purchases stay in the ledger with the reason, 5 the agent panel is secondary to the money.
+STYLE: a clean low-fidelity UX wireframe, the kind a senior product designer draws in Figma before visual design. Pure white background, grayscale only (#222 lines and text, #888 secondary text, #e5e5e5 placeholder fills), 1px hairline strokes, square-ish corners with 6px radius, a plain sans-serif for all text, monospace for every money amount. No colors, no gradients, no shadows, no glow, no 3D, no illustrations, no icons except simple outline glyphs, no device mockup, no hands, no perspective: a flat, straight-on screen. All text must be legible, spelled exactly as given, in English. Add 4 to 6 small numbered annotation circles (black circle, white number) placed next to key elements, with a narrow annotation column on the right edge listing what each number means in one short line.

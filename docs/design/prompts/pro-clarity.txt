@@ -1,0 +1,6 @@
+DIRECTION "Clarity". Calm, bright, object-like, in the spirit of the finest consumer-hardware product pages.
+- Background pure white, with the product sitting on a very light cool grey stage #F5F5F7 that spans the lower half of the screen.
+- Layout centered: the small navigation bar, then the headline centered in very large type (around 80 px), near-black #1D1D1F, extremely tight tracking, then the grey subline #6E6E73 centered, then the two actions centered: a black pill button with white text and a blue text link #0A66D8.
+- Below, centered and large, the budget card as a single beautiful object: white card, generous 24 px corner radius, a soft, realistic, very subtle shadow that makes it feel physically present, the big "$55.20" figure in large thin numerals. The activity panel is a smaller card overlapping its lower right corner.
+- Progress bars are near-black on light grey; only the refused row uses one red-orange dot #E5502E. No other color.
+- Typeface: a neutral, refined grotesk like a system UI font.

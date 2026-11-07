@@ -1,0 +1,19 @@
+Top bar, the same on every screen of this app: wordmark "Remit" on the left; then four text tabs exactly "This week", "History", "Agents", "Settings", with "This week" shown selected (light gray pill behind it); on the far right two small outlined pill tags "PayPal sandbox" and "Claude · active". No sidebar, no other navigation.
+
+Desktop web app wireframe, 1440 wide, for "Remit". Screen: a refused purchase that turned into a top-up request. Two columns.
+
+Left column titled "What happened":
+   A vertical sequence of three cards connected by a thin line:
+   Card 1, outlined with a heavy left border, label "Refused · Nov 12": "Wireless headphones · $95.00". Under it "No line covers a gift over $40. Claude did not take it from Groceries or the buffer."
+   Card 2, label "Claude asked you": "Which of these for Sam?" with a row of five small product placeholders (gray boxes with an X) each with a price: "$28.00", "$34.99", "$39.00", "$64.00", "$95.00". The "$95.00" one is selected with a heavy border and a check.
+   Card 3, label "Top-up request": "$104.50 · new hold".
+
+Right column titled "Top-up request":
+   Big monospace "$104.50".
+   A breakdown list: "Wireless headphones  $95.00" / "Shipping or price change, ~10%  $9.50".
+   A quoted line in italics: "You picked these for Sam's birthday. They're $95.00, plus about 10% for shipping or a price change."
+   A small note: "This is a second, separate hold. Your first hold of $176.50 is unchanged."
+   Large filled gray button "Approve $104.50 on PayPal", text button "Decline", text link "Change amount".
+
+Annotations: 1 the refusal is shown, not hidden, 2 the agent asks instead of working around the limit, 3 more money is always a new approval and a new hold, 4 the reason is in the agent's own words.
+STYLE: a clean low-fidelity UX wireframe, the kind a senior product designer draws in Figma before visual design. Pure white background, grayscale only (#222 lines and text, #888 secondary text, #e5e5e5 placeholder fills), 1px hairline strokes, square-ish corners with 6px radius, a plain sans-serif for all text, monospace for every money amount. No colors, no gradients, no shadows, no glow, no 3D, no illustrations, no icons except simple outline glyphs, no device mockup, no hands, no perspective: a flat, straight-on screen. All text must be legible, spelled exactly as given, in English. Add 4 to 6 small numbered annotation circles (black circle, white number) placed next to key elements, with a narrow annotation column on the right edge listing what each number means in one short line.

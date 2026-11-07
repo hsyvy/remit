@@ -1,0 +1,15 @@
+Top bar, the same on every screen of this app: wordmark "Remit" on the left; then four text tabs exactly "This week", "History", "Agents", "Settings", with "History" shown selected (light gray pill behind it); on the far right two small outlined pill tags "PayPal sandbox" and "Claude · active". No sidebar, no other navigation.
+
+Desktop web app wireframe, 1440 wide, for "Remit". Screen: the History tab ledger with one purchase opened in a right-side detail drawer (the ledger list is dimmed on the left).
+
+Drawer contents, top to bottom:
+   Small label "Purchase · Nov 10, 14:02". Title "Dog food, 12 kg bag". Big monospace "$32.50". Status pill "Paid".
+   Section "Drawn from": "Dog food, 12 kg bag" with a thin bar and "$32.50 of $32.50 used".
+   Section "Claude's reason": a quoted paragraph "Same brand and bag as the Oct 15 order, same price. You usually run out after 4 weeks."
+   Section "Purpose check": a bordered box with "Passed" and a sentence "Matches the line: same product the line was approved for, at the approved price." Under it, two small columns: "Saw: the plan line, the item, the price" and "Did not see: the store page Claude read".
+   Section "PayPal": monospace rows "Hold 4UP41481T7762431N", "Capture 8KJ2093341L", "Partial capture · $144.00 still held".
+   Section "Timeline": a vertical list of 4 small steps with times: "14:01 Claude asked to spend $32.50", "14:01 Wallet checked line and balance", "14:02 Purpose check passed", "14:02 PayPal captured $32.50".
+   At the bottom: buttons "Refund to me" and "Ask Claude about this".
+
+Annotations: 1 every purchase answers "why" in the agent's words, 2 the purpose check shows what it did and did not see, 3 PayPal IDs for audit, 4 a step-by-step timeline of how the money moved.
+STYLE: a clean low-fidelity UX wireframe, the kind a senior product designer draws in Figma before visual design. Pure white background, grayscale only (#222 lines and text, #888 secondary text, #e5e5e5 placeholder fills), 1px hairline strokes, square-ish corners with 6px radius, a plain sans-serif for all text, monospace for every money amount. No colors, no gradients, no shadows, no glow, no 3D, no illustrations, no icons except simple outline glyphs, no device mockup, no hands, no perspective: a flat, straight-on screen. All text must be legible, spelled exactly as given, in English. Add 4 to 6 small numbered annotation circles (black circle, white number) placed next to key elements, with a narrow annotation column on the right edge listing what each number means in one short line.

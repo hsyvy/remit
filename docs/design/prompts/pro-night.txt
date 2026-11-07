@@ -1,0 +1,6 @@
+DIRECTION "Night". Dark, quiet, premium, in the spirit of the best pro-product and premium-card pages.
+- Background true near-black #0A0A0B. No gradients except one very soft, wide pool of light falling from above onto the product, like studio lighting on a dark set.
+- Layout centered: the headline centered in very large type (around 80 px), off-white #F5F5F4, medium weight, tight tracking; subline in warm grey #8A8A8E; actions: an off-white pill button with black text and a grey text link.
+- Below, centered and large, the budget card rendered in dark mode: card #161618 with a 1 px hairline border #2A2A2E, 24 px radius, big "$55.20" in light numerals, progress bars in a single muted mint #7FD1B0 on #26262A tracks. The activity panel is a smaller dark card overlapping its lower right corner; refused row with a red-orange dot #F06A4A.
+- Absolutely no neon, no glow around edges, no colored gradients; the light is soft, white and physical.
+- Typeface: a refined neutral grotesk.

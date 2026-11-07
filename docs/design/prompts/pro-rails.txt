@@ -1,0 +1,13 @@
+DIRECTION "Rails". Precise, technical, dense with real product, in the spirit of the best payments-infrastructure websites.
+- Background white with a very faint grid of hairline vertical column guides #EEF0F3 running the full height of the page, visible but subtle, like a design system.
+- Layout split: headline left-aligned in the left 6 columns, very large (around 72 px), deep navy #0B1B33, semibold, tight tracking; subline in slate #4A5568; actions: a deep green button #0B7A55 with white text and a navy text link.
+- Right 6 columns: a layered composition of three crisp product panels, aligned to the grid, slightly overlapping, flat with hairline borders and very soft shadow: (1) the budget card, (2) the activity panel, (3) a small dark code panel #0B1B33 with monospaced syntax-highlighted code, exactly these lines:
+  await remit.purchase({
+    line: "groceries",
+    amount: 43.40,
+    reason: "Second weekly order"
+  })
+  // → approved · $1.20 left on this line
+- Progress bars in deep green #0B7A55; refused row with a red-orange dot #E5502E.
+- Under the hero, a thin row of three small facts separated by hairlines: "$0 taken until it buys", "Every purchase checked against its reason", "Unspent money returns to you".
+- Typeface: a crisp geometric-grotesk sans with tabular figures; code in a clean monospace.

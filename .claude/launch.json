@@ -1,6 +1,7 @@
 {
   "version": "0.0.1",
   "configurations": [
-    { "name": "remit", "runtimeExecutable": "npm", "runtimeArgs": ["start"], "port": 3000 }
+    { "name": "remit", "runtimeExecutable": "npm", "runtimeArgs": ["start"], "port": 3000 },
+    { "name": "design", "runtimeExecutable": "python3", "runtimeArgs": ["-m", "http.server", "4173", "--directory", "docs/design"], "port": 4173 }
   ]
 }

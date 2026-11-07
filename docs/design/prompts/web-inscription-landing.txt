@@ -1,0 +1,18 @@
+A complete desktop marketing website landing page for "Remit", shown as one tall flat screenshot of the page itself (1440 px wide desktop layout scaled to fit), no browser window, no device, no perspective. Remit is a premium wallet for AI agents: the agent proposes a budget with a reason for every line, the owner approves it as a hold on their own PayPal account, every purchase is checked against what that line is for, and whatever is unspent goes back to the owner.
+
+This must look like an award-winning website by the best digital design studio in the world: unique, mesmerizing, art-directed, with one unforgettable hero image, impeccable typography and generous space, and the calm confidence of a brand that people trust with money. Not a template: no generic SaaS hero, no floating dashboard screenshots with shadows, no gradient blobs, no glassmorphism, no glow, no sparkles, no robots, no stock photos of people, no emoji, no feature-card grids with icons.
+
+Page structure, top to bottom, with this exact copy:
+1. Navigation bar: the logo on the left; text links "How it works", "Security", "Developers"; on the right a text link "Sign in" and a button "Request access".
+2. Hero, filling most of the first screen, built around the HERO IMAGE described below. Headline: "Your agent spends within its remit." Subheadline: "Give an AI agent a budget it has to justify. You approve a hold on PayPal, every purchase is checked against what the money is for, and whatever is left comes back to you." Two actions: a primary button "Request access" and a text link "See how it works →".
+3. A section titled "How it works" with three short steps in a row, each with a small numeral and two lines of text: "01 The agent proposes a plan" / "Each line has a reason: past weeks, what's running out, today's prices."; "02 You approve a hold on PayPal" / "Nothing is taken until the agent buys. Only you can add money."; "03 It spends line by line" / "Each purchase must fit its line. The rest returns to you."
+4. A product section titled "Every dollar has a reason." showing one elegant budget request card from the app: "Budget request · Nov 9 – 15" with four lines and amounts: "Groceries, 2 orders  $88.00", "Dog food, 12 kg bag  $32.50", "Birthday gift for Sam  $40.00", "Shared buffer  $16.00", a total "$176.50", and a button "Approve $176.50 on PayPal", styled in the direction's language.
+5. A slim footer with the logo and "Built for the PayPal AI Hackathon".
+All text must be spelled exactly as given, in English, crisp and legible.
+
+DIRECTION "Inscription". Idea: some rules are set in stone. Remit's money rules live in server code that no prompt can change: only you approve money, the agent cannot overspend, the leftover comes back.
+- HERO IMAGE: a monumental photograph of a large slab of pale travertine stone filling the hero, with strong raking light from the left that makes deeply carved letters cast shadows. Carved in classical Roman inscriptional capitals: "ONLY YOU APPROVE MONEY." and on a second line, smaller: "EVERY PURCHASE MUST FIT ITS LINE." The page headline and copy sit beside the slab on the left on a plain area.
+- Palette: travertine #E6DFD3, charcoal #222222 text, warm stone gray #8A8378 secondary text, and one action color, deep lapis blue #26408B, for buttons.
+- Typography: classical Roman inscriptional capitals for the headline with generous letter spacing, a clean modern sans for body text, tabular figures.
+- Logo: wordmark "REMIT" in inscriptional capitals with a fine carved V-cut line beneath it.
+- The budget request card is a smooth pale stone tablet with the lines carved in, and a lapis button.

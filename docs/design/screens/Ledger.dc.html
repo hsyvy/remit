@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Remit, ledger</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#07080a}
+a{color:#f2f3f5}a:hover{color:#ffffff}
+.r{--bg:#07080a;--bg1:#0c0d10;--bg2:#121317;--bg3:#191a1f;--bg4:#24252c;--ln:rgba(255,255,255,.07);--ln2:rgba(255,255,255,.11);--ln3:rgba(255,255,255,.18);--fg:#f2f3f5;--fg2:#a6a9b1;--fg3:#80838c;--bar:#d9dbe1;--ok:#5fd3a0;--okb:rgba(95,211,160,.1);--no:#f27a5c;--nob:rgba(242,122,92,.11);--ask:#e8b85e;--askb:rgba(232,184,94,.11);font-family:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--fg);background:var(--bg);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:1080px;display:flex;flex-wrap:wrap;align-items:stretch}
+.r *{box-sizing:border-box}
+.side{flex:1 1 220px;max-width:240px;border-right:1px solid var(--ln);padding:16px 12px 20px;display:flex;flex-direction:column;gap:2px;background:#0a0b0d}
+.ws{display:flex;align-items:center;gap:10px;padding:6px 9px 18px;font-size:13.5px;font-weight:600}
+.av{width:22px;height:22px;border-radius:6px;background:var(--fg);color:var(--bg);display:grid;place-items:center;flex:none}
+.av svg{width:13px;height:13px}
+.ni{display:flex;align-items:center;gap:10px;min-height:34px;padding:0 9px;border-radius:7px;font-size:13.5px;color:var(--fg2);text-decoration:none}
+.ni:hover{background:var(--bg3);color:var(--fg)}
+.ni.on{background:var(--bg3);color:var(--fg)}
+.ni svg{width:15px;height:15px;color:var(--fg3);flex:none}
+.side-foot{margin-top:auto;padding:14px 9px 0;border-top:1px solid var(--ln);font-size:12.5px;color:var(--fg3);line-height:1.5}
+.side-foot b{display:block;color:var(--fg2);font-weight:500}
+.main{flex:999 1 560px;min-width:0;padding:28px 40px 64px;display:flex;flex-direction:column;gap:22px}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.t{margin:0;font-size:26px;font-weight:560;letter-spacing:-.025em;line-height:1.15}
+.sub{margin:6px 0 0;font-size:14px;color:var(--fg2);max-width:64ch}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;color:var(--fg2);background:var(--bg3)}
+.chip i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.chip.ok{color:var(--ok);background:var(--okb)}
+.chip.no{color:var(--no);background:var(--nob)}
+.chip.ask{color:var(--ask);background:var(--askb)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 16px;border-radius:9px;font-family:inherit;font-size:14px;font-weight:500;border:1px solid transparent;text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn.sec{background:transparent;color:var(--fg);border-color:var(--ln3)}
+.btn.sm{min-height:34px;padding:0 12px;font-size:13px;border-radius:8px}
+.card{background:var(--bg1);border:1px solid var(--ln2);border-radius:12px;min-width:0}
+@media (max-width:760px){.side{max-width:none;flex-basis:100%;border-right:0;border-bottom:1px solid var(--ln)}.main{padding:20px 16px 40px}}
+/* this screen */
+.bar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.seg{display:flex;gap:2px;padding:3px;border-radius:9px;background:var(--bg3);flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:var(--fg2);font-family:inherit;font-size:13px;font-weight:500;min-height:30px;padding:0 12px;border-radius:7px;cursor:pointer}
+.seg button.on{background:var(--bg4);color:var(--fg)}
+.seg button span{color:var(--fg3);margin-left:4px;font-variant-numeric:tabular-nums}
+.sel{display:flex;gap:8px;align-items:center}
+.sel label{font-size:12.5px;color:var(--fg3)}
+.sel select{min-height:34px;padding:0 10px;border-radius:8px;border:1px solid var(--ln2);background:var(--bg1);color:var(--fg);font-family:inherit;font-size:13px}
+.scroll{overflow-x:auto}
+table{width:100%;min-width:860px;border-collapse:collapse;font-size:13.5px}
+th{font-weight:500;color:var(--fg3);text-align:left;font-size:12.5px;padding:12px 16px;border-bottom:1px solid var(--ln2)}
+td{padding:14px 16px;border-bottom:1px solid var(--ln);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.w{white-space:nowrap;color:var(--fg3);font-family:"Geist Mono",ui-monospace,Menlo,monospace;font-size:12.5px}
+td b{font-weight:500}
+td small{display:block;color:var(--fg3);font-size:12.5px;margin-top:2px;max-width:46ch}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+td.x{color:var(--fg3);text-decoration:line-through}
+td a{text-decoration:none}
+td a:hover b{text-decoration:underline}
+tr.sys td{color:var(--fg2)}
+.foot{display:flex;gap:24px;flex-wrap:wrap;font-size:13px;color:var(--fg3)}
+.foot b{color:var(--fg);font-weight:500;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div class="r">
+  <nav class="side" aria-label="Remit">
+    <div class="ws"><span class="av"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M10 4.5H4.5v23H10M22 4.5h5.5v23H22" fill="none" stroke="currentColor" stroke-width="3"></path><rect x="8" y="9.5" width="8.5" height="13" fill="currentColor"></rect></svg></span>Household</div>
+    <a class="ni" href="Main.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3" width="11" height="10.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"></rect><path d="M2.5 6.5h11M5.5 1.8v2.4M10.5 1.8v2.4" stroke="currentColor" stroke-width="1.3"></path></svg>This week</a>
+    <a class="ni" href="Topup.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.5h10v7H8.5L5.5 13v-2.5H3z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"></path></svg>Requests</a>
+    <a class="ni on" href="Ledger.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10M3 8h10M3 12h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"></path></svg>Ledger</a>
+    <a class="ni" href="Statement.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h6l2.5 2.5v8.5H4z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"></path><path d="M6 8h4.5M6 10.5h3" stroke="currentColor" stroke-width="1.3"></path></svg>Statements</a>
+    <a class="ni" href="Agents.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="5.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.3"></circle><path d="M3 13.5c.6-2.4 2.6-3.8 5-3.8s4.4 1.4 5 3.8" fill="none" stroke="currentColor" stroke-width="1.3"></path></svg>Agents</a>
+    <div class="side-foot"><b>Week closed</b>Nov 9 – 15. $15.20 released to you.</div>
+  </nav>
+
+  <main class="main">
+    <div class="top">
+      <div>
+        <h1 class="t">Ledger</h1>
+        <p class="sub">Every plan, purchase, refusal and top-up, with Claude’s reasoning. Nothing is removed from it.</p>
+      </div>
+      <button class="btn sec sm" type="button">Export CSV</button>
+    </div>
+
+    <div class="bar">
+      <div class="seg" role="group" aria-label="Show">
+        <button class="on" type="button" aria-pressed="true">All<span>10</span></button>
+        <button type="button" aria-pressed="false">Paid<span>5</span></button>
+        <button type="button" aria-pressed="false">Refused<span>1</span></button>
+        <button type="button" aria-pressed="false">Approvals<span>3</span></button>
+      </div>
+      <div class="sel"><label for="wk">Period</label><select id="wk"><option>Nov 9 – 15</option><option>Nov 2 – 8</option><option>Oct 26 – Nov 1</option></select></div>
+    </div>
+
+    <section class="card scroll" aria-label="Ledger entries">
+      <table>
+        <thead><tr><th>When</th><th>What</th><th>Line</th><th>Store</th><th class="n">Amount</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr class="sys"><td class="w">Sun 23:59</td><td><b>The week closed</b><small>Hold 2 had $15.20 left. PayPal won’t void a hold after a partial capture, so it lapses when the authorization expires.</small></td><td>All lines</td><td></td><td class="n">$15.20</td><td><span class="chip"><i></i>Released</span></td></tr>
+          <tr><td class="w">Fri 18:20</td><td><b>Watercolor travel set, 24 colors</b><small>Sam mentioned wanting to paint on trips. Wrapped, arrives Friday.</small></td><td>Gift for Sam</td><td>giftshop.example</td><td class="n">$144.50</td><td><span class="chip ok"><i></i>Paid</span></td></tr>
+          <tr><td class="w">Fri 09:13</td><td><b>Delivery fee</b><small>Fee on the second grocery order.</small></td><td>Shared buffer</td><td>grocer.example</td><td class="n">$2.00</td><td><span class="chip ok"><i></i>Paid</span></td></tr>
+          <tr><td class="w">Fri 09:12</td><td><b>Grocery order</b><small>Second order of the week, same list.</small></td><td>Groceries</td><td>grocer.example</td><td class="n">$43.40</td><td><span class="chip ok"><i></i>Paid</span></td></tr>
+          <tr class="sys"><td class="w">Thu 19:05</td><td><b>You approved a top-up</b><small>A second hold, for Gift for Sam only.</small></td><td>Gift for Sam</td><td></td><td class="n">$104.50</td><td><span class="chip"><i></i>Hold placed</span></td></tr>
+          <tr><td class="w">Thu 16:30</td><td><b>Claude asked for a top-up</b><small>The gift is $144.50 with wrapping. The line has $40.00.</small></td><td>Gift for Sam</td><td></td><td class="n">$104.50</td><td><span class="chip ask"><i></i>Asked</span></td></tr>
+          <tr><td class="w">Thu 14:15</td><td><a href="Purchase.dc.html"><b>Phone case, clear</b></a><small>Purpose check: a phone case isn’t groceries.</small></td><td>Groceries</td><td>accessories.example</td><td class="n x">$18.99</td><td><span class="chip no"><i></i>Refused</span></td></tr>
+          <tr><td class="w">Tue 11:40</td><td><b>Grocery order</b><small>First order of the week, from your usual list.</small></td><td>Groceries</td><td>grocer.example</td><td class="n">$43.40</td><td><span class="chip ok"><i></i>Paid</span></td></tr>
+          <tr><td class="w">Tue 10:02</td><td><b>Dog food, 12 kg bag</b><small>Same bag as the last three orders. Runs out Thursday.</small></td><td>Dog food</td><td>petsupply.example</td><td class="n">$32.50</td><td><span class="chip ok"><i></i>Paid</span></td></tr>
+          <tr class="sys"><td class="w">Sun 21:14</td><td><a href="Plan.dc.html"><b>You approved the plan</b></a><small>Four lines, based on your last four weeks.</small></td><td>All lines</td><td></td><td class="n">$176.50</td><td><span class="chip"><i></i>Hold placed</span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <div class="foot"><span>Approved <b>$281.00</b></span><span>Paid <b>$265.80</b></span><span>Refused <b>$18.99</b></span><span>Released <b>$15.20</b></span></div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1080}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Remit on a phone, this week</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0;background:#07080a}
+a{color:#f2f3f5}a:hover{color:#ffffff}
+.p{--bg:#07080a;--bg1:#0c0d10;--bg2:#121317;--bg3:#191a1f;--bg4:#24252c;--ln:rgba(255,255,255,.07);--ln2:rgba(255,255,255,.11);--ln3:rgba(255,255,255,.18);--fg:#f2f3f5;--fg2:#a6a9b1;--fg3:#80838c;--bar:#d9dbe1;--ok:#5fd3a0;--okb:rgba(95,211,160,.1);--no:#f27a5c;--nob:rgba(242,122,92,.11);--ask:#e8b85e;--askb:rgba(232,184,94,.11);width:390px;height:844px;overflow:hidden;font-family:"Geist",ui-sans-serif,system-ui,-apple-system,sans-serif;color:var(--fg);background:var(--bg);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;display:flex;flex-direction:column;box-sizing:border-box}
+.p *{box-sizing:border-box}
+.hd{display:flex;align-items:center;justify-content:space-between;padding:58px 20px 12px}
+.brand{display:flex;align-items:center;gap:8px;font-weight:600;font-size:15px}
+.brand svg{width:16px;height:16px}
+.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;color:var(--fg2);background:var(--bg3)}
+.chip i{width:6px;height:6px;border-radius:50%;background:currentColor}
+.chip.ok{color:var(--ok);background:var(--okb)}
+.chip.no{color:var(--no);background:var(--nob)}
+.chip.ask{color:var(--ask);background:var(--askb)}
+.body{flex:1;overflow:hidden;padding:8px 20px 0;display:flex;flex-direction:column;gap:18px}
+.k{font-size:12.5px;color:var(--fg3)}
+.big{font-size:52px;font-weight:500;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums;margin:8px 0 6px}
+.ask{display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:14px;background:var(--askb);border:1px solid rgba(232,184,94,.22)}
+.ask p{margin:0;font-size:14px}
+.ask p span{display:block;color:var(--fg2);font-size:13px}
+.btn{display:flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-radius:11px;font-family:inherit;font-size:15px;font-weight:500;text-decoration:none;border:1px solid transparent}
+.btn.pri{background:var(--fg);color:var(--bg)}
+.lines{border-radius:14px;background:var(--bg1);border:1px solid var(--ln2)}
+.ln{padding:13px 14px;border-bottom:1px solid var(--ln);display:flex;flex-direction:column;gap:8px}
+.ln:last-child{border-bottom:0}
+.ln .top{display:flex;justify-content:space-between;gap:12px;font-size:14px}
+.ln .top span{font-variant-numeric:tabular-nums;color:var(--fg3);font-size:13px}
+.ln .top span b{color:var(--fg);font-weight:500}
+.track{height:4px;border-radius:2px;background:var(--bg4);overflow:hidden}
+.fill{height:100%;border-radius:2px;background:var(--bar)}
+.tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--ln);padding:8px 8px 30px;background:#0a0b0d}
+.tab{display:flex;flex-direction:column;align-items:center;gap:3px;min-height:44px;justify-content:center;font-size:11px;color:var(--fg3);text-decoration:none}
+.tab svg{width:20px;height:20px}
+.tab.on{color:var(--fg)}
+.tab .dot{position:relative}
+.tab .dot::after{content:"";position:absolute;top:-1px;right:-3px;width:7px;height:7px;border-radius:50%;background:var(--ask)}
+</style>
+</helmet>
+<div class="p">
+  <header class="hd">
+    <div class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M10 4.5H4.5v23H10M22 4.5h5.5v23H22" fill="none" stroke="currentColor" stroke-width="3"></path><rect x="8" y="9.5" width="8.5" height="13" fill="currentColor"></rect></svg>This week</div>
+    <span class="chip ok"><i></i>Hold active</span>
+  </header>
+  <main class="body">
+    <div>
+      <div class="k">Left to spend, Nov 9 – 15</div>
+      <div class="big">$55.20</div>
+      <div class="k">of $176.50 held on PayPal. $121.30 captured.</div>
+    </div>
+    <div class="ask">
+      <p>Claude is asking for $104.50 more for Sam’s gift.<span>The gift you picked is $144.50. The line has $40.00.</span></p>
+      <a class="btn pri" href="PhoneApprove.dc.html">Review request</a>
+    </div>
+    <section class="lines" aria-label="Lines">
+      <div class="ln"><div class="top">Groceries<span><b>$86.80</b> / $88.00</span></div><div class="track"><div class="fill" style="width:98.6%"></div></div></div>
+      <div class="ln"><div class="top">Dog food<span><b>$32.50</b> / $32.50</span></div><div class="track"><div class="fill" style="width:100%"></div></div></div>
+      <div class="ln"><div class="top">Gift for Sam<span><b>$0.00</b> / $40.00</span></div><div class="track"><div class="fill" style="width:0%"></div></div></div>
+      <div class="ln"><div class="top">Shared buffer<span><b>$2.00</b> / $16.00</span></div><div class="track"><div class="fill" style="width:12.5%"></div></div></div>
+    </section>
+  </main>
+  <nav class="tabs" aria-label="Sections">
+    <a class="tab on" href="PhoneWeek.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3" width="11" height="10.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.2"></rect><path d="M2.5 6.5h11" stroke="currentColor" stroke-width="1.2"></path></svg>This week</a>
+    <a class="tab" href="PhoneApprove.dc.html"><span class="dot"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.5h10v7H8.5L5.5 13v-2.5H3z" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"></path></svg></span>Requests</a>
+    <a class="tab" href="Ledger.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10M3 8h10M3 12h6" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"></path></svg>Ledger</a>
+    <a class="tab" href="Agents.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="5.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.2"></circle><path d="M3 13.5c.6-2.4 2.6-3.8 5-3.8s4.4 1.4 5 3.8" fill="none" stroke="currentColor" stroke-width="1.2"></path></svg>Agents</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

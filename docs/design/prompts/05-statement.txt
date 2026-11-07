@@ -1,0 +1,23 @@
+Top bar, the same on every screen of this app: wordmark "Remit" on the left; then four text tabs exactly "This week", "History", "Agents", "Settings", with "History" shown selected (light gray pill behind it); on the far right two small outlined pill tags "PayPal sandbox" and "Claude · active". No sidebar, no other navigation.
+
+Desktop web app wireframe, 1440 wide, for "Remit". Screen: end-of-week statement after the period closed.
+
+Below the top bar, header: label "Statement", title "Week of Nov 9 – 15 · closed Nov 15, 23:59". A small outlined button on the right "Download PDF".
+
+A row of three large figures in monospace, each with a label above:
+   "Approved  $281.00" / "Spent  $219.80" / "Returned to you  $61.20".
+Under them one long horizontal bar split: a solid dark part "Spent", and an empty outlined part "Returned".
+
+Section "By line" as a table with columns: Line, Limit, Spent, Left, Note.
+   "Groceries · $88.00 · $86.80 · $1.20 · 2 orders"
+   "Dog food · $32.50 · $32.50 · $0.00 · 1 order"
+   "Birthday gift for Sam · $144.50 · $95.00 · $49.50 · $40 + $104.50 top-up"
+   "Shared buffer · $16.00 · $5.50 · $10.50 · shipping"
+   "Refused · — · — · — · 1 attempt, $18.99"
+
+Section "Holds" with two rows: "Hold 1 · $176.50 · partly captured · leftover released when the hold expires Dec 7" and "Hold 2 · $104.50 · partly captured · leftover released when the hold expires Dec 11". A small gray footnote: "PayPal can't void a hold after a partial capture, so the rest is released at expiry."
+
+A bordered box at the bottom: "Next week's request is ready · $168.00 · 4 lines" with a button "Review request".
+
+Annotations: 1 the statement leads with what came back, 2 every line reconciles to the cent, 3 honest about when PayPal releases the money, 4 the next request is the next action.
+STYLE: a clean low-fidelity UX wireframe, the kind a senior product designer draws in Figma before visual design. Pure white background, grayscale only (#222 lines and text, #888 secondary text, #e5e5e5 placeholder fills), 1px hairline strokes, square-ish corners with 6px radius, a plain sans-serif for all text, monospace for every money amount. No colors, no gradients, no shadows, no glow, no 3D, no illustrations, no icons except simple outline glyphs, no device mockup, no hands, no perspective: a flat, straight-on screen. All text must be legible, spelled exactly as given, in English. Add 4 to 6 small numbered annotation circles (black circle, white number) placed next to key elements, with a narrow annotation column on the right edge listing what each number means in one short line.

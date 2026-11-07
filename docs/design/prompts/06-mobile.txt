@@ -1,0 +1,10 @@
+Mobile app wireframe: three phone-sized screens (390 wide each) placed side by side in a row with equal gaps, flat, no device frames, each with a thin outline and a small label above it: "1 Notification", "2 Review", "3 Done".
+
+Screen 1, a phone lock screen showing the time "9:41" and the date "Thu, Nov 12", with one notification card: "Remit · Claude is asking for $104.50" and "For Sam's birthday gift. Your plan had no line for it." Under it two buttons "Review" and "Not now".
+
+Screen 2, titled "Top-up request": big monospace "$104.50", a short breakdown "Wireless headphones $95.00" / "Shipping or price change $9.50", the agent's reason quoted in gray: "You picked these for Sam's birthday. They're $95.00, plus about 10% for shipping or a price change.", a note "New hold. Nothing is taken until Claude buys.", and a full-width bottom button "Approve on PayPal", with a smaller "Decline" text button under it.
+
+Screen 3, titled "Approved": a simple outline check mark, "$104.50 held on PayPal", "Claude can now buy the headphones. You'll see the purchase and its reason in the ledger.", and a mini bar showing "Spent $121.30 · Held $159.70". A button "Back to this week".
+
+Annotations: 1 the notification states amount and reason up front, 2 one decision per screen, 3 the confirmation explains what the agent can now do.
+STYLE: a clean low-fidelity UX wireframe, the kind a senior product designer draws in Figma before visual design. Pure white background, grayscale only (#222 lines and text, #888 secondary text, #e5e5e5 placeholder fills), 1px hairline strokes, square-ish corners with 6px radius, a plain sans-serif for all text, monospace for every money amount. No colors, no gradients, no shadows, no glow, no 3D, no illustrations, no icons except simple outline glyphs, no device mockup, no hands, no perspective: a flat, straight-on screen. All text must be legible, spelled exactly as given, in English. Add 4 to 6 small numbered annotation circles (black circle, white number) placed next to key elements, with a narrow annotation column on the right edge listing what each number means in one short line.

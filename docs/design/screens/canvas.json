@@ -1,0 +1,37 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-11-07T21:10:00Z" },
+  "title": "Remit Screens",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 3040, "y": 0, "w": 1440, "h": 1080, "title": "This week", "expand": "fill", "is_interactive": true },
+    "Setup.dc.html": { "x": 0, "y": 0, "w": 1440, "h": 1080, "title": "Set up", "expand": "fill", "is_interactive": true },
+    "Plan.dc.html": { "x": 1520, "y": 0, "w": 1440, "h": 1080, "title": "Review a plan", "expand": "fill", "is_interactive": true },
+    "Purchase.dc.html": { "x": 4560, "y": 0, "w": 1440, "h": 1080, "title": "A refused purchase", "expand": "fill", "is_interactive": true },
+    "Topup.dc.html": { "x": 0, "y": 1500, "w": 1440, "h": 1080, "title": "Top-up request", "expand": "fill", "is_interactive": true },
+    "Ledger.dc.html": { "x": 1520, "y": 1500, "w": 1440, "h": 1080, "title": "Ledger", "expand": "fill", "is_interactive": true },
+    "Statement.dc.html": { "x": 3040, "y": 1500, "w": 1440, "h": 1080, "title": "Statement", "expand": "fill", "is_interactive": true },
+    "Agents.dc.html": { "x": 4560, "y": 1500, "w": 1440, "h": 1080, "title": "Agents", "expand": "fill", "is_interactive": true },
+    "PhoneWeek.dc.html": { "x": 0, "y": 3000, "w": 390, "h": 844, "title": "Phone: this week", "radius": 44 },
+    "PhoneApprove.dc.html": { "x": 470, "y": 3000, "w": 390, "h": 844, "title": "Phone: approve a top-up", "radius": 44 }
+  },
+  "order": [
+    "Main.dc.html",
+    "Setup.dc.html",
+    "Plan.dc.html",
+    "Purchase.dc.html",
+    "Topup.dc.html",
+    "Ledger.dc.html",
+    "Statement.dc.html",
+    "Agents.dc.html",
+    "PhoneWeek.dc.html",
+    "PhoneApprove.dc.html"
+  ],
+  "notes": {
+    "row1": { "x": 0, "y": -300, "text": "Web app: set up, approve a plan, watch the week", "kind": "title1", "maxW": 6000 },
+    "row2": { "x": 0, "y": 1200, "text": "Web app: requests, records and agents", "kind": "title1", "maxW": 6000 },
+    "row3": { "x": 0, "y": 2700, "text": "Phone", "kind": "title1", "maxW": 860 }
+  },
+  "designSystems": []
+}

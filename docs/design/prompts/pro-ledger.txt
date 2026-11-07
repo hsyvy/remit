@@ -1,0 +1,6 @@
+DIRECTION "Ledger". Warm, trustworthy, editorial, in the spirit of the best modern banking websites for founders.
+- Background warm off-white #F6F4EF. Text deep ink #1B1A17.
+- Headline left-aligned in the left 7 columns in a refined high-contrast serif (like a modern text serif), very large (around 76 px), regular weight; subline in a clean grotesk sans, warm grey #6B675E; actions: a deep ink button #1B1A17 with off-white text and an ink text link.
+- Right side: the product shown inside a large framed panel: a soft, natural, real photograph of warm morning light and shadow falling across a plain plaster wall (abstract, no objects, no people) fills the panel with 20 px rounded corners, and the white budget card floats crisply on top of it, with the smaller activity card overlapping its lower left corner. The card UI uses the grotesk sans with tabular figures.
+- Progress bars in deep ink on a light warm track; refused row with a small red-orange dot #D8532F. One accent only.
+- Under the hero, a quiet line: "Built on PayPal authorization holds. Your money never leaves your account until a purchase is approved."

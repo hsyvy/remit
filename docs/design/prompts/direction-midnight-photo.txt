@@ -1,0 +1,13 @@
+Photorealistic editorial studio photograph of a finished brand identity for "Remit", a premium wallet that lets an AI agent spend only what its owner approved, with every purchase tied to a reason. The identity was made by a top brand studio for a private-banking level of trust: restrained, quiet, expensive, precise. Overhead flat-lay composition, generous negative space, soft directional daylight from the upper left, gentle natural shadows, true-to-life paper and metal textures, shallow depth of field at the edges. Magazine-quality, like an award-winning identity case study photo.
+Objects, carefully arranged with space between them (no hands, no people):
+On a deep midnight-navy linen surface:
+1. A thick heavyweight bone-white cotton card with the monogram blind-embossed (no ink, only relief) at the top and below it the wordmark "Remit" printed in navy, and small text "Your agent spends within its remit."
+2. A matte midnight-navy metal card with the monogram foil-stamped in champagne in the corner and nothing else.
+3. A folded bone-white statement letter, partly visible, headed "Remit" with a line "Week of Nov 9 – 15". The statement letter shows exactly three rows of figures and no other numbers anywhere: "Approved  $281.00", then "Spent  $219.80", then a hairline and "Returned to you  $61.20". No other rows, no fees, no refused row.
+4. A smartphone lying flat, dark screen showing the app: the monogram small at the top, a large serif figure "$55.20", small text "left this week", a thin champagne-and-bone bar, and one button "Approve $104.50 on PayPal".
+IDENTITY "Midnight":
+- Monogram: a refined serif capital R set inside a thin square frame; the R's diagonal leg reaches down and stops exactly on the bottom edge of the frame without crossing it, meaning "within its remit". Thin, precise, elegant.
+- Wordmark: "Remit" in a refined high-contrast transitional serif, regular weight, sentence case, slightly generous letter spacing.
+- Colors: deep midnight navy #0E1A2B, bone white #EFEBE3, champagne #C8B68E used only for foil and fine details, slate gray #5B6675. Money states are muted: held in soft amber #B8893A, refused in muted brick #A5483D.
+- Typography: the serif for headings and large figures; a neutral, very legible sans for interface text.
+Every piece of text must be crisp, correctly spelled exactly as given, and in English. Keep printed text minimal and elegant. No gradients, no glow, no neon, no sparkles, no robots, no AI imagery, no clutter, no props like plants, coffee or pens.

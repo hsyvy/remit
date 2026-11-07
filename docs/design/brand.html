@@ -1,0 +1,724 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Remit Design Direction</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Brand direction and wireframes for Remit, a spending wallet for AI agents built on PayPal authorization holds.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: a statement you can audit. One reading column, specimens set in the same
+   column as the text they explain, wireframes full column width so their copy is legible.
+   Tokens extend web/styles.css: same ink, paper and money colors, with spent moved to ink
+   so blue only ever means "you can press this". */
+:root {
+  --paper: #f6f7f9;
+  --sheet: #ffffff;
+  --ink: #17223b;
+  --ink-soft: #4a5672;
+  --rule: #d9dde6;
+  --action: #2348c9;     /* buttons and links only */
+  --spent: #17223b;      /* captured: solid ink */
+  --hold: #b7791f;       /* held, not spent: hatched amber */
+  --hold-bg: #fbf1df;
+  --free: #2f7d5b;       /* released back to the owner: outline green */
+  --refused: #b4322b;
+  --tint: #eef1fb;
+  --on-ink: #f6f7f9;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #10141d; --sheet: #171c28; --ink: #e6e9f2; --ink-soft: #a3abc2; --rule: #2c3346;
+    --action: #7d9bff; --spent: #e6e9f2; --hold: #e0a84a; --hold-bg: #2a2214; --free: #5fc495;
+    --refused: #f07a72; --tint: #1c2338; --on-ink: #10141d;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #10141d; --sheet: #171c28; --ink: #e6e9f2; --ink-soft: #a3abc2; --rule: #2c3346;
+  --action: #7d9bff; --spent: #e6e9f2; --hold: #e0a84a; --hold-bg: #2a2214; --free: #5fc495;
+  --refused: #f07a72; --tint: #1c2338; --on-ink: #10141d;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--paper); color: var(--ink);
+  font-family: var(--f-body); font-size: 16px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1120px; margin: 0 auto; padding-block: 40px 96px; display: grid; gap: 88px; }
+h1, h2, h3 { font-family: var(--f-display); line-height: 1.1; margin: 0; text-wrap: balance; }
+h2 { font-size: clamp(1.6rem, 3.2vw, 2.2rem); font-weight: 700; letter-spacing: -0.02em; }
+h3 { font-size: 1.15rem; font-weight: 700; }
+p { margin: 0; max-width: 64ch; }
+a { color: var(--action); }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--action); outline-offset: 3px; }
+.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.soft { color: var(--ink-soft); }
+.label {
+  font-family: var(--f-mono); font-size: 0.72rem; letter-spacing: 0.09em; text-transform: uppercase; color: var(--ink-soft);
+}
+section { display: grid; gap: 28px; min-width: 0; }
+.sec-head { display: grid; gap: 10px; }
+.sec-head p { color: var(--ink-soft); }
+
+/* Masthead */
+.mast { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px 24px; border-bottom: 1px solid var(--rule); padding-bottom: 18px; }
+.lockup { display: flex; align-items: center; gap: 10px; color: var(--ink); }
+.lockup svg { width: 34px; height: 34px; }
+.lockup b { font-family: var(--f-display); font-weight: 800; font-size: 1.6rem; letter-spacing: -0.035em; }
+.mast .label { text-align: right; }
+
+/* Hero */
+.hero { display: grid; gap: 36px; }
+.hero h1 { font-size: clamp(2.4rem, 6.4vw, 4.6rem); font-weight: 800; letter-spacing: -0.04em; max-width: 15ch; }
+.hero h1 em { font-style: normal; color: var(--ink-soft); }
+.hero .lede { font-size: 1.15rem; }
+.statement { background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; padding: clamp(18px, 3vw, 32px); display: grid; gap: 18px; }
+.statement-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 10px 24px; }
+.big { font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 500; letter-spacing: -0.03em; line-height: 1; }
+.big small { font-size: 0.4em; color: var(--ink-soft); letter-spacing: 0; font-weight: 400; }
+
+/* Remit bar: solid = spent, hatched = held, outline = released */
+.bar { display: flex; height: 44px; border-radius: 6px; overflow: hidden; border: 1px solid var(--rule); }
+.bar > span { display: block; min-width: 0; }
+.seg-spent { background: var(--spent); }
+.seg-held { background: repeating-linear-gradient(135deg, var(--hold) 0 2px, var(--hold-bg) 2px 7px); }
+.seg-free { background: var(--sheet); box-shadow: inset 0 0 0 2px var(--free); border-radius: 0 5px 5px 0; }
+.bar.thin { height: 10px; border-radius: 3px; }
+.legend { display: flex; flex-wrap: wrap; gap: 10px 28px; }
+.legend div { display: grid; gap: 2px; }
+.legend .key { display: flex; align-items: center; gap: 8px; }
+.sw { width: 14px; height: 14px; border-radius: 3px; flex: none; }
+.legend .num { font-size: 1.05rem; }
+
+/* Directions */
+.dirs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 860px) { .dirs { grid-template-columns: minmax(0, 1fr); } }
+.dir { border: 1px solid var(--rule); border-radius: 10px; padding: 20px; display: grid; gap: 14px; align-content: start; background: var(--sheet); }
+.dir.pick { border: 2px solid var(--ink); }
+.dir .verdict { font-family: var(--f-mono); font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; }
+.dir.pick .verdict { color: var(--free); }
+.dir:not(.pick) .verdict { color: var(--ink-soft); }
+.dir p { font-size: 0.95rem; }
+.chips { display: flex; gap: 6px; }
+.chips span { width: 34px; height: 22px; border-radius: 4px; border: 1px solid var(--rule); }
+
+/* Mark */
+.mark-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 860px) { .mark-grid { grid-template-columns: minmax(0, 1fr); } }
+.plate { border: 1px solid var(--rule); border-radius: 10px; background: var(--sheet); padding: 28px; display: grid; gap: 20px; align-content: start; }
+.plate.ink { background: var(--ink); color: var(--on-ink); border-color: var(--ink); }
+.construct { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 24px; align-items: center; }
+@media (max-width: 520px) { .construct { grid-template-columns: minmax(0, 1fr); } }
+.construct svg.mark-xl { width: 168px; height: 168px; color: var(--ink); }
+.construct dl { margin: 0; display: grid; gap: 12px; }
+.construct dt { font-family: var(--f-mono); font-size: 0.78rem; color: var(--ink-soft); }
+.construct dd { margin: 0; }
+.sizes { display: flex; flex-wrap: wrap; align-items: end; gap: 22px; }
+.sizes figure { margin: 0; display: grid; gap: 6px; justify-items: center; }
+.sizes figcaption { font-family: var(--f-mono); font-size: 0.7rem; color: var(--ink-soft); }
+.plate.ink .sizes figcaption { color: inherit; opacity: 0.7; }
+.lockups { display: grid; gap: 22px; }
+
+/* Color */
+.swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.swatch { border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; background: var(--sheet); display: grid; }
+.swatch .fill { height: 84px; }
+.swatch .meta { padding: 12px 14px; display: grid; gap: 2px; }
+.swatch .meta b { font-weight: 600; }
+.swatch .meta span { font-size: 0.88rem; color: var(--ink-soft); }
+.fill.f-spent { background: var(--spent); }
+.fill.f-held { background: repeating-linear-gradient(135deg, var(--hold) 0 2px, var(--hold-bg) 2px 7px); }
+.fill.f-free { background: var(--sheet); box-shadow: inset 0 0 0 3px var(--free); }
+.fill.f-refused { background: var(--refused); }
+.fill.f-action { background: var(--action); }
+.fill.f-paper { background: var(--paper); border-bottom: 1px solid var(--rule); }
+
+/* Type */
+.type-rows { display: grid; border-top: 1px solid var(--rule); }
+.type-row { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 8px 24px; padding: 22px 0; border-bottom: 1px solid var(--rule); align-items: baseline; }
+@media (max-width: 640px) { .type-row { grid-template-columns: minmax(0, 1fr); } }
+.type-row .label { line-height: 1.5; }
+.t-display { font-family: var(--f-display); font-weight: 800; font-size: clamp(1.8rem, 4vw, 2.6rem); letter-spacing: -0.035em; line-height: 1.05; }
+.t-body { font-size: 1.05rem; max-width: 58ch; }
+.t-mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 1.05rem; display: grid; grid-template-columns: auto auto; justify-content: start; gap: 2px 28px; }
+.t-mono span:nth-child(even) { text-align: right; }
+
+/* Components */
+.comp-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 860px) { .comp-grid { grid-template-columns: minmax(0, 1fr); } }
+.comp { border: 1px solid var(--rule); border-radius: 10px; background: var(--sheet); padding: 22px; display: grid; gap: 16px; align-content: start; min-width: 0; }
+.comp > p.soft { font-size: 0.9rem; }
+.line-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+.line-row:last-child { border-bottom: 0; }
+.line-row .bar { grid-column: 1 / -1; }
+.line-row .num { font-size: 0.92rem; }
+.entry { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 16px; padding: 12px 0; border-bottom: 1px solid var(--rule); }
+.entry:last-child { border-bottom: 0; }
+.entry .why { grid-column: 1 / -1; font-size: 0.9rem; color: var(--ink-soft); }
+.entry .meta { font-size: 0.82rem; color: var(--ink-soft); font-family: var(--f-mono); }
+.entry.refused .amt { text-decoration: line-through; color: var(--ink-soft); }
+.pill { display: inline-flex; align-items: center; gap: 6px; font-family: var(--f-mono); font-size: 0.72rem; letter-spacing: 0.04em; padding: 2px 9px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.pill.paid { color: var(--spent); }
+.pill.held { color: var(--hold); }
+.pill.back { color: var(--free); }
+.pill.no { color: var(--refused); }
+.pill.you { color: var(--action); }
+.pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.approve { display: grid; gap: 10px; }
+.btn { font: inherit; font-weight: 600; border-radius: 8px; padding: 13px 18px; border: 1px solid var(--rule); background: var(--sheet); color: var(--ink); cursor: pointer; }
+.btn.primary { background: var(--action); border-color: var(--action); color: #fff; }
+:root[data-theme="dark"] .btn.primary { color: var(--paper); }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary { color: var(--paper); } }
+.btn-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.check { border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px; display: grid; gap: 10px; }
+.check .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; font-size: 0.86rem; }
+.check .cols b { display: block; font-family: var(--f-mono); font-weight: 500; font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
+
+/* Principles and voice */
+.principles { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 28px 32px; }
+.principles div { display: grid; gap: 8px; align-content: start; border-top: 2px solid var(--ink); padding-top: 14px; }
+.principles p { font-size: 0.95rem; color: var(--ink-soft); }
+.voice { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.voice-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--sheet); }
+.voice th, .voice td { text-align: left; padding: 14px 18px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+.voice tr:last-child td { border-bottom: 0; }
+.voice th { font-family: var(--f-mono); font-weight: 500; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+.voice td:first-child { font-weight: 500; min-width: 220px; }
+.voice td:nth-child(2) { color: var(--ink-soft); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--refused) 60%, transparent); min-width: 200px; }
+.voice td:nth-child(3) { color: var(--ink-soft); font-size: 0.88rem; min-width: 200px; }
+.avoid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0 32px; padding: 0; margin: 0; list-style: none; }
+.avoid li { padding: 12px 0; border-bottom: 1px solid var(--rule); display: grid; gap: 2px; }
+.avoid li b { font-weight: 600; }
+.avoid li span { font-size: 0.9rem; color: var(--ink-soft); }
+
+/* Web concepts */
+.webs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px 20px; align-items: start; }
+@media (max-width: 980px) { .webs { grid-template-columns: minmax(0, 1fr); } .web { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); } }
+@media (max-width: 620px) { .web { grid-template-columns: minmax(0, 1fr); } }
+.web { display: grid; gap: 14px; align-content: start; padding-top: 16px; border-top: 1px solid var(--rule); }
+.web.pick { border-top: 3px solid var(--ink); }
+.web.pick .verdict { color: var(--free); }
+.web .verdict { font-family: var(--f-mono); font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
+.web-text { display: grid; gap: 10px; font-size: 0.93rem; align-content: start; }
+.web-text > p { color: var(--ink-soft); }
+.web-text ul { margin: 6px 0 0; padding-left: 1.1em; display: grid; gap: 4px; }
+.pros { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 44px 28px; align-items: start; margin-bottom: 40px; }
+@media (max-width: 860px) { .pros { grid-template-columns: minmax(0, 1fr); } }
+details.earlier + details.earlier { margin-top: 16px; }
+details.earlier { border-top: 1px solid var(--rule); padding-top: 14px; }
+details.earlier summary { cursor: pointer; font-weight: 600; }
+details.earlier[open] summary { margin-bottom: 24px; }
+
+/* Rendered directions */
+.rdirs { display: grid; gap: 56px; }
+.rdir { display: grid; gap: 16px; padding-top: 20px; border-top: 1px solid var(--rule); }
+.rdir.pick { border-top: 3px solid var(--ink); }
+.rdir-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 14px; align-items: baseline; }
+.rdir-head h3 { font-size: 1.5rem; letter-spacing: -0.02em; }
+.rdir-head p { grid-column: 1 / -1; color: var(--ink-soft); }
+.rdir .verdict { font-family: var(--f-mono); font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
+.rdir.pick .verdict { color: var(--free); }
+.rdir-imgs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+@media (max-width: 760px) { .rdir-imgs { grid-template-columns: minmax(0, 1fr); } }
+.rdir-notes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 32px; font-size: 0.93rem; }
+@media (max-width: 760px) { .rdir-notes { grid-template-columns: minmax(0, 1fr); } }
+.rdir-notes ul { margin: 6px 0 0; padding-left: 1.1em; display: grid; gap: 4px; }
+button.zoom { display: block; padding: 0; border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; background: #fff; cursor: zoom-in; width: 100%; }
+button.zoom img { display: block; width: 100%; height: auto; }
+
+/* Wireframes */
+.frames { display: grid; gap: 64px; }
+.frame { display: grid; gap: 16px; margin: 0; }
+.frame-head { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr); gap: 4px 12px; align-items: baseline; }
+.frame-head .num { color: var(--ink-soft); font-size: 0.95rem; }
+.frame-head p { grid-column: 2; color: var(--ink-soft); }
+.frame button.zoom { display: block; padding: 0; border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; background: #fff; cursor: zoom-in; width: 100%; }
+.frame img { display: block; width: 100%; height: auto; }
+.flow-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 10px; background: var(--sheet); padding: 12px; }
+.flow { display: block; width: 100%; min-width: 720px; height: auto; font-family: var(--f-body); }
+.fl-life { stroke: var(--rule); stroke-width: 1.5; stroke-dasharray: 4 5; }
+.fl-actor { fill: var(--paper); stroke: var(--ink); stroke-width: 1.5; }
+.fl-actor-t { fill: var(--ink); font-family: var(--f-display); font-weight: 700; font-size: 15px; }
+.fl-phase { fill: var(--ink-soft); font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
+.fl-rule { stroke: var(--rule); stroke-width: 1; }
+.fl-arrow { stroke-width: 1.8; }
+.fl-label { font-size: 12.5px; }
+.fl-mono { font-family: var(--f-mono); font-weight: 500; }
+.fl-note { fill: var(--paper); stroke-width: 1.5; }
+.k-ink, .n-ink { stroke: var(--ink); } .k-inkt { fill: var(--ink); } .k-inkf { fill: var(--ink); }
+.k-action { stroke: var(--action); } .k-actiont { fill: var(--action); font-weight: 600; } .k-actionf { fill: var(--action); }
+.k-hold { stroke: var(--hold); } .k-holdt { fill: var(--hold); font-weight: 600; } .k-holdf { fill: var(--hold); }
+.k-spent, .n-spent { stroke: var(--spent); } .k-spentt { fill: var(--spent); } .k-spentf { fill: var(--spent); }
+.k-refused { stroke: var(--refused); } .k-refusedt { fill: var(--refused); font-weight: 600; } .k-refusedf { fill: var(--refused); }
+.k-free { stroke: var(--free); } .k-freet { fill: var(--free); font-weight: 600; } .k-freef { fill: var(--free); }
+dialog { border: 0; padding: 0; background: transparent; max-width: 100vw; max-height: 100vh; width: 100vw; height: 100vh; }
+dialog::backdrop { background: rgba(10, 14, 22, 0.86); }
+dialog .inner { width: 100%; height: 100%; overflow: auto; padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); display: grid; place-items: center; }
+dialog img { max-width: none; width: min(1536px, 160vw); height: auto; background: #fff; border-radius: 6px; cursor: zoom-out; }
+dialog .close { position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); font-family: var(--f-mono); }
+
+.next { display: grid; gap: 0; border-top: 1px solid var(--rule); }
+.next div { display: grid; grid-template-columns: 2.4rem minmax(0, 1fr); gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--rule); }
+.next .num { color: var(--ink-soft); }
+footer { border-top: 1px solid var(--rule); padding-top: 18px; font-size: 0.85rem; color: var(--ink-soft); }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <!-- The mark: two brackets are the remit, the block is what's been spent, the gap is what comes back. -->
+    <symbol id="mark" viewBox="0 0 32 32">
+      <path d="M10 4.5H4.5v23H10M22 4.5h5.5v23H22" fill="none" stroke="currentColor" stroke-width="3"/>
+      <rect x="8" y="9.5" width="8.5" height="13" fill="currentColor"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="wrap">
+  <header class="mast">
+    <div class="lockup"><svg aria-hidden="true"><use href="#mark"/></svg><b>Remit</b></div>
+    <span class="label">Brand and wireframes · Draft · Nov 7, 2026</span>
+  </header>
+
+  <section class="hero" aria-labelledby="h-hero">
+    <div class="sec-head">
+      <span class="label">The idea the design is built on</span>
+      <h1 id="h-hero">Every dollar has a reason. <em>Every reason has a limit.</em></h1>
+    </div>
+    <p class="lede">Remit is a wallet an AI agent can spend from only after you approve its plan on PayPal. The owner's job is to check, not to chat, so the interface reads like a bank statement that explains itself: amounts in a ledger face, each with its reason beside it, and color used only to say where the money is.</p>
+
+    <div class="statement" aria-label="Example week">
+      <div class="statement-top">
+        <div style="display:grid;gap:8px">
+          <span class="label">Household agent · Nov 9 – 15 · example data</span>
+          <div class="big">$55.20 <small>left of $176.50</small></div>
+        </div>
+        <span class="pill you">Needs you · 1 top-up</span>
+      </div>
+      <div class="bar" role="img" aria-label="Spent $121.30, held $55.20, released $0.00">
+        <span class="seg-spent" style="flex:121.3"></span>
+        <span class="seg-held" style="flex:55.2"></span>
+      </div>
+      <div class="legend">
+        <div><span class="key"><i class="sw seg-spent"></i><span class="label">Spent</span></span><span class="num">$121.30</span></div>
+        <div><span class="key"><i class="sw seg-held"></i><span class="label">Held, not spent</span></span><span class="num">$55.20</span></div>
+        <div><span class="key"><i class="sw seg-free"></i><span class="label">Returned to you</span></span><span class="num">$0.00 · Nov 15</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-dir">
+    <div class="sec-head">
+      <p class="soft" style="margin-bottom:12px;padding:14px 16px;border:1px solid var(--rule);border-radius:10px"><b>Latest, round 6, to compare:</b> <a href="https://claude.ai/artifact/FVVVtaxk5zBRvnwgBmbhcZ">Remit Envelopes</a> (with the aperture logo) and <a href="https://claude.ai/artifact/9hKjd7H6Z2s3FD8BASKVuW">Remit Escapement</a>, both coded and playing the example week.</p>
+      <p class="soft" style="margin-bottom:28px;padding:14px 16px;border:1px solid var(--rule);border-radius:10px"><b>Round 5:</b> a real coded landing page in the spirit of Linear, with a live console that plays the example week. <a href="https://claude.ai/artifact/8EyBAHZJ91N5AzUeEGvmpJ">Open Remit Site</a>. The web app and phone screens in the same style are on <a href="https://claude.ai/artifact/FtjsAHctrLgSEAPXXHzCkc">Remit Screens</a>. The image rounds below are kept for reference.</p>
+      <span class="label">Earlier · round 4 · web landing pages · gpt-image-2.6-sunburst</span>
+      <h2 id="h-dir">Four product-led landing pages, in the register of the best fintech and consumer-tech sites. I recommend Ledger.</h2>
+      <p>Round three leaned on metaphors (vaults, irises, carved stone), which made it look art-directed rather than professional. The sites people trust with money lead with the product itself, shown perfectly, and let restraint do the rest. So all four of these share one layout idea: the real Remit budget card and activity feed as the hero, with the real numbers from the example week. They differ only in light, type and tone. Pick one and I’ll design the rest of the page and the web app screens in it.</p>
+    </div>
+    <div class="pros">
+      <article class="web pick" id="pro-ledger">
+        <button class="zoom" type="button"><img src="web/pro-ledger.webp" alt="Ledger landing page, first screen" loading="lazy" width="1536" height="1024"></button>
+        <div class="web-text">
+          <div class="rdir-head"><h3>Ledger</h3><span class="verdict">Recommended</span></div>
+          <p>Warm and editorial, like the best modern banks for founders. A text serif headline, warm off-white, and the product floating on a photograph of morning light on plaster.</p>
+          <div><b class="label">Why it works</b><ul><li>The most trustworthy and the most distinctive of the four: it feels like a bank you’d choose, not a dev tool.</li><li>The serif carries authority; the product card stays crisp sans with tabular figures.</li><li>The line under the hero states the PayPal promise plainly, which is what a cautious owner needs first.</li></ul></div>
+          <div><b class="label">Watch out for</b><ul><li>The light-on-plaster photo has to be a real photograph we own, shot or licensed.</li><li>Warm off-white with a serif is popular right now; it stays premium only with exact spacing and very good type.</li></ul></div>
+        </div>
+      </article>
+      <article class="web" id="pro-rails">
+        <button class="zoom" type="button"><img src="web/pro-rails.webp" alt="Rails landing page, first screen" loading="lazy" width="1536" height="1024"></button>
+        <div class="web-text">
+          <div class="rdir-head"><h3>Rails</h3><span class="verdict">Best for developers</span></div>
+          <p>Precise and technical, like payments infrastructure. Visible column guides, deep navy and one green, and a code panel showing the agent’s purchase call next to its result.</p>
+          <div><b class="label">Why it works</b><ul><li>Shows both audiences at once: the owner sees the budget, the developer sees how the agent spends it.</li><li>The densest and most informative first screen. The three facts underneath answer the obvious questions.</li></ul></div>
+          <div><b class="label">Watch out for</b><ul><li>Closest to existing payments sites; less personal for an owner trusting an agent with household money.</li><li>The code panel and fact row can move into Ledger’s developer section if you pick Ledger.</li></ul></div>
+        </div>
+      </article>
+      <article class="web" id="pro-clarity">
+        <button class="zoom" type="button"><img src="web/pro-clarity.webp" alt="Clarity landing page, first screen" loading="lazy" width="1536" height="1024"></button>
+        <div class="web-text">
+          <div class="rdir-head"><h3>Clarity</h3><span class="verdict">Most minimal</span></div>
+          <p>Bright and object-like, like a consumer-hardware product page. Centered headline, black pill button, and the budget card sitting on a pale grey stage as if it were a device.</p>
+          <div><b class="label">Why it works</b><ul><li>The simplest to read: one sentence, one object, one action.</li><li>The thin $55.20 figure makes the money the hero.</li></ul></div>
+          <div><b class="label">Watch out for</b><ul><li>Least ownable: with the logo removed, it could be many products.</li><li>Needs motion (the card filling in as purchases land) to feel alive.</li></ul></div>
+        </div>
+      </article>
+      <article class="web" id="pro-night">
+        <button class="zoom" type="button"><img src="web/pro-night.webp" alt="Night landing page, first screen" loading="lazy" width="1536" height="1024"></button>
+        <div class="web-text">
+          <div class="rdir-head"><h3>Night</h3><span class="verdict">Most premium</span></div>
+          <p>The same layout in the dark, lit from above like a product on a studio set. Off-white type, hairline borders, and a single muted mint for money still available.</p>
+          <div><b class="label">Why it works</b><ul><li>Feels like a premium card or pro product. The soft overhead light gives depth without glow.</li><li>Pairs naturally with a dark web app for people who check it at night.</li></ul></div>
+          <div><b class="label">Watch out for</b><ul><li>Dark sites can feel less open about money; long explanatory sections are harder to read.</li><li>Needs an equally careful light mode for the app and statements.</li></ul></div>
+        </div>
+      </article>
+    </div>
+    <details class="earlier">
+      <summary>Earlier round: six metaphor concepts (Vault, Departure board, Escapement, Aperture, Envelopes, Inscription)</summary>
+      <p class="soft" style="margin-bottom:20px">Live versions: <a href="https://claude.ai/artifact/XDuZvveM8h4gcUoTrcXhFB">Remit Live Concepts</a>.</p>
+    <div class="webs">
+      <article class="web pick" id="web-vault">
+        <button class="zoom" type="button"><img src="web/vault-landing.webp" alt="Vault landing page, full length" loading="lazy" width="1024" height="1536"></button>
+        <div class="web-text">
+          <div class="rdir-head"><h3>Vault</h3><span class="verdict">Recommended</span></div>
+          <p>Each line of the budget is its own compartment. The hero is a wall of bronze safe-deposit boxes engraved with the plan lines, with the dog food drawer pulled open because that money was just spent.</p>
+          <div><b class="label">Why it works</b><ul><li>Security, privacy and permanence in one picture, and it explains the product: separate compartments that can’t borrow from each other.</li><li>Bronze, parchment and verdigris green is a palette no other fintech or AI product uses.</li><li>On the live site the open drawer can follow the ledger: when the agent buys, that line’s box slides out.</li></ul></div>
+          <div><b class="label">Watch out for</b><ul><li>The hero needs a real high-resolution render made for it; this one is a concept.</li><li>The bronze plate in the product section is decoration. In the web app the cards should be flat parchment with bronze hairlines.</li></ul></div>
+        </div>
+      </article>
+      <article class="web" id="web-board">
+        <button class="zoom" type="button"><img src="web/board-landing.webp" alt="Departure board landing page, full length" loading="lazy" width="1024" height="1536"></button>
+        <div class="web-text">
+          <div class="rdir-head"><h3>Departure board</h3><span class="verdict">Most memorable</span></div>
+          <p>Every dollar has a reason, shown in public. The hero is a split-flap board that flips through the ledger, refusals and pending requests included.</p>
+          <div><b class="label">Why it works</b><ul><li>The most mesmerizing in motion: flaps flipping as each purchase lands is the demo moment.</li><li>Shows that refusals are part of the product rather than errors to hide.</li><li>Tabular figures and condensed type make every number line up perfectly.</li></ul></div>
+          <div><b class="label">Watch out for</b><ul><li>Industrial rather than premium: all-caps condensed type everywhere feels loud for a product that asks for trust.</li><li>Keep the board to the hero and the ledger; the rest of the site needs a calmer sentence-case voice.</li></ul></div>
+        </div>
+      </article>
+      <article class="web" id="web-escapement">
+        <button class="zoom" type="button"><img src="web/escapement-landing.webp" alt="Escapement landing page, full length" loading="lazy" width="1024" height="1536"></button>
+        <div class="web-text">
+          <div class="rdir-head"><h3>Escapement</h3><span class="verdict">Most luxurious</span></div>
+          <p>A watch’s escapement releases energy one tick at a time. Remit releases money one capture at a time. Midnight dial blue, rhodium silver, and a ruby used only for the one action.</p>
+          <div><b class="label">Why it works</b><ul><li>The richest image of the three, and the ruby-as-action idea is very ownable.</li><li>Precision and craft read immediately, with no explanation needed.</li></ul></div>
+          <div><b class="label">Watch out for</b><ul><li>The metaphor needs a sentence before people get it, and the imagery borrows from luxury watch advertising.</li><li>The logo came out as a compass needle, and the dial’s four segment colors don’t mean anything yet. Both need redesigning.</li></ul></div>
+        </div>
+      </article>
+      <article class="web" id="web-aperture">
+        <button class="zoom" type="button"><img src="web/aperture-landing.webp" alt="Aperture landing page, full length" loading="lazy" width="1024" height="1536"></button>
+        <div class="web-text">
+          <div class="rdir-head"><h3>Aperture</h3><span class="verdict">New</span></div>
+          <p>You set the aperture; the agent works inside it. Like a camera iris, the opening is exactly as wide as what you approved and narrows as money is spent.</p>
+          <div><b class="label">Why it works</b><ul><li>The calmest and most premium of the new three: one sculptural object on pale ground.</li><li>The iris is a live gauge: in the prototype the opening closes by exactly the share each purchase spends.</li><li>Works as a mark at every size.</li></ul></div>
+          <div><b class="label">Watch out for</b><ul><li>Camera irises are a familiar motif; the money meaning has to be shown, which the live version does.</li></ul></div>
+        </div>
+      </article>
+      <article class="web" id="web-envelopes">
+        <button class="zoom" type="button"><img src="web/envelope-landing.webp" alt="Envelopes landing page, full length" loading="lazy" width="1024" height="1536"></button>
+        <div class="web-text">
+          <div class="rdir-head"><h3>Envelopes</h3><span class="verdict">New</span></div>
+          <p>The cash-envelope method, the oldest household budgeting system, rebuilt for agents. Each line is its own paper envelope.</p>
+          <div><b class="label">Why it works</b><ul><li>Instantly understood by anyone who has budgeted at home. No metaphor to explain.</li><li>Warm and human without being childish; the four envelope colors become the colors of the four lines everywhere.</li></ul></div>
+          <div><b class="label">Watch out for</b><ul><li>Less "private bank" than the others. It earns trust through familiarity rather than authority.</li><li>Pastel tones need care so the money states (spent, held, refused) still read clearly.</li></ul></div>
+        </div>
+      </article>
+      <article class="web" id="web-inscription">
+        <button class="zoom" type="button"><img src="web/inscription-landing.webp" alt="Inscription landing page, full length" loading="lazy" width="1024" height="1536"></button>
+        <div class="web-text">
+          <div class="rdir-head"><h3>Inscription</h3><span class="verdict">New</span></div>
+          <p>Some rules are set in stone. Remit’s money rules live in server code no prompt can change, so the site carves them in travertine.</p>
+          <div><b class="label">Why it works</b><ul><li>The strongest statement of the core promise: only you approve money, and a prompt can’t change that.</li><li>Monumental and calm. Lapis blue on stone is unusual and dignified.</li></ul></div>
+          <div><b class="label">Watch out for</b><ul><li>All-caps inscriptional type is slow to read; keep it for headlines and the rules.</li><li>Risks feeling heavy or institutional for a hackathon demo.</li></ul></div>
+        </div>
+      </article>
+    </div>
+    </details>
+    <details class="earlier">
+      <summary>Earlier round: Midnight, Precision, Atelier (brand photos and app screens)</summary>
+    <div class="rdirs">
+      <article class="rdir pick" id="dir-midnight">
+        <div class="rdir-head">
+          <h3>Midnight</h3><span class="verdict">Recommended</span>
+          <p>Private banking. Deep midnight navy, bone white, and champagne used only for foil and the one thing that needs you. A serif R in a thin square frame, with its leg stopping exactly on the frame's edge: within its remit.</p>
+        </div>
+        <div class="rdir-imgs">
+          <button class="zoom" type="button"><img src="directions/midnight-photo.webp" alt="Midnight identity on card, metal, paper and a phone" loading="lazy" width="1536" height="1024"></button>
+          <button class="zoom" type="button"><img src="directions/midnight-screen.webp" alt="The This week screen in the Midnight direction" loading="lazy" width="1536" height="1024"></button>
+        </div>
+        <div class="rdir-notes">
+          <div><b class="label">Why it earns trust</b><ul><li>The most trustworthy of the three. It looks like an institution that has held money for a long time.</li><li>The monogram carries the idea on its own, and it works blind-embossed, foil-stamped, and at icon size.</li><li>The dark screen makes the hero balance and the champagne bar the only bright things, so attention goes to the money.</li></ul></div>
+          <div><b class="label">Watch out for</b><ul><li>The monogram has to be drawn by hand as a vector. In the renders the R's leg doesn't always land exactly on the frame.</li><li>A dark-first app needs an equally careful light version for daytime and print.</li><li>Champagne is for one action at a time. Used on every link, it starts to look like a hotel.</li></ul></div>
+        </div>
+      </article>
+      <article class="rdir" id="dir-precision">
+        <div class="rdir-head">
+          <h3>Precision</h3><span class="verdict">Strong alternative</span>
+          <p>Swiss and engineered. White, graphite and platinum hairlines, one neo-grotesk typeface, and cobalt only on the approval button. The mark is the spending bar itself: two-thirds solid, one-third outline.</p>
+        </div>
+        <div class="rdir-imgs">
+          <button class="zoom" type="button"><img src="directions/precision-photo.webp" alt="Precision identity on card, metal, paper and a phone" loading="lazy" width="1536" height="1024"></button>
+          <button class="zoom" type="button"><img src="directions/precision-screen.webp" alt="The This week screen in the Precision direction" loading="lazy" width="1536" height="1024"></button>
+        </div>
+        <div class="rdir-notes">
+          <div><b class="label">Why it earns trust</b><ul><li>The clearest screen of the three, and the easiest to build well in the existing app.</li><li>The bar mark explains the product without words, and it etches cleanly on metal.</li><li>Reads as modern financial infrastructure, the same league as the best payments companies.</li></ul></div>
+          <div><b class="label">Watch out for</b><ul><li>Restrained white fintech is common. Its distinctiveness rests entirely on the bar mark and very good typesetting.</li><li>Lowercase “remit” is friendlier but less formal than the other two.</li></ul></div>
+        </div>
+      </article>
+      <article class="rdir" id="dir-atelier">
+        <div class="rdir-head">
+          <h3>Atelier</h3><span class="verdict">Alternative</span>
+          <p>Heritage. Forest green, ivory and brass foil, a letterspaced classical serif, and an engraved seal whose line ends in a stop: a limit that is never crossed.</p>
+        </div>
+        <div class="rdir-imgs">
+          <button class="zoom" type="button"><img src="directions/atelier-photo.webp" alt="Atelier identity on card, metal, paper and a phone" loading="lazy" width="1536" height="1024"></button>
+          <button class="zoom" type="button"><img src="directions/atelier-screen.webp" alt="The This week screen in the Atelier direction" loading="lazy" width="1536" height="1024"></button>
+        </div>
+        <div class="rdir-notes">
+          <div><b class="label">Why it earns trust</b><ul><li>The most crafted on paper. The foil seal and deckle-edged card feel like a family office.</li><li>Green ties to money without looking like a bank logo.</li><li>The seal works as a wax-seal-style mark on approvals and statements.</li></ul></div>
+          <div><b class="label">Watch out for</b><ul><li>Ivory with a serif is close to a look that many AI-made sites use now. It needs very careful execution to avoid looking generic.</li><li>The seal's line-and-stop reads a little like a T at small sizes. Draw it as a vector and test it at 16 pixels.</li><li>It's the hardest to translate into a fast, dense app screen.</li></ul></div>
+        </div>
+      </article>
+    </div>
+    </details>
+    <p class="soft" style="font-size:.9rem">The mark, color, type and component sections below still describe the first system. Once a web direction is approved they get rebuilt around it.</p>
+  </section>
+
+  <section aria-labelledby="h-prin">
+    <div class="sec-head">
+      <span class="label">Principles</span>
+      <h2 id="h-prin">Five rules every screen follows</h2>
+    </div>
+    <div class="principles">
+      <div><h3>No amount without a reason</h3><p>Every figure the agent spent or asked for shows the plan line it came from and why, in the agent's own words. A bare number in the UI is a bug.</p></div>
+      <div><h3>Color says where the money is</h3><p>Solid ink is spent, hatched amber is held, a green outline is coming back, brick red is refused. Blue appears only on things you can press.</p></div>
+      <div><h3>Decisions about money come first</h3><p>A pending budget or top-up sits above everything else on the page. Chat is useful, but it's secondary to the money.</p></div>
+      <div><h3>The agent is a named tool</h3><p>It's called Claude, it has a letter monogram, and it never gets a face, a sparkle or the word "magic". It asks, explains and reports.</p></div>
+      <div><h3>Say exactly what PayPal does</h3><p>Use hold, capture and release, with dates. When PayPal releases money at expiry rather than right away, the screen says so.</p></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-mark">
+    <div class="sec-head">
+      <span class="label">Mark and wordmark</span>
+      <h2 id="h-mark">A bracket around what was spent</h2>
+      <p>The mark is the product drawn small. The brackets are the limit you approved, the solid block is what the agent has spent, and the empty space is what comes back. It's built on a 32-unit grid with 3-unit strokes, so it stays sharp at 16 pixels.</p>
+    </div>
+    <div class="mark-grid">
+      <div class="plate">
+        <div class="construct">
+          <svg class="mark-xl" viewBox="0 0 32 32" aria-label="Remit mark, large">
+            <g stroke="var(--rule)" stroke-width="0.1">
+              <path d="M0 4.5H32M0 27.5H32M0 9.5H32M0 22.5H32M4.5 0V32M27.5 0V32M8 0V32M16.5 0V32"/>
+            </g>
+            <use href="#mark"/>
+          </svg>
+          <dl>
+            <div><dt>Brackets</dt><dd>The remit: what you approved on PayPal.</dd></div>
+            <div><dt>Solid block</dt><dd>Spent. It sits flush to the left bracket, like a bar filling from zero.</dd></div>
+            <div><dt>Open space</dt><dd>Held and not spent. It goes back to you at the end of the period.</dd></div>
+          </dl>
+        </div>
+        <div class="sizes">
+          <figure><svg width="64" height="64" style="color:var(--ink)"><use href="#mark"/></svg><figcaption>64</figcaption></figure>
+          <figure><svg width="32" height="32" style="color:var(--ink)"><use href="#mark"/></svg><figcaption>32</figcaption></figure>
+          <figure><svg width="20" height="20" style="color:var(--ink)"><use href="#mark"/></svg><figcaption>20</figcaption></figure>
+          <figure><svg width="16" height="16" style="color:var(--ink)"><use href="#mark"/></svg><figcaption>16</figcaption></figure>
+        </div>
+      </div>
+      <div class="lockups">
+        <div class="plate">
+          <div class="lockup"><svg aria-hidden="true"><use href="#mark"/></svg><b>Remit</b></div>
+          <p class="soft" style="font-size:.9rem">Bricolage Grotesque ExtraBold, tracking −3.5%. The mark sits one stroke-width away from the R and shares its cap height.</p>
+        </div>
+        <div class="plate ink">
+          <div class="lockup" style="color:inherit"><svg aria-hidden="true"><use href="#mark"/></svg><b>Remit</b></div>
+          <div class="sizes">
+            <figure><svg width="32" height="32"><use href="#mark"/></svg><figcaption>reversed</figcaption></figure>
+            <figure><svg width="16" height="16"><use href="#mark"/></svg><figcaption>favicon</figcaption></figure>
+          </div>
+        </div>
+        <div class="plate">
+          <p style="font-size:.9rem"><b>Don't</b> fill the open space, add a gradient or a glow, put the mark in a rounded app tile with a shadow, or animate the block filling up as decoration. The block's size is fixed; it's a symbol, not a live meter.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-color">
+    <div class="sec-head">
+      <span class="label">Color</span>
+      <h2 id="h-color">Four money states, one action color</h2>
+      <p>Each state also has its own pattern (solid, hatched, outline, struck through), so the bar and the ledger still read in grayscale, when printed, or for people who can't tell amber from green. The swatches switch with your light or dark setting.</p>
+    </div>
+    <div class="swatches">
+      <div class="swatch"><div class="fill f-spent"></div><div class="meta"><b>Spent</b><span>Solid ink. Captured from a hold; final.</span><span class="num">--spent</span></div></div>
+      <div class="swatch"><div class="fill f-held"></div><div class="meta"><b>Held</b><span>Hatched amber. Reserved on PayPal, not taken.</span><span class="num">--hold</span></div></div>
+      <div class="swatch"><div class="fill f-free"></div><div class="meta"><b>Returned</b><span>Green outline. Released back to the owner.</span><span class="num">--free</span></div></div>
+      <div class="swatch"><div class="fill f-refused"></div><div class="meta"><b>Refused</b><span>Brick red. A purchase the wallet stopped.</span><span class="num">--refused</span></div></div>
+      <div class="swatch"><div class="fill f-action"></div><div class="meta"><b>Action</b><span>Buttons and links only. Never a state.</span><span class="num">--action</span></div></div>
+      <div class="swatch"><div class="fill f-paper"></div><div class="meta"><b>Paper</b><span>Cool gray ground, white sheets on top.</span><span class="num">--paper / --sheet</span></div></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-type">
+    <div class="sec-head">
+      <span class="label">Type</span>
+      <h2 id="h-type">Three faces, each with one job</h2>
+      <p>These are the fonts the app already loads. The change is discipline: display type only for headings and the wordmark, and every amount, date and ID in mono so columns line up to the cent.</p>
+    </div>
+    <div class="type-rows">
+      <div class="type-row"><span class="label">Display<br>Bricolage Grotesque 700–800</span><span class="t-display">Claude asked for $104.50</span></div>
+      <div class="type-row"><span class="label">Body<br>IBM Plex Sans 400–600</span><p class="t-body">You picked these for Sam's birthday. They're $95.00, plus about 10% for shipping or a price change. This is a second, separate hold. Your first hold of $176.50 is unchanged.</p></div>
+      <div class="type-row"><span class="label">Figures<br>IBM Plex Mono, tabular</span><div class="t-mono"><span>Groceries, 2 orders</span><span>$86.80</span><span>Dog food, 12 kg bag</span><span>$32.50</span><span>Hold 4UP41481T7762431N</span><span>≈ ₹11,659</span></div></div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-comp">
+    <div class="sec-head">
+      <span class="label">Signature components</span>
+      <h2 id="h-comp">The pieces only Remit has</h2>
+      <p>Most of the product is built from four components. They're shown here with example data from the pitch.</p>
+    </div>
+    <div class="comp-grid">
+      <div class="comp">
+        <h3>Plan line</h3>
+        <p class="soft">Each line is its own envelope. A purchase can draw on its line and then the shared buffer, never on another line.</p>
+        <div>
+          <div class="line-row"><span>Groceries, 2 orders</span><span class="num">$86.80 / $88.00</span><div class="bar thin"><span class="seg-spent" style="flex:86.8"></span><span class="seg-held" style="flex:1.2"></span></div></div>
+          <div class="line-row"><span>Dog food, 12 kg bag</span><span class="num">$32.50 / $32.50</span><div class="bar thin"><span class="seg-spent" style="flex:1"></span></div></div>
+          <div class="line-row"><span>Birthday gift for Sam</span><span class="num">$0.00 / $40.00</span><div class="bar thin"><span class="seg-held" style="flex:1"></span></div></div>
+          <div class="line-row"><span>Shared buffer</span><span class="num">$2.00 / $16.00</span><div class="bar thin"><span class="seg-spent" style="flex:2"></span><span class="seg-held" style="flex:14"></span></div></div>
+        </div>
+      </div>
+      <div class="comp">
+        <h3>Ledger entry</h3>
+        <p class="soft">The reason is part of the row, not a tooltip. Refused purchases stay in the ledger, struck through, with the purpose check's answer.</p>
+        <div>
+          <div class="entry"><span>Dog food, 12 kg bag <span class="meta">· Dog food · Nov 10</span></span><span class="num amt">$32.50</span><span class="why">Same bag and price as the Oct 15 order. <span class="pill paid">Paid</span></span></div>
+          <div class="entry"><span>Grocery order <span class="meta">· Groceries · Nov 11</span></span><span class="num amt">$43.40</span><span class="why">Second order this week, in line with the last four weeks. <span class="pill paid">Paid</span></span></div>
+          <div class="entry refused"><span>Phone case <span class="meta">· no line · Nov 12</span></span><span class="num amt">$18.99</span><span class="why">Purpose check: nothing in the plan covers a phone case. <span class="pill no">Refused</span></span></div>
+        </div>
+      </div>
+      <div class="comp">
+        <h3>Purpose check</h3>
+        <p class="soft">Shows its verdict and, just as important, what it was not allowed to see.</p>
+        <div class="check">
+          <div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap"><b>Matches the line</b><span class="pill paid">Passed</span></div>
+          <p style="font-size:.92rem">Same product the line was approved for, at the approved price.</p>
+          <div class="cols"><div><b>Saw</b>The plan line, the item, the price</div><div><b>Didn't see</b>The store page Claude read</div></div>
+        </div>
+        <div class="pill-row"><span class="pill paid">Paid</span><span class="pill held">Held</span><span class="pill back">Returned</span><span class="pill no">Refused</span><span class="pill you">Needs you</span></div>
+      </div>
+      <div class="comp">
+        <h3>Approval</h3>
+        <p class="soft">The button names the amount and where it happens. The note under it says what a hold means. Remit never approves money itself.</p>
+        <div class="approve">
+          <div class="btn-row"><button class="btn primary" type="button" id="demo-approve">Approve $176.50 on PayPal</button><button class="btn" type="button" id="demo-decline">Decline</button></div>
+          <p class="soft" style="font-size:.88rem">Nothing is taken until Claude buys something. Whatever is left returns to you on Nov 15. You'll sign in on PayPal's own page.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-voice">
+    <div class="sec-head">
+      <span class="label">Voice</span>
+      <h2 id="h-voice">Plain, specific, and exact about money</h2>
+      <p>Write like a careful bookkeeper explaining your statement to you. Use amounts, dates and the names of things; don't cheer and don't apologize.</p>
+    </div>
+    <div class="voice-wrap">
+      <table class="voice">
+        <thead><tr><th>Write</th><th>Not</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td>Approve $176.50 on PayPal</td><td>Continue</td><td>The button says what happens and where.</td></tr>
+          <tr><td>Refused: nothing in the plan covers a phone case.</td><td>Oops! Something went wrong.</td><td>A refusal is the product working. Give the reason.</td></tr>
+          <tr><td>$61.20 returned to you.</td><td>You saved $61.20! 🎉</td><td>Unspent money isn't a win to celebrate. It was always yours.</td></tr>
+          <tr><td>Claude asked for a top-up of $104.50.</td><td>Your AI assistant found more budget ✨</td><td>The agent asks; only the owner adds money.</td></tr>
+          <tr><td>Released when the hold expires Dec 7.</td><td>Funds will be returned shortly.</td><td>PayPal's timing is known, so state it.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-avoid">
+    <div class="sec-head">
+      <span class="label">What to avoid</span>
+      <h2 id="h-avoid">Things that make it look machine-made</h2>
+    </div>
+    <ul class="avoid">
+      <li><b>Sparkle icons for AI</b><span>The agent's actions get the same icons as anything else.</span></li>
+      <li><b>Faces for the agent</b><span>No robots, brains or avatars. A letter monogram: CL.</span></li>
+      <li><b>Gradients, glow and glass</b><span>Flat sheets on paper. Hatching is the only texture, and it means held money.</span></li>
+      <li><b>3D coins and cards</b><span>Money is shown as numbers and bars drawn to scale.</span></li>
+      <li><b>Emoji in the interface</b><span>Words and the five status pills carry the meaning.</span></li>
+      <li><b>"AI-powered", "seamless", "smart"</b><span>Describe what happened instead.</span></li>
+      <li><b>Confetti or celebration on spend</b><span>Spending is never a reward moment.</span></li>
+      <li><b>KPI tiles with trend arrows</b><span>One balance, one bar. The ledger does the rest.</span></li>
+      <li><b>Every block in a rounded, shadowed card</b><span>Cards only for things that are separate objects.</span></li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="h-wf">
+    <div class="sec-head">
+      <span class="label">Flow and wireframes · screens made with gpt-image-2.6-sunburst</span>
+      <h2 id="h-wf">The flow of a week, then seven screens from the agent's request to the statement</h2>
+      <p>The screens are low-fidelity: layout, hierarchy and copy, no visual design. The numbered notes on the right of each frame say why each element is there. Click a frame to see it full size. The flow map is drawn by hand, because the image model kept reversing arrows.</p>
+    </div>
+    <div class="frames" id="frames">
+      <figure class="frame">
+        <div class="frame-head"><span class="num">01</span><h3>Flow map</h3><p>One week, top to bottom. Arrow colors follow the money states: amber is a hold being placed, ink is a capture, red is a refusal, green is money coming back. Blue arrows are the only steps where you act.</p></div>
+        <div class="flow-wrap"><svg class="flow" viewBox="0 0 860 944" role="img" aria-labelledby="flow-title"><title id="flow-title">How one week moves between you, Claude, Remit and PayPal</title><defs><marker id="ah-ink" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="fl-head k-inkf"/></marker><marker id="ah-action" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="fl-head k-actionf"/></marker><marker id="ah-hold" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="fl-head k-holdf"/></marker><marker id="ah-spent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="fl-head k-spentf"/></marker><marker id="ah-refused" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="fl-head k-refusedf"/></marker><marker id="ah-free" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="fl-head k-freef"/></marker></defs><line class="fl-life" x1="100" y1="50" x2="100" y2="944"/><rect class="fl-actor" x="40" y="14" width="120" height="34" rx="6"/><text class="fl-actor-t" x="100" y="36" text-anchor="middle">You</text><line class="fl-life" x1="320" y1="50" x2="320" y2="944"/><rect class="fl-actor" x="260" y="14" width="120" height="34" rx="6"/><text class="fl-actor-t" x="320" y="36" text-anchor="middle">Claude</text><line class="fl-life" x1="540" y1="50" x2="540" y2="944"/><rect class="fl-actor" x="480" y="14" width="120" height="34" rx="6"/><text class="fl-actor-t" x="540" y="36" text-anchor="middle">Remit</text><line class="fl-life" x1="760" y1="50" x2="760" y2="944"/><rect class="fl-actor" x="700" y="14" width="120" height="34" rx="6"/><text class="fl-actor-t" x="760" y="36" text-anchor="middle">PayPal</text><text class="fl-phase" x="12" y="92">Plan</text><line class="fl-rule" x1="12" y1="100" x2="848" y2="100"/><line class="fl-arrow k-ink" x1="326" y1="136" x2="532" y2="136" marker-end="url(#ah-ink)"/><text class="fl-label k-inkt" x="430.0" y="128" text-anchor="middle"><tspan class="fl-mono">request_budget</tspan> · plan, a reason per line</text><line class="fl-arrow k-ink" x1="534" y1="182" x2="108" y2="182" marker-end="url(#ah-ink)"/><text class="fl-label k-inkt" x="320.0" y="174" text-anchor="middle">Budget request to review</text><line class="fl-arrow k-action" x1="106" y1="228" x2="752" y2="228" marker-end="url(#ah-action)"/><text class="fl-label k-actiont" x="430.0" y="220" text-anchor="middle">Approve $176.50</text><line class="fl-arrow k-hold" x1="754" y1="274" x2="548" y2="274" marker-end="url(#ah-hold)"/><text class="fl-label k-holdt" x="650.0" y="266" text-anchor="middle">Hold placed · This week opens</text><text class="fl-phase" x="12" y="334">Spend</text><line class="fl-rule" x1="12" y1="342" x2="848" y2="342"/><line class="fl-arrow k-ink" x1="326" y1="378" x2="532" y2="378" marker-end="url(#ah-ink)"/><text class="fl-label k-inkt" x="430.0" y="370" text-anchor="middle"><tspan class="fl-mono">spend</tspan> $32.50 · Dog food line</text><rect class="fl-note n-spent" x="440.0" y="408" width="200" height="28" rx="5"/><text class="fl-label k-spentt" x="540" y="427" text-anchor="middle">Purpose check: passes</text><line class="fl-arrow k-spent" x1="546" y1="470" x2="752" y2="470" marker-end="url(#ah-spent)"/><text class="fl-label k-spentt" x="650.0" y="462" text-anchor="middle">Partial capture $32.50 → Ledger</text><text class="fl-phase" x="12" y="530">Ask</text><line class="fl-rule" x1="12" y1="538" x2="848" y2="538"/><line class="fl-arrow k-ink" x1="326" y1="574" x2="532" y2="574" marker-end="url(#ah-ink)"/><text class="fl-label k-inkt" x="430.0" y="566" text-anchor="middle"><tspan class="fl-mono">spend</tspan> $95.00 · no line covers it</text><line class="fl-arrow k-refused" x1="534" y1="620" x2="328" y2="620" marker-end="url(#ah-refused)"/><text class="fl-label k-refusedt" x="430.0" y="612" text-anchor="middle">Refused, with the reason</text><line class="fl-arrow k-ink" x1="326" y1="666" x2="532" y2="666" marker-end="url(#ah-ink)"/><text class="fl-label k-inkt" x="430.0" y="658" text-anchor="middle"><tspan class="fl-mono">request_topup</tspan> $104.50 · Top-up request</text><line class="fl-arrow k-action" x1="106" y1="712" x2="752" y2="712" marker-end="url(#ah-action)"/><text class="fl-label k-actiont" x="430.0" y="704" text-anchor="middle">Approve a new hold</text><line class="fl-arrow k-hold" x1="754" y1="758" x2="548" y2="758" marker-end="url(#ah-hold)"/><text class="fl-label k-holdt" x="650.0" y="750" text-anchor="middle">Second hold placed</text><text class="fl-phase" x="12" y="818">Close</text><line class="fl-rule" x1="12" y1="826" x2="848" y2="826"/><line class="fl-arrow k-free" x1="546" y1="862" x2="752" y2="862" marker-end="url(#ah-free)"/><text class="fl-label k-freet" x="650.0" y="854" text-anchor="middle">Void untouched holds · Statement</text><line class="fl-arrow k-free" x1="754" y1="908" x2="108" y2="908" marker-end="url(#ah-free)"/><text class="fl-label k-freet" x="430.0" y="900" text-anchor="middle">Leftover released at expiry</text></svg></div>
+      </figure>
+      <figure class="frame">
+        <div class="frame-head"><span class="num">02</span><h3>This week</h3><p>The home screen. "Needs you" holds only decisions that move money and sits above the balance. The agent panel is narrow on purpose.</p></div>
+        <button class="zoom" type="button"><img src="wireframes/01-this-week.webp" alt="Weekly wallet dashboard wireframe" loading="lazy" width="1536" height="1024"></button>
+      </figure>
+      <figure class="frame">
+        <div class="frame-head"><span class="num">03</span><h3>Budget request</h3><p>The agent's plan, line by line, each with its reason and the evidence behind it. The owner can uncheck or edit lines, and the hold total on the right updates.</p></div>
+        <button class="zoom" type="button"><img src="wireframes/02-budget-request.webp" alt="Budget request review wireframe" loading="lazy" width="1536" height="1024"></button>
+      </figure>
+      <figure class="frame">
+        <div class="frame-head"><span class="num">04</span><h3>Purchase detail</h3><p>Opens from any ledger row: the reason, the purpose check, the PayPal IDs and a timeline of how the money moved. This is the audit trail.</p></div>
+        <button class="zoom" type="button"><img src="wireframes/03-purchase.webp" alt="Purchase detail drawer wireframe" loading="lazy" width="1536" height="1024"></button>
+      </figure>
+      <figure class="frame">
+        <div class="frame-head"><span class="num">05</span><h3>Refusal to top-up</h3><p>The story from the pitch: the wallet refuses, Claude asks which gift, and the owner approves a second hold.</p></div>
+        <button class="zoom" type="button"><img src="wireframes/04-topup.webp" alt="Refusal and top-up request wireframe" loading="lazy" width="1536" height="1024"></button>
+      </figure>
+      <figure class="frame">
+        <div class="frame-head"><span class="num">06</span><h3>Statement</h3><p>The week closes. It leads with what came back, reconciles every line, and says when PayPal will release each partly captured hold.</p></div>
+        <button class="zoom" type="button"><img src="wireframes/05-statement.webp" alt="End of week statement wireframe" loading="lazy" width="1536" height="1024"></button>
+      </figure>
+      <figure class="frame">
+        <div class="frame-head"><span class="num">07</span><h3>Approve on your phone</h3><p>From the pitch's "what's next" list. One decision per screen, with the amount and the reason in the notification itself.</p></div>
+        <button class="zoom" type="button"><img src="wireframes/06-mobile.webp" alt="Mobile top-up approval wireframe, three screens" loading="lazy" width="1536" height="1024"></button>
+      </figure>
+      <figure class="frame">
+        <div class="frame-head"><span class="num">08</span><h3>Agents</h3><p>Also from "what's next": an allowance and a pause switch for each connected agent, plus the MCP setup with its four tools.</p></div>
+        <button class="zoom" type="button"><img src="wireframes/07-agents.webp" alt="Connected agents wireframe" loading="lazy" width="1536" height="1024"></button>
+      </figure>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-next">
+    <div class="sec-head">
+      <span class="label">Next</span>
+      <h2 id="h-next">From here to the app</h2>
+    </div>
+    <div class="next">
+      <div><span class="num">1</span><p>Agree the direction and the five rules. Changing them later means repainting every screen.</p></div>
+      <div><span class="num">2</span><p>Move the tokens into <span class="num">web/styles.css</span>: spent becomes ink, blue becomes action only, and the hatch pattern is added for held money.</p></div>
+      <div><span class="num">3</span><p>Rebuild "This week" first (frame 02), since it's what judges see in the demo. Then the budget request and the top-up, the two moments where you approve money.</p></div>
+      <div><span class="num">4</span><p>Statement, purchase detail, phone approval and Agents follow. The last two need new server work.</p></div>
+    </div>
+  </section>
+
+  <footer>Remit · PayPal AI Hackathon · All amounts are example data from the project's pitch. PayPal is named only as the payment provider; Remit uses none of its branding.</footer>
+</div>
+
+<dialog id="viewer" aria-label="Wireframe, full size">
+  <div class="inner">
+    <button class="btn close" type="button" id="viewer-close">Close</button>
+    <img id="viewer-img" alt="">
+  </div>
+</dialog>
+
+<script>
+  const viewer = document.getElementById('viewer');
+  const big = document.getElementById('viewer-img');
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('button.zoom');
+    if (!btn) return;
+    const img = btn.querySelector('img');
+    big.src = img.src; big.alt = img.alt;
+    viewer.showModal();
+  });
+  viewer.addEventListener('click', (e) => { if (e.target === big || e.target.classList.contains('inner')) viewer.close(); });
+  document.getElementById('viewer-close').addEventListener('click', () => viewer.close());
+</script>
