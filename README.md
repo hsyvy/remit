@@ -9,7 +9,7 @@ Remit is a spending wallet for AI agents, built for the [PayPal AI Hackathon](ht
 3. The agent can then spend only from that hold, one partial capture per purchase.
 4. Anything the agent doesn't spend is released back to you. Only you can approve more money.
 
-The product brief is in [`docs/remit-brief.html`](docs/remit-brief.html).
+The product brief is in [`docs/remit-brief.html`](docs/remit-brief.html). The hackathon submission text, demo video script and judging-criteria map are in [`docs/submission.md`](docs/submission.md).
 
 ## Run it
 
