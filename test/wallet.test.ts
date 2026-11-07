@@ -3,7 +3,7 @@ import { beforeEach, describe, it } from "node:test";
 import { openDb, type Db } from "../src/db.ts";
 import { PayPalError } from "../src/paypal/gateway.ts";
 import { SimulatedPayPal } from "../src/paypal/simulated.ts";
-import { runWalletTool } from "../src/wallet/tools.ts";
+import { runWalletTool, walletToolDefs } from "../src/wallet/tools.ts";
 import { Wallet, WalletError, type Reviewer } from "../src/wallet/wallet.ts";
 
 const APP = "http://localhost:3000";
@@ -201,6 +201,80 @@ describe("spending", () => {
   it("serializes concurrent spends so the line can't be overspent", async () => {
     const results = await Promise.allSettled([buy("dog-food", 3000), buy("dog-food", 3000)]);
     assert.equal(results.filter((r) => r.status === "fulfilled").length, 1);
+  });
+});
+
+describe("moving money between lines", () => {
+  beforeEach(async () => {
+    await approve(requestWeek().requestId);
+  });
+  const line = (key: string) => wallet.balance().lines.find((l) => l.key === key)!;
+
+  it("moves unspent money and records it in the activity feed", async () => {
+    const result = await wallet.moveBetweenLines("groceries", "gift-sam", 1000);
+    assert.equal(result.from.limitCents, 7800);
+    assert.equal(result.to.limitCents, 5000);
+    assert.equal(line("gift-sam").leftCents, 5000);
+    const event = wallet.state().events[0];
+    assert.equal(event.type, "moved");
+    assert.equal(event.message, "You moved $10.00 from Groceries, 2 orders to Birthday gift for Sam.");
+  });
+
+  it("keeps the total and the holds the same, with no PayPal call", async () => {
+    const before = wallet.state();
+    const ordersBefore = db.prepare("SELECT COUNT(*) AS n FROM sim_paypal").get() as { n: number };
+    await wallet.moveBetweenLines("dog-food", "buffer", 250);
+    await wallet.moveBetweenLines("buffer", "groceries", 1850);
+    const after = wallet.state();
+    assert.equal(after.totals.approvedCents, before.totals.approvedCents);
+    assert.equal(after.totals.heldCents, before.totals.heldCents);
+    assert.deepEqual(after.holds, before.holds);
+    assert.deepEqual(db.prepare("SELECT COUNT(*) AS n FROM sim_paypal").get(), ordersBefore);
+    assert.equal(line("buffer").leftCents, 0);
+    assert.equal(line("groceries").limitCents, 10650);
+  });
+
+  it("refuses to move more than is unspent on the source line", async () => {
+    await buy("dog-food", 3000);
+    await assert.rejects(wallet.moveBetweenLines("dog-food", "gift-sam", 251), (e: WalletError) => e.code === "OVER_UNSPENT");
+    await assert.rejects(wallet.moveBetweenLines("dog-food", "dog-food", 100), (e: WalletError) => e.code === "SAME_LINE");
+    await assert.rejects(wallet.moveBetweenLines("dog-food", "nope", 100), (e: WalletError) => e.code === "NO_SUCH_LINE");
+    await assert.rejects(wallet.moveBetweenLines("dog-food", "gift-sam", 0), (e: WalletError) => e.code === "BAD_AMOUNT");
+    // The buffer's unspent counts what other lines drew from it.
+    await buy("gift-sam", 5000);
+    await assert.rejects(wallet.moveBetweenLines("buffer", "groceries", 601), (e: WalletError) => e.code === "OVER_UNSPENT");
+    assert.equal(line("dog-food").limitCents, 3250);
+    assert.equal(line("buffer").limitCents, 1600);
+  });
+
+  it("lets a refused purchase go through after the owner moves money", async () => {
+    await assert.rejects(buy("gift-sam", 9500, "Headphones"), (e: WalletError) => e.code === "OVER_LINE" && /move unspent money/.test(e.message));
+    // Line 4000 + buffer 1600 leaves the headphones 3900 short.
+    await wallet.moveBetweenLines("groceries", "gift-sam", 3900);
+    const result = await buy("gift-sam", 9500, "Headphones");
+    assert.equal(result.fromLineCents, 7900);
+    assert.equal(result.fromBufferCents, 1600);
+    assert.equal(wallet.state().holds.length, 1);
+    assert.equal(wallet.balance().leftCents, 17650 - 9500);
+  });
+
+  it("creates the buffer when moving into a plan that had none", async () => {
+    await wallet.closePeriod();
+    const { requestId } = wallet.requestBudget({
+      summary: "No buffer",
+      startsOn: day(0),
+      endsOn: day(6),
+      lines: [{ key: "groceries", label: "Groceries", amountCents: 5000, reason: "r" }, { key: "dog-food", label: "Dog food", amountCents: 3000, reason: "r" }],
+    });
+    await approve(requestId);
+    await wallet.moveBetweenLines("groceries", "buffer", 500);
+    assert.equal(line("buffer").leftCents, 500);
+    const result = await buy("dog-food", 3400);
+    assert.equal(result.fromBufferCents, 400);
+  });
+
+  it("is not something an agent can call", () => {
+    assert.ok(!Object.keys(walletToolDefs).some((name) => /move/i.test(name)));
   });
 });
 

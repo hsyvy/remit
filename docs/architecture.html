@@ -357,7 +357,8 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
     <div class="layer">
       <h3>Ask for more, then close</h3>
       <ol class="flow">
-        <li>After a refusal, the agent calls <code>request_topup</code> for an existing or new line. It follows the same approval path as a budget and ends in a second hold.</li>
+        <li>After an <code>OVER_LINE</code> refusal, the owner can move unspent money from another line (or the buffer) with <code>moveBetweenLines</code>. Line limits change, the total and the holds don't, so there is no PayPal call. The ledger offers this with the shortfall filled in, and the move is logged as a <code>moved</code> event.</li>
+        <li>Or the agent calls <code>request_topup</code> for an existing or new line. It follows the same approval path as a budget and ends in a second hold.</li>
         <li>At the end date (checked every 60 seconds) or when the owner clicks Close, the wallet voids each active hold. Untouched holds are released at once. Holds with partial captures are marked <code>lapsing</code> and released when they expire. Open requests expire.</li>
       </ol>
     </div>
@@ -376,7 +377,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <dt>Role</dt><dd>Owns every money rule: budgets, lines and buffer, holds, purchases, refusals, extra money, close-out and refunds. Nothing else changes money state.</dd>
         <dt>Inputs</dt><dd><ul>
           <li>From agents, through the tool contract: <code>requestBudget</code>, <code>requestTopup</code>, <code>spend</code>, <code>balance</code>, <code>history</code></li>
-          <li>From the owner, through the API: <code>checkout(requestId, edits)</code>, <code>decline</code>, <code>closePeriod</code>, <code>refund</code></li>
+          <li>From the owner, through the API: <code>checkout(requestId, edits)</code>, <code>decline</code>, <code>closePeriod</code>, <code>refund</code>, <code>moveBetweenLines(fromKey, toKey, cents)</code></li>
           <li>From PayPal's redirect: <code>completeApproval(requestId, orderId)</code></li>
           <li>From the timer: <code>closeIfEnded()</code></li>
         </ul></dd>
@@ -387,7 +388,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         </ul></dd>
         <dt>How it works</dt><dd>Money-changing calls run one at a time through a promise queue, and each change is one database transaction. It never trusts its caller: it checks every amount, line key, date and length itself.</dd>
         <dt>Guarantees</dt><dd>A purchase never uses another line's money. Spending never exceeds what is held. Only an authorized PayPal order creates spendable money. Every refusal is recorded with its reason.</dd>
-        <dt>Next</dt><dd class="next">Owner-only <code>moveBetweenLines</code>; per-agent lines and pause; draw from the hold that funded the line instead of the oldest.</dd>
+        <dt>Next</dt><dd class="next">Per-agent lines and pause; draw from the hold that funded the line instead of the oldest.</dd>
       </dl>
     </article>
 
@@ -583,7 +584,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
       <table>
         <thead><tr><th scope="col">Code</th><th scope="col">Means</th><th scope="col">What the agent should do</th></tr></thead>
         <tbody>
-          <tr><td><code>OVER_LINE</code></td><td>More than the line plus buffer allows</td><td>Tell the owner; <code>request_topup</code> if still worth it</td></tr>
+          <tr><td><code>OVER_LINE</code></td><td>More than the line plus buffer allows</td><td>Tell the owner, who can move money between lines; or <code>request_topup</code> if still worth it</td></tr>
           <tr><td><code>NO_SUCH_LINE</code></td><td>No approved line with that key</td><td>Use an approved line or ask for a new one</td></tr>
           <tr><td><code>REVIEW_REJECTED</code></td><td>The purpose check says the purchase doesn't fit the line</td><td>Don't retry; explain to the owner</td></tr>
           <tr><td><code>OVER_BALANCE</code></td><td>More than is still held</td><td><code>request_topup</code></td></tr>
@@ -604,6 +605,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
           <tr><td><code>POST /api/requests/:id/decline</code></td><td>Owner</td><td>Decline a waiting request</td></tr>
           <tr><td><code>POST /api/period/close</code></td><td>Owner</td><td>Close now and release holds</td></tr>
           <tr><td><code>POST /api/purchases/:id/refund</code></td><td>Owner</td><td>Refund a paid purchase to the owner</td></tr>
+          <tr><td><code>POST /api/lines/move</code></td><td>Owner</td><td>Move unspent money between lines (<code>from</code>, <code>to</code>, <code>amountCents</code>); total unchanged, no PayPal call</td></tr>
           <tr><td><code>POST /api/chat</code>, <code>/api/chat/reset</code></td><td>Owner (demo)</td><td>Send a message to the demo agent (runs in the background) or start over</td></tr>
           <tr><td><code>GET /paypal/return</code>, <code>/paypal/cancel</code></td><td>PayPal redirect</td><td>Authorize and create the hold, or note the cancel</td></tr>
           <tr><td><code>POST /agent/v1/tools/:name</code></td><td>Agents (token)</td><td>Run one wallet tool</td></tr>
@@ -641,7 +643,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
           <tr><td><span class="chip planned">planned</span><br><strong>Approval status watcher</strong></td><td>Notice when PayPal declines or the owner abandons approval</td><td>Requests in <code>checkout</code> → order status from PayPal → a "PayPal didn't approve" message on the card</td><td>API server, web app; later replaced by webhooks</td></tr>
           <tr><td><span class="chip planned">planned</span><br><strong>History for every agent</strong></td><td>Let any agent cite evidence when planning</td><td><code>get_history</code> tool → past periods, lines and purchases</td><td>Tool contract, MCP server; planning guidance moves into tool descriptions</td></tr>
           <tr><td><span class="chip planned">planned</span><br><strong>Agent registry</strong></td><td>Give each connected agent its own allowance and pause</td><td>Owner adds an agent → token; each call carries the agent → lines scoped to that agent</td><td>Database (agents table), wallet, API auth, web app</td></tr>
-          <tr><td><span class="chip planned">planned</span><br><strong>Move between lines</strong></td><td>Fix most refusals without a new PayPal approval</td><td>Owner taps "move $10 from groceries" → envelope limits change, total unchanged</td><td>Wallet (owner-only method), web app, refusal message</td></tr>
+          <tr><td><span class="chip product">built</span><br><strong>Move between lines</strong></td><td>Fix most refusals without a new PayPal approval</td><td>Owner picks from, to and an amount on the plan lines card, or taps "Move money to this line" on a refusal → envelope limits change, total and holds unchanged, a <code>moved</code> event</td><td>Wallet (owner-only <code>moveBetweenLines</code>), <code>POST /api/lines/move</code>, web app, <code>OVER_LINE</code> message</td></tr>
           <tr><td><span class="chip planned">planned</span><br><strong>Notifier</strong></td><td>Bring decisions to the owner's phone</td><td>New request, refusal or weekly recap → push or email with approve and decline links</td><td>New service; API server routes for one-tap links</td></tr>
           <tr><td><span class="chip planned">planned</span><br><strong>PayPal webhooks</strong></td><td>Learn about approvals, declines, voids and expiry directly from PayPal</td><td>PayPal event → verified signature → wallet update</td><td>API server route, PayPal gateway, hosting with a public URL</td></tr>
           <tr><td><span class="chip planned">planned</span><br><strong>Merchant payment</strong></td><td>Pay the real shop instead of Remit's own sandbox account</td><td>Captured purchase → payment to the merchant or order with a PayPal merchant</td><td>PayPal gateway, purchases table</td></tr>
