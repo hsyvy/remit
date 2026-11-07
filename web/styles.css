@@ -97,6 +97,14 @@ button, input, textarea { font: inherit; color: inherit; }
 .line-row { display: grid; gap: 4px; }
 .line-row .row { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
 .line-row .why { font-size: 0.82rem; color: var(--ink-soft); }
+.move { display: grid; gap: 6px; padding-top: 12px; border-top: 1px dashed var(--rule); }
+.move-fields { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.move select {
+  font: inherit; font-size: 0.88rem; color: inherit; min-width: 0; max-width: 100%; padding: 3px 6px;
+  border: 1px solid var(--rule); border-radius: 6px; background: var(--paper);
+}
+.move.flash-in { animation: move-in 1.2s ease-out; }
+@keyframes move-in { from { background: var(--tint); } to { background: transparent; } }
 
 /* Requests (receipt) */
 .receipt { border-color: color-mix(in srgb, var(--accent) 45%, var(--rule)); }

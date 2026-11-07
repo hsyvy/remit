@@ -83,6 +83,14 @@ export function createApp(deps: AppDeps) {
 
   app.post("/api/purchases/:id/refund", async (c) => c.json(await wallet.refund(c.req.param("id"))));
 
+  // Owner only: the agent API above has no route to this.
+  app.post("/api/lines/move", async (c) => {
+    const body = z
+      .object({ from: z.string(), to: z.string(), amountCents: z.number().int().positive() })
+      .parse(await c.req.json().catch(() => ({})));
+    return c.json(await wallet.moveBetweenLines(body.from, body.to, body.amountCents));
+  });
+
   app.post("/api/chat", async (c) => {
     const { message } = z.object({ message: z.string().trim().min(1).max(4000) }).parse(await c.req.json());
     if (!agent.enabled) throw new WalletError("AGENT_OFF", "Claude isn't configured. Set ANTHROPIC_API_KEY in .env and restart.", 503);
