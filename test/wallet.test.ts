@@ -1,4 +1,8 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { beforeEach, describe, it } from "node:test";
 import { openDb, type Db } from "../src/db.ts";
 import { PayPalError } from "../src/paypal/gateway.ts";
@@ -110,6 +114,114 @@ describe("budget requests", () => {
       () => wallet.requestBudget({ summary: "Big", startsOn: day(0), endsOn: day(6), lines: [{ key: "tv", label: "TV", amountCents: 90_000, reason: "r" }] }),
       (e: WalletError) => e.code === "TOO_LARGE",
     );
+  });
+});
+
+describe("approvals that don't go through", () => {
+  const card = (requestId: string) => wallet.pendingRequests().find((r) => r.id === requestId)!;
+
+  it("tells the owner when PayPal refused the card, and lets them try again", async () => {
+    const { requestId } = requestWeek();
+    const { orderId } = await wallet.checkout(requestId);
+    assert.equal(card(requestId).approval, null);
+
+    // PayPal declines on its own page and the order keeps waiting, as the real sandbox does.
+    paypal.decline(orderId);
+    const [result] = await wallet.checkApprovals({ requestId, force: true });
+    assert.equal(result.outcome, "not_approved");
+    assert.equal(card(requestId).status, "checkout");
+    assert.equal(card(requestId).approval?.state, "not_approved");
+    assert.equal(card(requestId).approval?.paypalStatus, "PAYER_ACTION_REQUIRED");
+    assert.equal(wallet.balance().period?.status, "pending");
+    assert.match(wallet.state().events[0].message, /PayPal didn't approve the \$176\.50 budget request/);
+
+    // Approve again: a new order, and the old message goes away.
+    const retry = await wallet.checkout(requestId);
+    assert.notEqual(retry.orderId, orderId);
+    assert.equal(card(requestId).approval, null);
+    paypal.approve(retry.orderId);
+    await wallet.completeApproval(requestId, retry.orderId);
+    assert.equal(wallet.balance().period?.status, "open");
+  });
+
+  it("notices an abandoned PayPal page, and logs it once", async () => {
+    const { requestId } = requestWeek();
+    await wallet.checkout(requestId);
+    await wallet.checkApprovals();
+    clock = new Date(clock.getTime() + 60_000);
+    await wallet.checkApprovals();
+    assert.equal(card(requestId).approval?.state, "not_approved");
+    assert.equal(wallet.state().events.filter((e) => /didn't approve/.test(e.message)).length, 1);
+  });
+
+  it("finishes an approval whose redirect back got lost", async () => {
+    const { requestId } = requestWeek();
+    const { orderId } = await wallet.checkout(requestId);
+    paypal.approve(orderId);
+    const [result] = await wallet.checkApprovals();
+    assert.equal(result.outcome, "approved");
+    assert.equal(wallet.balance().period?.status, "open");
+    assert.equal(wallet.balance().leftCents, 17650);
+    // The return URL arriving late is still harmless.
+    assert.deepEqual(await wallet.completeApproval(requestId, orderId), { alreadyApproved: true });
+  });
+
+  it("says so when PayPal voided the order", async () => {
+    const { requestId } = requestWeek();
+    const { orderId } = await wallet.checkout(requestId);
+    paypal.voidOrder(orderId);
+    await wallet.checkApprovals();
+    assert.equal(card(requestId).approval?.state, "voided");
+    assert.equal(card(requestId).status, "checkout");
+  });
+
+  it("asks PayPal at most once per 15 seconds unless forced", async () => {
+    const { requestId } = requestWeek();
+    await wallet.checkout(requestId);
+    let calls = 0;
+    const getOrderStatus = paypal.getOrderStatus.bind(paypal);
+    paypal.getOrderStatus = (id) => (calls++, getOrderStatus(id));
+
+    await wallet.checkApprovals();
+    const [skipped] = await wallet.checkApprovals();
+    assert.equal(calls, 1);
+    assert.equal(skipped.outcome, "skipped");
+    assert.equal(skipped.check?.state, "not_approved");
+    await wallet.checkApprovals({ force: true });
+    assert.equal(calls, 2);
+    clock = new Date(clock.getTime() + 16_000);
+    await wallet.checkApprovals();
+    assert.equal(calls, 3);
+  });
+
+  it("leaves the request alone when PayPal can't be reached", async () => {
+    const { requestId } = requestWeek();
+    await wallet.checkout(requestId);
+    paypal.getOrderStatus = async () => {
+      throw new PayPalError("Service unavailable", 503);
+    };
+    const [result] = await wallet.checkApprovals();
+    assert.equal(result.outcome, "unknown");
+    assert.equal(card(requestId).approval, null);
+    assert.equal(card(requestId).status, "checkout");
+  });
+
+  it("ignores requests that aren't in checkout", async () => {
+    requestWeek();
+    assert.deepEqual(await wallet.checkApprovals(), []);
+  });
+
+  it("adds the new column to a database made before it existed", () => {
+    const dir = mkdtempSync(join(tmpdir(), "remit-"));
+    const path = join(dir, "old.db");
+    const old = new DatabaseSync(path);
+    old.exec("CREATE TABLE requests (id TEXT PRIMARY KEY, period_id TEXT NOT NULL, kind TEXT NOT NULL, status TEXT NOT NULL, reason TEXT NOT NULL, paypal_order_id TEXT, created_at TEXT NOT NULL, decided_at TEXT)");
+    old.close();
+    const migrated = openDb(path);
+    const columns = (migrated.prepare("PRAGMA table_info(requests)").all() as { name: string }[]).map((c) => c.name);
+    migrated.close();
+    rmSync(dir, { recursive: true });
+    assert.ok(columns.includes("approval_check"));
   });
 });
 

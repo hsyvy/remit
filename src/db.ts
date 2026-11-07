@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS requests (
   status TEXT NOT NULL,            -- pending | checkout | approved | declined | expired
   reason TEXT NOT NULL,
   paypal_order_id TEXT,
+  approval_check TEXT,             -- JSON: what PayPal last said about an order the owner didn't finish approving
   created_at TEXT NOT NULL,
   decided_at TEXT
 );
@@ -128,7 +129,14 @@ export function openDb(path: string): Db {
   const db = new DatabaseSync(path);
   db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
   db.exec(SCHEMA);
+  // Columns added after the first release. CREATE TABLE IF NOT EXISTS doesn't add them to an existing database.
+  addColumn(db, "requests", "approval_check", "TEXT");
   return db;
+}
+
+function addColumn(db: Db, table: string, column: string, type: string) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!columns.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
 }
 
 export function tx<T>(db: Db, fn: () => T): T {
