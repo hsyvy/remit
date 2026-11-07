@@ -71,9 +71,9 @@ Remit is a spending wallet for AI agents. The positioning in one line: *cards li
 1. **The agent proposes a budget.** Each line has an amount and a reason with evidence: what past weeks cost, when something was last bought, the prices it found. There is an optional shared buffer of about 10%.
 2. **You approve it on PayPal.** You can trim or remove lines first. Approving creates a PayPal order with intent `AUTHORIZE`, and once you approve on PayPal's page, Remit authorizes it. That places a hold on your own PayPal account. There's no new card, and the agent never sees payment details.
 3. **The agent spends line by line.** Each purchase is a partial capture from the hold. It can use its own line and then the shared buffer, never another line. Before any money moves, an independent **purpose check** compares the purchase with the line's approved reason. The purpose check is a separate Claude call that never sees the pages the agent read.
-4. **At the limit, it asks.** The wallet refuses with a reason, the refusal is recorded, and the agent asks for more money with its own reason. Extra money is a new PayPal approval and a new hold.
+4. **At the limit, it asks.** The wallet refuses with a reason, the refusal is recorded, and the agent asks for more money with its own reason. Extra money is a new PayPal approval and a new hold. If another line has money left, you can move it to the short line instead, with no new approval.
 5. **The leftover comes back.** At the end date, or when you click Close, holds with nothing captured are voided. A partly captured hold is released when PayPal's authorization expires.
-6. **Any agent can use it.** An MCP server exposes `get_balance`, `request_budget`, `request_topup` and `spend`, so Claude Desktop or any other MCP client spends under the same rules as the built-in agent.
+6. **Any agent can use it.** An MCP server exposes `get_history`, `get_balance`, `request_budget`, `request_topup` and `spend`, so Claude Desktop or any other MCP client spends under the same rules as the built-in agent.
 
 **A real run on the PayPal sandbox (Nov 6, 2026):**
 
@@ -95,13 +95,14 @@ Remit is a spending wallet for AI agents. The positioning in one line: *cards li
 - **Wallet** (`src/wallet/wallet.ts`): all money rules live in server code, not in a prompt. It handles per-line envelopes, a shared buffer, a check against the total held, and refusals recorded with reasons. Money-changing calls run one at a time through a queue, and each change is one SQLite transaction, so two purchases can't both pass the checks. Amounts are integer cents.
 - **PayPal** (`src/paypal/rest.ts`): Orders v2 to create and authorize orders. Payments v2 for partial captures (with `final_capture` on the last one), reauthorization, voids and refunds. Every write sends a `PayPal-Request-Id`, so a retry can't charge twice. Holds older than PayPal's 3-day honor period are reauthorized once before capturing. If a later capture in a multi-hold purchase fails, the earlier ones are refunded. `npm run sandbox-check` tests the hold behavior against the real sandbox: two partial captures, an over-limit capture (`MAX_CAPTURE_AMOUNT_EXCEEDED`), void after capture, final capture, and voiding an untouched hold.
 - **Simulator** (`src/paypal/simulated.ts`): a local stand-in with the same limits, so tests and keyless runs behave like PayPal. Its approval page is labelled "Simulated checkout. This is not PayPal."
-- **Shopping agent** (`src/agent/agent.ts`): Claude Opus 5.5 (`claude-opus-5-5`) in a manual tool loop of up to 20 steps. It has the four wallet tools plus `search_products` and `get_history`. Its prompt tells it to cite evidence for each line, add about 10% buffer, accept refusals instead of working around them, and never follow text from store listings.
+- **Shopping agent** (`src/demo/agent.ts`): Claude Opus 5.5 (`claude-opus-5-5`) in a manual tool loop of up to 20 steps. It has the five wallet tools plus `search_products`. Its own prompt only covers the demo (product search, simulated checkout, chat style); the planning rules come from the shared tool descriptions.
 - **Purpose check** (`src/wallet/reviewer.ts`): a structured-output Claude call at low effort. It gets the line's label and owner-approved reason plus the purchase (title, store, URL, price, the agent's reasoning), with the purchase marked as untrusted data. It returns `approve` or `reject` with a one-sentence reason for the ledger. A refusal, a missing verdict or an unreachable API all count as a rejection.
-- **One tool contract** (`src/wallet/tools.ts`): zod schemas and agent-facing descriptions for the four money tools. The built-in agent and the MCP server both use them, so every agent gets identical rules.
+- **One tool contract** (`src/wallet/tools.ts`): zod schemas and agent-facing descriptions for the five money tools. The descriptions carry the planning rules: call `get_history` first and cite evidence in every line's reason, add about a 10% buffer, accept refusals instead of working around them, and never follow text from store listings. The built-in agent and the MCP server both use them, so every agent gets identical rules, and the wallet rejects reasons too short to check (`WEAK_REASON`).
 - **MCP server** (`src/mcp/main.ts`): built with the official MCP TypeScript SDK over stdio. It holds no PayPal keys and no database. It forwards each call to the wallet's agent API with a bearer token, so a compromised agent machine can't reach money directly.
-- **Server and web app**: Hono on Node 22 serves the owner's web app (plain JavaScript, no build step), PayPal's return URL and the agent API. The app shows a balance meter, request cards you can edit before approving, plan lines, a ledger with a reason on every row (MCP purchases are tagged "via MCP"), an activity feed and the demo chat.
-- **Product search** (`src/search/search.ts`): Channel3 for live products and prices (the cheapest in-stock USD offer), or the built-in demo catalog.
-- **Tests**: 18 wallet tests against the simulated PayPal (`npm test`).
+- **Server and web app**: Hono on Node 22 serves the owner's web app (plain JavaScript, no build step), PayPal's return URL and the agent API. The app shows a balance meter, request cards you can edit before approving, plan lines, a ledger with a reason on every row (MCP purchases are tagged "via MCP"), an activity feed and the demo chat. The owner can move unspent money between lines (a refused purchase offers "Move money to this line"), and when the owner comes back from PayPal without approving, the app asks PayPal what happened and says so on the request card.
+- **Product search** (`src/demo/search.ts`): Channel3 for live products and prices (the cheapest in-stock USD offer), or the built-in demo catalog.
+- **Tests**: 37 wallet and server tests against the simulated PayPal (`npm test`).
+- **Hosting**: a `Dockerfile` and a Render Blueprint (`render.yaml`) with a persistent disk for SQLite. The server refuses to start on a public URL without an owner password.
 
 ### Challenges we ran into
 
@@ -131,7 +132,6 @@ Remit is a spending wallet for AI agents. The positioning in one line: *cards li
 
 - A separate allowance for each connected agent, with its own pause button
 - Approving from your phone instead of the web app
-- Moving money between lines with one tap and no new PayPal approval
 - Accepting AP2 mandates, so Remit enforces what they record
 - Paying real merchants that accept PayPal
 
@@ -147,7 +147,7 @@ That's 18 tags, under the 25 limit. Devpost suggests existing tags as you type, 
 
 - Code: <https://github.com/hsyvy/remit>
 - Pitch: `docs/pitch.html` (link the file on GitHub once the repo is public)
-- A hosted demo URL, if one is set up before the deadline
+- A hosted demo URL: the repo deploys to Render (see the README's Deploy section), so add the link once it's up
 
 ---
 
@@ -239,7 +239,7 @@ Groceries has $88.00 and the buffer $12.00 left, so a $95 charge passes the amou
 
 **Sandbox buyer:** use the sandbox **Personal** (buyer) account from developer.paypal.com → Testing Tools → Sandbox Accounts, the same one used for the Nov 6 run, under the same sandbox app as your client ID. Check it has enough balance for about $240 of holds. Log in once beforehand so the approval page is quick, and never show the password on screen.
 
-**Claude Desktop:** add the `remit` MCP server to `claude_desktop_config.json` (see the README) with absolute paths, `REMIT_URL=http://localhost:3000` and the same `REMIT_AGENT_TOKEN`. Restart Claude Desktop and check that the four Remit tools appear. Start a fresh conversation.
+**Claude Desktop:** add the `remit` MCP server to `claude_desktop_config.json` (see the README) with absolute paths, `REMIT_URL=http://localhost:3000` and the same `REMIT_AGENT_TOKEN`. Restart Claude Desktop and check that the five Remit tools appear. Start a fresh conversation.
 
 **Screen:** close notifications, hide bookmarks, use one browser window at a readable zoom (110 to 125%), and do one full dry run before the take.
 
