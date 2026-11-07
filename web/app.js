@@ -115,7 +115,7 @@ function renderMeter() {
 }
 
 function renderRequests() {
-  const sig = JSON.stringify(state.requests.map((r) => [r.id, r.status, r.totalCents]));
+  const sig = JSON.stringify(state.requests.map((r) => [r.id, r.status, r.totalCents, r.approval?.state, r.approval?.detail]));
   if (sig === rendered.requests) return;
   rendered.requests = sig;
   $("requests").innerHTML = state.requests.map(requestCard).join("");
@@ -123,6 +123,18 @@ function renderRequests() {
   if (location.hash && state.requests.some((r) => `#${r.id}` === location.hash)) {
     document.getElementById(location.hash.slice(1))?.scrollIntoView({ block: "start" });
   }
+}
+
+// What to tell the owner when they went to PayPal but the approval didn't go through.
+function approvalNote(a) {
+  if (!a) return "";
+  const text =
+    a.state === "voided"
+      ? "PayPal cancelled this approval before it was finished. Approve it again to start over."
+      : a.state === "failed"
+        ? `PayPal didn't approve this: ${a.detail}. Try again, or pick a different payment method on PayPal's page.`
+        : "PayPal didn't approve this. Try again, or pick a different payment method on PayPal's page.";
+  return `<p class="warn" role="status">${esc(text)}</p>`;
 }
 
 function requestCard(r) {
@@ -144,12 +156,13 @@ function requestCard(r) {
     <section class="card receipt" id="${esc(r.id)}">
       <div class="card-head"><h2>${title}</h2><span class="label">from your agent · ${esc(time(r.createdAt))}</span></div>
       ${r.kind === "topup" ? `<p>${esc(r.reason)}</p>` : `<p class="muted">${esc(r.reason)}</p>`}
+      ${approvalNote(r.approval)}
       ${lines}
       <hr>
       <div class="total"><span>Total hold</span><span class="num"><span data-total>${money(r.totalCents)}</span> <span class="inr" data-total-inr>${inr(r.totalCents)}</span></span></div>
       <p class="small muted">Approving places a hold on your PayPal funds. The agent can spend only from it, line by line. Whatever it doesn't spend is released.</p>
       <div class="btns">
-        <button class="btn primary" data-act="approve" type="button">Approve on PayPal</button>
+        <button class="btn primary" data-act="approve" type="button">${r.approval ? "Try again on PayPal" : "Approve on PayPal"}</button>
         <button class="btn" data-act="decline" type="button">Decline</button>
       </div>
     </section>`;
@@ -412,8 +425,21 @@ $("reset").addEventListener("click", async () => {
 // Messages from the PayPal round trip.
 const params = new URLSearchParams(location.search);
 if (params.get("approved")) flash("Approved. The hold is in place and your agent can spend within it.");
-if (params.get("cancelled")) flash("You left PayPal without approving. The request is still here if you change your mind.");
+if (params.get("cancelled")) flash("You came back from PayPal without approving. The request is still here if you want to try again.");
 if (params.get("error")) flash(`Approval didn't go through: ${params.get("error")}`, true);
 if (params.size) history.replaceState(null, "", location.pathname + location.hash);
 
+// Ask PayPal about requests left in checkout once, when the app opens (the 5-second poll doesn't).
+// This catches a refused card or an abandoned PayPal page, and an approval whose redirect got lost.
+async function checkPaypal() {
+  try {
+    const { results } = await api("/api/paypal/check", {});
+    if (results.some((r) => r.outcome === "approved")) flash("PayPal approved it. The hold is in place and your agent can spend within it.");
+    if (results.some((r) => r.outcome !== "skipped" && r.outcome !== "unknown")) refresh();
+  } catch {
+    // Not worth a message: the card still works, and the next load checks again.
+  }
+}
+
 refresh();
+if (!params.get("cancelled")) checkPaypal();

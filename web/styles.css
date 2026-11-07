@@ -125,6 +125,7 @@ button, input, textarea { font: inherit; color: inherit; }
   font-weight: 500; font-size: 0.9rem; padding: 8px 14px; border-radius: 8px; cursor: pointer;
   border: 1px solid var(--rule); background: var(--sheet); color: var(--ink);
 }
+a.btn { display: inline-block; text-decoration: none; }
 .btn:hover { border-color: var(--ink-soft); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 :root[data-theme="dark"] .btn.primary { color: #0b1020; }
