@@ -4,10 +4,10 @@ import { bearerAuth } from "hono/bearer-auth";
 import { HTTPException } from "hono/http-exception";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { z } from "zod";
-import type { ShoppingAgent } from "../agent/agent.ts";
+import type { ShoppingAgent } from "../demo/agent.ts";
 import { fmt } from "../money.ts";
 import { PayPalError } from "../paypal/gateway.ts";
-import type { SimulatedPayPal } from "../paypal/simulated.ts";
+import { isWaiting, type SimOrder, type SimulatedPayPal } from "../paypal/simulated.ts";
 import { runWalletTool, walletToolDefs, type WalletToolName } from "../wallet/tools.ts";
 import { errorText, WalletError, type Wallet } from "../wallet/wallet.ts";
 
@@ -35,6 +35,9 @@ export function createApp(deps: AppDeps) {
     console.error(err);
     return c.json({ error: "INTERNAL", message: errorText(err) }, 500);
   });
+
+  // For the host's health check, so it sits in front of the owner password.
+  app.get("/healthz", (c) => c.json({ ok: true }));
 
   // ------------------------------------------------------------ agent API (used by the MCP server)
 
@@ -79,9 +82,20 @@ export function createApp(deps: AppDeps) {
     return c.json({ ok: true });
   });
 
+  // The app calls this when it opens, not on every poll. The wallet also throttles each request.
+  app.post("/api/paypal/check", async (c) => c.json({ results: await wallet.checkApprovals() }));
+
   app.post("/api/period/close", async (c) => c.json(await wallet.closePeriod()));
 
   app.post("/api/purchases/:id/refund", async (c) => c.json(await wallet.refund(c.req.param("id"))));
+
+  // Owner only: the agent API above has no route to this.
+  app.post("/api/lines/move", async (c) => {
+    const body = z
+      .object({ from: z.string(), to: z.string(), amountCents: z.number().int().positive() })
+      .parse(await c.req.json().catch(() => ({})));
+    return c.json(await wallet.moveBetweenLines(body.from, body.to, body.amountCents));
+  });
 
   app.post("/api/chat", async (c) => {
     const { message } = z.object({ message: z.string().trim().min(1).max(4000) }).parse(await c.req.json());
@@ -114,7 +128,16 @@ export function createApp(deps: AppDeps) {
     }
   });
 
-  app.get("/paypal/cancel", (c) => c.redirect(`/?cancelled=${encodeURIComponent(c.req.query("request") ?? "")}`));
+  // The owner left PayPal without approving, or PayPal refused the payment. Ask PayPal which, so the card can say.
+  app.get("/paypal/cancel", async (c) => {
+    const requestId = c.req.query("request") ?? "";
+    const results = await wallet.checkApprovals({ requestId, force: true }).catch((err) => {
+      console.error("approval check:", err);
+      return [];
+    });
+    const approved = results.some((r) => r.outcome === "approved");
+    return c.redirect(`/?${approved ? "approved" : "cancelled"}=${encodeURIComponent(requestId)}`);
+  });
 
   // ------------------------------------------------------------ simulated PayPal (only without sandbox credentials)
 
@@ -125,6 +148,8 @@ export function createApp(deps: AppDeps) {
       const order = sim.approve(c.req.param("orderId"));
       return c.redirect(withToken(order.returnUrl, order.id));
     });
+    // Acts out PayPal refusing the buyer's card: PayPal shows an error and the order keeps waiting.
+    app.post("/sim-paypal/checkout/:orderId/decline", (c) => c.html(simDeclinedPage(sim.decline(c.req.param("orderId")))));
     app.post("/sim-paypal/checkout/:orderId/cancel", (c) => {
       const order = sim.getOrder(c.req.param("orderId"));
       return c.redirect(withToken(order.cancelUrl, order.id));
@@ -142,19 +167,25 @@ function withToken(url: string, orderId: string) {
   return u.pathname + u.search;
 }
 
+const SIM_BANNER = `<p class="banner">Simulated checkout. This is not PayPal. Remit is running without PayPal sandbox credentials, so this page stands in for PayPal's approval step. Add PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET to use the real sandbox.</p>`;
+
+function simHead(title: string) {
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)}</title>
+<link rel="stylesheet" href="/styles.css">
+</head><body>`;
+}
+
 function simCheckoutPage(sim: SimulatedPayPal, orderId: string) {
   const order = sim.getOrder(orderId);
   const rows = order.items
     .map((i) => `<li><span><strong>${esc(i.name)}</strong><small>${esc(i.description)}</small></span><span class="num">${fmt(i.cents)}</span></li>`)
     .join("");
-  const done = order.status !== "CREATED";
-  return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Simulated approval</title>
-<link rel="stylesheet" href="/styles.css">
-</head><body>
+  const done = !isWaiting(order);
+  return `${simHead("Simulated approval")}
 <main class="sim">
-  <p class="banner">Simulated checkout. This is not PayPal. Remit is running without PayPal sandbox credentials, so this page stands in for PayPal's approval step. Add PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET to use the real sandbox.</p>
+  ${SIM_BANNER}
   <h1>Approve a hold of <span class="num">${fmt(order.totalCents)}</span></h1>
   <p class="muted">${esc(order.description)}. The money stays yours until the agent spends it. Whatever isn't spent is released.</p>
   <ul class="sim-items">${rows}</ul>
@@ -163,9 +194,24 @@ function simCheckoutPage(sim: SimulatedPayPal, orderId: string) {
       ? `<p class="muted">This order was already ${order.status.toLowerCase()}.</p><p><a href="/">Back to Remit</a></p>`
       : `<div class="btns">
     <form method="post" action="/sim-paypal/checkout/${esc(order.id)}/approve"><button class="btn primary">Approve hold</button></form>
+    <form method="post" action="/sim-paypal/checkout/${esc(order.id)}/decline"><button class="btn">Simulate a declined card</button></form>
     <form method="post" action="/sim-paypal/checkout/${esc(order.id)}/cancel"><button class="btn">Cancel</button></form>
   </div>`
   }
+</main></body></html>`;
+}
+
+/** Stands in for PayPal's own error page when it refuses the buyer's payment method. */
+function simDeclinedPage(order: SimOrder) {
+  return `${simHead("Simulated decline")}
+<main class="sim">
+  ${SIM_BANNER}
+  <h1>This payment method was declined</h1>
+  <p class="muted">Simulated: PayPal couldn't use the buyer's funding for a hold of <span class="num">${fmt(order.totalCents)}</span>. The order stays open, waiting for the buyer, and Remit isn't told.</p>
+  <div class="btns">
+    <a class="btn primary" href="/sim-paypal/checkout/${esc(order.id)}">Pick a different payment method</a>
+    <a class="btn" href="${esc(withToken(order.cancelUrl, order.id))}">Cancel and return to Remit</a>
+  </div>
 </main></body></html>`;
 }
 

@@ -4,7 +4,8 @@ import { HONOR_PERIOD_MS, PayPalError, type PayPalGateway } from "../paypal/gate
 
 /**
  * The wallet owns every money rule. The agent (in-process or over MCP) can only call
- * requestBudget, requestTopup, spend and balance; approvals come back from PayPal.
+ * requestBudget, requestTopup, spend, balance and history; approvals come back from PayPal.
+ * Moving money between lines is the owner's alone.
  */
 
 export class WalletError extends Error {
@@ -64,11 +65,27 @@ export interface SpendInput {
   agent: "remit" | "mcp";
 }
 
+/** What PayPal last said about an order the owner went to approve but didn't finish. */
+export interface ApprovalCheck {
+  /** not_approved: PayPal is still waiting (refused card or abandoned page). voided: PayPal dropped the order. failed: authorizing it failed. */
+  state: "not_approved" | "voided" | "failed";
+  paypalStatus: string;
+  detail?: string;
+  checkedAt: string;
+}
+
+export type ApprovalOutcome = "approved" | ApprovalCheck["state"] | "skipped" | "unknown";
+
 export const BUFFER_KEY = "buffer";
 const LINE_KEY = /^[a-z0-9][a-z0-9_-]{0,39}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_PERIOD_DAYS = 28;
+// A reason the owner can check needs a few words of evidence; "needed" or "food" is not one.
+const MIN_REASON_CHARS = 15;
+const MIN_REASON_WORDS = 3;
 const LIVE = "('pending','captured','refunded')";
+/** Ask PayPal about the same order at most this often, so reloading the app doesn't hammer it. */
+const APPROVAL_CHECK_MS = 15_000;
 
 export interface WalletOptions {
   appUrl: string;
@@ -183,7 +200,8 @@ export class Wallet {
     tx(this.db, () => {
       const update = this.db.prepare("UPDATE request_lines SET approved_cents = ? WHERE id = ?");
       for (const l of approved) update.run(l.approved_cents, l.id);
-      this.db.prepare("UPDATE requests SET status = 'checkout', paypal_order_id = ? WHERE id = ?").run(orderId, requestId);
+      // A new order starts with a clean slate: an earlier "PayPal didn't approve" was about the old one.
+      this.db.prepare("UPDATE requests SET status = 'checkout', paypal_order_id = ?, approval_check = NULL WHERE id = ?").run(orderId, requestId);
     });
     return { orderId, approveUrl, totalCents: total };
   }
@@ -226,6 +244,77 @@ export class Wallet {
       });
       return { alreadyApproved: false, holdCents: auth.cents };
     });
+  }
+
+  /**
+   * Ask PayPal about requests still in checkout. The owner may have come back without approving
+   * (PayPal refused the card, or they left), or approved while the redirect back got lost.
+   * Run when the owner opens the app or returns from PayPal, not on every poll: each request is
+   * checked at most once per APPROVAL_CHECK_MS unless `force` is set.
+   */
+  async checkApprovals(opts: { requestId?: string; force?: boolean } = {}) {
+    const rows = (
+      opts.requestId
+        ? this.db.prepare("SELECT * FROM requests WHERE id = ? AND status = 'checkout'").all(opts.requestId)
+        : this.db.prepare("SELECT * FROM requests WHERE status = 'checkout' ORDER BY created_at").all()
+    ) as unknown as RequestRow[];
+    const results: { requestId: string; outcome: ApprovalOutcome; check: ApprovalCheck | null }[] = [];
+    for (const row of rows) {
+      const last = parseCheck(row.approval_check);
+      if (!row.paypal_order_id) continue;
+      if (!opts.force && last && this.now().getTime() - Date.parse(last.checkedAt) < APPROVAL_CHECK_MS) {
+        results.push({ requestId: row.id, outcome: "skipped", check: last });
+        continue;
+      }
+      results.push({ requestId: row.id, ...(await this.checkApproval(row, last)) });
+    }
+    return results;
+  }
+
+  private async checkApproval(row: RequestRow, last: ApprovalCheck | null): Promise<{ outcome: ApprovalOutcome; check: ApprovalCheck | null }> {
+    const orderId = row.paypal_order_id!;
+    let paypalStatus: string;
+    try {
+      paypalStatus = await this.paypal.getOrderStatus(orderId);
+    } catch {
+      // Couldn't reach PayPal: keep what we knew, and try again next time.
+      return { outcome: "unknown", check: last };
+    }
+
+    let check: ApprovalCheck;
+    if (paypalStatus === "APPROVED" || paypalStatus === "COMPLETED") {
+      // Approved on PayPal, but the owner never made it back to /paypal/return. Finish the normal way.
+      // COMPLETED means an earlier authorize reached PayPal; the authorize call is idempotent, so retrying is safe.
+      try {
+        await this.completeApproval(row.id, orderId);
+        return { outcome: "approved", check: null };
+      } catch (err) {
+        check = { state: "failed", paypalStatus, detail: errorText(err), checkedAt: this.iso() };
+      }
+    } else if (paypalStatus === "VOIDED") {
+      check = { state: "voided", paypalStatus, checkedAt: this.iso() };
+    } else {
+      // CREATED, SAVED or PAYER_ACTION_REQUIRED: PayPal is still waiting for the buyer. That's also
+      // what a refused card looks like: PayPal keeps the order open so the buyer can pick another way to pay.
+      check = { state: "not_approved", paypalStatus, checkedAt: this.iso() };
+    }
+
+    // The request may have changed while PayPal answered (approved, declined, or sent to PayPal again).
+    const current = this.request(row.id);
+    if (current.status !== "checkout" || current.paypal_order_id !== orderId) return { outcome: "skipped", check: null };
+    tx(this.db, () => {
+      this.db.prepare("UPDATE requests SET approval_check = ? WHERE id = ?").run(JSON.stringify(check), row.id);
+      if (last?.state !== check.state) {
+        const what = row.kind === "budget" ? "budget request" : "top-up";
+        const total = fmt(this.requestLines(row.id).reduce((sum, l) => sum + (l.approved_cents ?? 0), 0));
+        const message =
+          check.state === "voided"
+            ? `PayPal voided the ${total} ${what} before it was approved. Approve it again to start over.`
+            : `PayPal didn't approve the ${total} ${what}${check.detail ? `: ${check.detail}` : ""}. It's still waiting for you.`;
+        this.event(row.period_id, "approval_not_done", message);
+      }
+    });
+    return { outcome: check.state, check };
   }
 
   decline(requestId: string, why = "You declined") {
@@ -272,7 +361,8 @@ export class Wallet {
         refuse(
           "OVER_LINE",
           `${fmt(input.amountCents)} is more than "${line.label}" allows: ${fmt(line.leftCents)} left on the line${bufferNote}. ` +
-            "Don't charge it to another line. If it's still worth buying, ask the owner with request_topup.",
+            "Don't charge it to another line. If it's still worth buying, tell the owner: they can move unspent money " +
+            "from another line in the Remit app (no new PayPal approval), or you can ask for more with request_topup.",
         );
       }
       // Total rule: never more than what is still held. (Envelopes and holds are created together, so this is a backstop.)
@@ -460,6 +550,50 @@ export class Wallet {
     });
   }
 
+  // ---------------------------------------------------------------- owner: moving money between lines
+
+  /**
+   * Owner only; never part of the agent tool contract. Moves unspent money from one line to
+   * another inside what is already held, so the total and the PayPal holds don't change.
+   */
+  moveBetweenLines(fromKey: string, toKey: string, cents: number) {
+    return this.serial(async () => {
+      const period = this.openPeriod();
+      if (!Number.isInteger(cents) || cents <= 0) throw new WalletError("BAD_AMOUNT", "Amount must be positive.");
+      if (fromKey === toKey) throw new WalletError("SAME_LINE", "Pick two different lines.");
+      return tx(this.db, () => {
+        const lines = this.lines(period.id);
+        const from = lines.find((l) => l.key === fromKey);
+        if (!from) throw new WalletError("NO_SUCH_LINE", `There is no approved line "${fromKey}".`);
+        // The buffer can receive money even if the plan had none.
+        const to = lines.find((l) => l.key === toKey) ?? (toKey === BUFFER_KEY ? this.addBuffer(period.id) : undefined);
+        if (!to) throw new WalletError("NO_SUCH_LINE", `There is no approved line "${toKey}".`);
+        if (cents > from.leftCents) {
+          throw new WalletError("OVER_UNSPENT", `"${from.label}" has only ${fmt(Math.max(0, from.leftCents))} unspent.`);
+        }
+        const update = this.db.prepare("UPDATE envelopes SET limit_cents = limit_cents + ? WHERE id = ?");
+        update.run(-cents, from.envelopeId);
+        update.run(cents, to.envelopeId);
+        this.event(period.id, "moved", `You moved ${fmt(cents)} from ${from.label} to ${to.label}.`);
+        const after = this.lines(period.id);
+        return {
+          movedCents: cents,
+          from: after.find((l) => l.key === from.key)!,
+          to: after.find((l) => l.key === to.key)!,
+          approvedCents: this.approvedCents(period.id),
+        };
+      });
+    });
+  }
+
+  private addBuffer(periodId: string) {
+    const id = newId("env");
+    this.db
+      .prepare("INSERT INTO envelopes (id, period_id, line_key, label, reason, limit_cents) VALUES (?, ?, ?, 'Buffer', ?, 0)")
+      .run(id, periodId, BUFFER_KEY, "Money you moved here from other lines.");
+    return { envelopeId: id, key: BUFFER_KEY, label: "Buffer" };
+  }
+
   // ---------------------------------------------------------------- reads
 
   balance() {
@@ -560,6 +694,7 @@ export class Wallet {
         reason: r.reason,
         createdAt: r.created_at,
         totalCents: lines.reduce((sum, l) => sum + (l.approved_cents ?? l.amount_cents), 0),
+        approval: r.status === "checkout" ? parseCheck(r.approval_check) : null,
         lines: lines.map((l) => ({ id: l.id, key: l.line_key, label: l.label, reason: l.reason, amountCents: l.amount_cents, approvedCents: l.approved_cents })),
       };
     });
@@ -717,7 +852,20 @@ export class Wallet {
 function checkLine(line: PlanLineInput): PlanLineInput {
   if (!LINE_KEY.test(line.key)) throw new WalletError("BAD_LINES", `Line key "${line.key}" must be lowercase letters, digits, - or _.`);
   if (!Number.isInteger(line.amountCents) || line.amountCents <= 0) throw new WalletError("BAD_AMOUNT", `Line "${line.key}" needs a positive amount.`);
-  return { key: line.key, label: requireText(line.label, "label", 80), amountCents: line.amountCents, reason: requireText(line.reason, "reason", 300) };
+  return { key: line.key, label: requireText(line.label, "label", 80), amountCents: line.amountCents, reason: checkReason(line.key, line.reason) };
+}
+
+function checkReason(key: string, value: string | undefined): string {
+  const text = (value ?? "").trim();
+  if (text.length < MIN_REASON_CHARS || text.split(/\s+/).length < MIN_REASON_WORDS) {
+    throw new WalletError(
+      "WEAK_REASON",
+      `Line "${key}" needs a reason the owner can check${text ? `, not just "${text.slice(0, 40)}"` : ""}. Cite the evidence, e.g. ` +
+        `"Last bag bought Oct 16, a 12 kg bag lasts about 4 weeks" or "Last 4 weeks averaged $43.70 per order". ` +
+        "Call get_history for past spending.",
+    );
+  }
+  return requireText(text, "reason", 300);
 }
 
 function requireText(value: string | undefined, name: string, max: number): string {
@@ -731,6 +879,10 @@ function addDays(date: string, days: number): string {
   const d = new Date(`${date}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
+}
+
+function parseCheck(json: string | null): ApprovalCheck | null {
+  return json ? (JSON.parse(json) as ApprovalCheck) : null;
 }
 
 export function errorText(err: unknown): string {
@@ -752,6 +904,7 @@ interface RequestRow {
   status: string;
   reason: string;
   paypal_order_id: string | null;
+  approval_check: string | null;
   created_at: string;
 }
 

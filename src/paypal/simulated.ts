@@ -14,6 +14,7 @@ import {
  * It enforces the same limits the brief relies on: no authorize before approval, no capture above
  * the hold (MAX_CAPTURE_AMOUNT_EXCEEDED), and no void after a capture (PREVIOUSLY_CAPTURED).
  * The owner approves on /sim-paypal/checkout/:orderId, which is clearly labelled as a simulation.
+ * That page can also act out PayPal refusing the payment method, which leaves the order waiting, as on PayPal.
  */
 export class SimulatedPayPal implements PayPalGateway {
   readonly mode = "simulated" as const;
@@ -26,7 +27,9 @@ export class SimulatedPayPal implements PayPalGateway {
   async createAuthorizeOrder(input: CreateOrderInput) {
     const order: SimOrder = {
       id: newId("SIMORDER").toUpperCase(),
-      status: "CREATED",
+      // What PayPal returns for an order created with a payment_source: it waits for the buyer.
+      status: "PAYER_ACTION_REQUIRED",
+      declined: false,
       description: input.description,
       items: input.items,
       totalCents: input.items.reduce((sum, item) => sum + item.cents, 0),
@@ -44,8 +47,32 @@ export class SimulatedPayPal implements PayPalGateway {
   /** Called by the simulated checkout page when the owner clicks Approve. */
   approve(orderId: string): SimOrder {
     const order = this.order(orderId);
-    if (order.status === "CREATED") {
+    if (isWaiting(order)) {
       order.status = "APPROVED";
+      order.declined = false;
+      this.put("order", order.id, order);
+    }
+    return order;
+  }
+
+  /**
+   * PayPal refused the buyer's payment method. Like PayPal, the order doesn't change status:
+   * it keeps waiting so the buyer can pick another way to pay, and nothing tells the merchant.
+   */
+  decline(orderId: string): SimOrder {
+    const order = this.order(orderId);
+    if (isWaiting(order)) {
+      order.declined = true;
+      this.put("order", order.id, order);
+    }
+    return order;
+  }
+
+  /** PayPal drops orders that are never approved. */
+  voidOrder(orderId: string): SimOrder {
+    const order = this.order(orderId);
+    if (isWaiting(order)) {
+      order.status = "VOIDED";
       this.put("order", order.id, order);
     }
     return order;
@@ -164,9 +191,16 @@ export class SimulatedPayPal implements PayPalGateway {
   }
 }
 
+/** Still waiting for the buyer. CREATED is what orders made before PAYER_ACTION_REQUIRED was modelled still say. */
+export function isWaiting(order: SimOrder) {
+  return order.status === "PAYER_ACTION_REQUIRED" || order.status === "CREATED";
+}
+
 export interface SimOrder {
   id: string;
-  status: "CREATED" | "APPROVED" | "COMPLETED";
+  status: "PAYER_ACTION_REQUIRED" | "CREATED" | "APPROVED" | "COMPLETED" | "VOIDED";
+  /** The simulated page refused the payment method at least once. */
+  declined?: boolean;
   description: string;
   items: { name: string; description: string; cents: number }[];
   totalCents: number;

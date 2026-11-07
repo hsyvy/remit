@@ -160,11 +160,11 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
             <!-- row 4 -->
             <rect x="260" y="328" width="200" height="56" rx="10" fill="var(--sheet)" stroke="var(--accent)" stroke-width="1.6"/>
             <text x="360" y="352" text-anchor="middle" font-size="14" font-weight="600">Agent tool contract</text>
-            <text x="360" y="370" text-anchor="middle" font-size="11.5" fill="var(--ink-soft)">src/wallet/tools.ts · 4 tools</text>
+            <text x="360" y="370" text-anchor="middle" font-size="11.5" fill="var(--ink-soft)">src/wallet/tools.ts · 5 tools</text>
 
             <rect x="500" y="328" width="220" height="56" rx="10" fill="var(--sheet)" stroke="var(--demo)" stroke-width="1.2" stroke-dasharray="5 4"/>
             <text x="610" y="352" text-anchor="middle" font-size="14" font-weight="600">Shopping agent</text>
-            <text x="610" y="370" text-anchor="middle" font-size="11.5" fill="var(--demo)">demo · src/agent</text>
+            <text x="610" y="370" text-anchor="middle" font-size="11.5" fill="var(--demo)">demo · src/demo</text>
 
             <rect x="780" y="328" width="200" height="56" rx="10" fill="var(--sheet)" stroke="var(--demo)" stroke-width="1.2" stroke-dasharray="5 4"/>
             <text x="880" y="352" text-anchor="middle" font-size="14" font-weight="600">Product search</text>
@@ -251,7 +251,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
           <text x="465" y="446" font-family="IBM Plex Sans, system-ui, sans-serif" font-size="10" fill="var(--ink-soft)">asks</text>
         </svg>
       </div>
-      <figcaption>Two doors lead into the money: the agent tool contract (for agents) and the owner routes (for the person). Every agent, whether yours over MCP or the built-in demo agent, goes through the same four tools, so the same rules apply to all of them. Only the owner's PayPal approval creates money an agent can spend.</figcaption>
+      <figcaption>Two doors lead into the money: the agent tool contract (for agents) and the owner routes (for the person). Every agent, whether yours over MCP or the built-in demo agent, goes through the same five tools, so the same rules apply to all of them. Only the owner's PayPal approval creates money an agent can spend.</figcaption>
     </figure>
   </section>
 
@@ -341,6 +341,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <li>The owner opens the request card, can change or remove lines, and clicks Approve. The wallet creates a PayPal order with intent AUTHORIZE and the request moves to <code>checkout</code>.</li>
         <li>The owner approves on PayPal's page. PayPal redirects to <code>/paypal/return</code>.</li>
         <li>The wallet authorizes the order. Only a successful authorization counts as approval, so visiting the return link by hand does nothing. It then creates the hold and one envelope per approved line, and the period opens.</li>
+        <li>If the owner comes back another way (PayPal refused the card, they cancelled, or they closed the tab), the wallet asks PayPal for the order status when they return or open the app. An approved order is finished as above. Otherwise the request stays in <code>checkout</code> and its card says PayPal didn't approve it; Approve sends a new order.</li>
       </ol>
     </div>
     <div class="layer">
@@ -357,7 +358,8 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
     <div class="layer">
       <h3>Ask for more, then close</h3>
       <ol class="flow">
-        <li>After a refusal, the agent calls <code>request_topup</code> for an existing or new line. It follows the same approval path as a budget and ends in a second hold.</li>
+        <li>After an <code>OVER_LINE</code> refusal, the owner can move unspent money from another line (or the buffer) with <code>moveBetweenLines</code>. Line limits change, the total and the holds don't, so there is no PayPal call. The ledger offers this with the shortfall filled in, and the move is logged as a <code>moved</code> event.</li>
+        <li>Or the agent calls <code>request_topup</code> for an existing or new line. It follows the same approval path as a budget and ends in a second hold.</li>
         <li>At the end date (checked every 60 seconds) or when the owner clicks Close, the wallet voids each active hold. Untouched holds are released at once. Holds with partial captures are marked <code>lapsing</code> and released when they expire. Open requests expire.</li>
       </ol>
     </div>
@@ -376,8 +378,9 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <dt>Role</dt><dd>Owns every money rule: budgets, lines and buffer, holds, purchases, refusals, extra money, close-out and refunds. Nothing else changes money state.</dd>
         <dt>Inputs</dt><dd><ul>
           <li>From agents, through the tool contract: <code>requestBudget</code>, <code>requestTopup</code>, <code>spend</code>, <code>balance</code>, <code>history</code></li>
-          <li>From the owner, through the API: <code>checkout(requestId, edits)</code>, <code>decline</code>, <code>closePeriod</code>, <code>refund</code></li>
+          <li>From the owner, through the API: <code>checkout(requestId, edits)</code>, <code>decline</code>, <code>closePeriod</code>, <code>refund</code>, <code>moveBetweenLines(fromKey, toKey, cents)</code></li>
           <li>From PayPal's redirect: <code>completeApproval(requestId, orderId)</code></li>
+          <li>When the owner opens the app or returns from PayPal without approving: <code>checkApprovals({ requestId?, force? })</code></li>
           <li>From the timer: <code>closeIfEnded()</code></li>
         </ul></dd>
         <dt>Outputs</dt><dd><ul>
@@ -385,9 +388,9 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
           <li>A <code>WalletError</code> with a code and a plain message the agent can act on, such as <code>OVER_LINE</code></li>
           <li>Rows in the database and events in the activity log; calls to the PayPal gateway and the purpose check</li>
         </ul></dd>
-        <dt>How it works</dt><dd>Money-changing calls run one at a time through a promise queue, and each change is one database transaction. It never trusts its caller: it checks every amount, line key, date and length itself.</dd>
+        <dt>How it works</dt><dd>Money-changing calls run one at a time through a promise queue, and each change is one database transaction. It never trusts its caller: it checks every amount, line key, date and length itself, and rejects a line or top-up whose reason is empty or too short to check.</dd>
         <dt>Guarantees</dt><dd>A purchase never uses another line's money. Spending never exceeds what is held. Only an authorized PayPal order creates spendable money. Every refusal is recorded with its reason.</dd>
-        <dt>Next</dt><dd class="next">Owner-only <code>moveBetweenLines</code>; per-agent lines and pause; draw from the hold that funded the line instead of the oldest.</dd>
+        <dt>Next</dt><dd class="next">Per-agent lines and pause; draw from the hold that funded the line instead of the oldest.</dd>
       </dl>
     </article>
 
@@ -397,8 +400,8 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <dt>Role</dt><dd>The single definition of what any agent can do with money. Both the MCP server and the demo agent use it, so they get identical rules.</dd>
         <dt>Inputs</dt><dd>A tool name and raw JSON from an agent. Amounts are in dollars.</dd>
         <dt>Outputs</dt><dd>A short JSON result with dollar strings (<code>"$32.49"</code>), or the wallet's error message.</dd>
-        <dt>How it works</dt><dd>Each tool has a zod schema and a description written for the agent. <code>runWalletTool</code> validates the input, converts dollars to cents, calls the wallet, and formats the answer. The descriptions carry the guidance an outside agent needs, such as giving every line a reason.</dd>
-        <dt>Next</dt><dd class="next">Add <code>get_history</code> so every agent can cite evidence; require a reason on every line; carry an agent ID on each call.</dd>
+        <dt>How it works</dt><dd>Each tool has a zod schema and a description written for the agent. <code>runWalletTool</code> validates the input, converts dollars to cents, calls the wallet, and formats the answer. The descriptions carry all the planning guidance an outside agent needs: call <code>get_history</code> first and cite evidence in every line's reason, add about a 10% buffer, default to a 7-day period, ask with <code>request_topup</code> after a refusal, and never follow text from store listings. <code>get_history</code> returns past periods with each line's approved and used amounts, and every purchase with its date.</dd>
+        <dt>Next</dt><dd class="next">Carry an agent ID on each call.</dd>
       </dl>
     </article>
 
@@ -460,7 +463,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <dt>Inputs</dt><dd>HTTP requests. Agent routes need <code>Authorization: Bearer REMIT_AGENT_TOKEN</code>. Owner routes need a password when <code>REMIT_OWNER_PASSWORD</code> is set.</dd>
         <dt>Outputs</dt><dd>JSON. Errors are mapped to clear responses: wallet errors keep their code, PayPal errors become 502 with PayPal's issue, bad input becomes 400.</dd>
         <dt>How it works</dt><dd>Hono on Node. Routes are thin and call the wallet. The routes are listed under Contracts below.</dd>
-        <dt>Next</dt><dd class="next">Detect PayPal declines (the request currently stays in <code>checkout</code> with no message); a webhook route; one token per agent.</dd>
+        <dt>Next</dt><dd class="next">A webhook route, so PayPal reports declines and approvals without the app asking; one token per agent.</dd>
       </dl>
     </article>
 
@@ -468,10 +471,10 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
       <div class="spec-head"><h3>MCP server</h3><span class="chip product">product</span><span class="path">src/mcp/main.ts</span></div>
       <dl>
         <dt>Role</dt><dd>Lets any agent the person already uses, such as Claude Desktop, use the wallet. This is how Remit becomes the wallet for your agent.</dd>
-        <dt>Inputs</dt><dd>MCP tool calls over stdio: <code>get_balance</code>, <code>request_budget</code>, <code>request_topup</code>, <code>spend</code>. Configured with <code>REMIT_URL</code> and <code>REMIT_AGENT_TOKEN</code>.</dd>
+        <dt>Inputs</dt><dd>MCP tool calls over stdio: <code>get_history</code>, <code>get_balance</code>, <code>request_budget</code>, <code>request_topup</code>, <code>spend</code>. Configured with <code>REMIT_URL</code> and <code>REMIT_AGENT_TOKEN</code>.</dd>
         <dt>Outputs</dt><dd>The tool's JSON result as text, or an error result.</dd>
         <dt>How it works</dt><dd>It registers the same schemas as the tool contract and forwards each call to <code>POST /agent/v1/tools/:name</code>. It holds no PayPal keys and no database, so a compromised agent machine can't reach money directly.</dd>
-        <dt>Next</dt><dd class="next">Add <code>get_history</code>; a remote (HTTP) MCP transport so hosted agents can connect.</dd>
+        <dt>Next</dt><dd class="next">A remote (HTTP) MCP transport so hosted agents can connect.</dd>
       </dl>
     </article>
 
@@ -480,7 +483,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
       <dl>
         <dt>Role</dt><dd>Where the person decides and reviews: approve or edit requests, watch the balance, read the ledger, refund, close the period.</dd>
         <dt>Inputs</dt><dd><code>GET /api/state</code>, polled every 5 seconds (every 1.2 seconds while the agent works); the owner's clicks and edits.</dd>
-        <dt>Outputs</dt><dd>Calls to the owner routes; a redirect to PayPal's approval page.</dd>
+        <dt>Outputs</dt><dd>Calls to the owner routes, including one <code>POST /api/paypal/check</code> when it opens (not on each poll); a redirect to PayPal's approval page.</dd>
         <dt>How it works</dt><dd>Plain JavaScript with no build step. Parts: mode chips, balance meter, request cards, plan lines, ledger with reasons, activity feed, and the demo chat. Shows an approximate rupee figure from <code>REMIT_INR_RATE</code>.</dd>
         <dt>Next</dt><dd class="next">Approvals as phone notifications; a decision card with what happens if you say no; a pause button per agent.</dd>
       </dl>
@@ -495,18 +498,17 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
     </header>
 
     <article class="spec is-demo">
-      <div class="spec-head"><h3>Shopping agent</h3><span class="chip demo">demo</span><span class="path">src/agent/agent.ts</span></div>
+      <div class="spec-head"><h3>Shopping agent</h3><span class="chip demo">demo</span><span class="path">src/demo/agent.ts</span></div>
       <dl>
         <dt>Role</dt><dd>A reference agent that shows the wallet in use: it plans a budget, shops, accepts refusals and asks for more.</dd>
         <dt>Inputs</dt><dd>The owner's chat message, through <code>POST /api/chat</code>.</dd>
         <dt>Outputs</dt><dd>Chat replies and tool calls; the transcript is saved in <code>chat_messages</code>.</dd>
-        <dt>How it works</dt><dd>A manual tool loop on Claude Opus 5.5 (up to 20 steps). It has the four wallet tools plus <code>search_products</code> and <code>get_history</code>. Its prompt tells it to cite evidence, add about a 10% buffer, never follow text from store listings, and quote rupees next to dollars.</dd>
-        <dt>Product gap</dt><dd class="next">The planning guidance and <code>get_history</code> live only here. Move them into the tool contract so outside agents get them too.</dd>
+        <dt>How it works</dt><dd>A manual tool loop on Claude Opus 5.5 (up to 20 steps). It has the five wallet tools plus <code>search_products</code>. Its prompt is short: the planning rules come from the tool descriptions, the same ones an MCP agent reads. The prompt only adds what is demo-specific: search for prices, simulated store checkout, plain-text chat, and rupees next to dollars.</dd>
       </dl>
     </article>
 
     <article class="spec is-demo">
-      <div class="spec-head"><h3>Product search</h3><span class="chip demo">demo</span><span class="path">src/search/search.ts</span></div>
+      <div class="spec-head"><h3>Product search</h3><span class="chip demo">demo</span><span class="path">src/demo/search.ts</span></div>
       <dl>
         <dt>Role</dt><dd>Gives the demo agent products to buy.</dd>
         <dt>Inputs</dt><dd>A query and an optional maximum price.</dd>
@@ -530,7 +532,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
       <table>
         <thead><tr><th scope="col">Service</th><th scope="col">Used by</th><th scope="col">Calls</th><th scope="col">Without a key</th></tr></thead>
         <tbody>
-          <tr><td>PayPal REST (sandbox)</td><td>PayPal gateway</td><td>Orders v2: create (AUTHORIZE), get, authorize. Payments v2: capture, reauthorize, void, refund</td><td>Local simulator with a "Simulated checkout" page</td></tr>
+          <tr><td>PayPal REST (sandbox)</td><td>PayPal gateway</td><td>Orders v2: create (AUTHORIZE), get, authorize. Payments v2: capture, reauthorize, void, refund</td><td>Local simulator with a "Simulated checkout" page that can also act out a declined card</td></tr>
           <tr><td>PayPal approval page</td><td>The owner, by redirect</td><td>Owner signs in as the buyer and approves; PayPal returns to <code>/paypal/return</code></td><td>Simulated approval page</td></tr>
           <tr><td>Claude API</td><td>Purpose check; demo agent</td><td><code>messages.parse</code> with a structured verdict; <code>beta.messages.create</code> tool loop</td><td>Chat off; purpose check skipped</td></tr>
           <tr><td>Channel3</td><td>Product search (demo)</td><td><code>POST /v1/search</code></td><td>Built-in catalog</td></tr>
@@ -548,7 +550,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <thead><tr><th scope="col">Table</th><th scope="col">Holds</th><th scope="col">Key fields</th></tr></thead>
         <tbody>
           <tr><td><code>periods</code></td><td>One budget period</td><td><code>starts_on</code>, <code>ends_on</code>, <code>status</code> (pending, open, closed, declined), <code>source</code> (live or seed)</td></tr>
-          <tr><td><code>requests</code></td><td>A budget or top-up request</td><td><code>kind</code>, <code>status</code>, <code>reason</code>, <code>paypal_order_id</code></td></tr>
+          <tr><td><code>requests</code></td><td>A budget or top-up request</td><td><code>kind</code>, <code>status</code>, <code>reason</code>, <code>paypal_order_id</code>, <code>approval_check</code> (JSON: what PayPal last said about an order not yet approved)</td></tr>
           <tr><td><code>request_lines</code></td><td>Lines as asked and as approved</td><td><code>line_key</code>, <code>reason</code>, <code>amount_cents</code> (asked), <code>approved_cents</code> (sent to PayPal; 0 = removed)</td></tr>
           <tr><td><code>envelopes</code></td><td>An approved line and its limit</td><td><code>line_key</code>, <code>label</code>, <code>reason</code>, <code>limit_cents</code> (top-ups add to it)</td></tr>
           <tr><td><code>holds</code></td><td>A PayPal authorization</td><td><code>authorization_id</code>, <code>amount_cents</code>, <code>captured_cents</code>, <code>status</code>, <code>honor_until</code>, <code>expires_at</code>, <code>release_note</code></td></tr>
@@ -583,7 +585,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
       <table>
         <thead><tr><th scope="col">Code</th><th scope="col">Means</th><th scope="col">What the agent should do</th></tr></thead>
         <tbody>
-          <tr><td><code>OVER_LINE</code></td><td>More than the line plus buffer allows</td><td>Tell the owner; <code>request_topup</code> if still worth it</td></tr>
+          <tr><td><code>OVER_LINE</code></td><td>More than the line plus buffer allows</td><td>Tell the owner, who can move money between lines; or <code>request_topup</code> if still worth it</td></tr>
           <tr><td><code>NO_SUCH_LINE</code></td><td>No approved line with that key</td><td>Use an approved line or ask for a new one</td></tr>
           <tr><td><code>REVIEW_REJECTED</code></td><td>The purpose check says the purchase doesn't fit the line</td><td>Don't retry; explain to the owner</td></tr>
           <tr><td><code>OVER_BALANCE</code></td><td>More than is still held</td><td><code>request_topup</code></td></tr>
@@ -602,10 +604,12 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
           <tr><td><code>GET /api/state</code></td><td>Owner app</td><td>Everything the app shows: modes, period, lines, requests, holds, totals, purchases, events, chat</td></tr>
           <tr><td><code>POST /api/requests/:id/checkout</code></td><td>Owner</td><td>Apply edits, create the PayPal order, return the approval URL</td></tr>
           <tr><td><code>POST /api/requests/:id/decline</code></td><td>Owner</td><td>Decline a waiting request</td></tr>
+          <tr><td><code>POST /api/paypal/check</code></td><td>Owner app, on open</td><td>Ask PayPal about requests in checkout: finish approved ones, mark the rest as not approved</td></tr>
           <tr><td><code>POST /api/period/close</code></td><td>Owner</td><td>Close now and release holds</td></tr>
           <tr><td><code>POST /api/purchases/:id/refund</code></td><td>Owner</td><td>Refund a paid purchase to the owner</td></tr>
+          <tr><td><code>POST /api/lines/move</code></td><td>Owner</td><td>Move unspent money between lines (<code>from</code>, <code>to</code>, <code>amountCents</code>); total unchanged, no PayPal call</td></tr>
           <tr><td><code>POST /api/chat</code>, <code>/api/chat/reset</code></td><td>Owner (demo)</td><td>Send a message to the demo agent (runs in the background) or start over</td></tr>
-          <tr><td><code>GET /paypal/return</code>, <code>/paypal/cancel</code></td><td>PayPal redirect</td><td>Authorize and create the hold, or note the cancel</td></tr>
+          <tr><td><code>GET /paypal/return</code>, <code>/paypal/cancel</code></td><td>PayPal redirect</td><td>Authorize and create the hold, or ask PayPal what happened and note it on the card</td></tr>
           <tr><td><code>POST /agent/v1/tools/:name</code></td><td>Agents (token)</td><td>Run one wallet tool</td></tr>
         </tbody>
       </table>
@@ -638,10 +642,9 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
       <table>
         <thead><tr><th scope="col">Component</th><th scope="col">Role</th><th scope="col">Inputs → outputs</th><th scope="col">Changes</th></tr></thead>
         <tbody>
-          <tr><td><span class="chip planned">planned</span><br><strong>Approval status watcher</strong></td><td>Notice when PayPal declines or the owner abandons approval</td><td>Requests in <code>checkout</code> → order status from PayPal → a "PayPal didn't approve" message on the card</td><td>API server, web app; later replaced by webhooks</td></tr>
-          <tr><td><span class="chip planned">planned</span><br><strong>History for every agent</strong></td><td>Let any agent cite evidence when planning</td><td><code>get_history</code> tool → past periods, lines and purchases</td><td>Tool contract, MCP server; planning guidance moves into tool descriptions</td></tr>
+          <tr><td><span class="chip product">built</span><br><strong>Approval status watcher</strong></td><td>Notice when PayPal declines or the owner abandons approval, and finish approvals whose redirect got lost</td><td>Requests in <code>checkout</code>, checked when the app opens and on <code>/paypal/cancel</code> (at most every 15 seconds per request) → order status from PayPal → <code>APPROVED</code> completes the approval; still waiting or <code>VOIDED</code> puts a "PayPal didn't approve this" message on the card, whose button retries</td><td>Built: <code>wallet.checkApprovals</code>, <code>requests.approval_check</code>, <code>POST /api/paypal/check</code>, the request card, and a "Simulate a declined card" button on the simulated page. Webhooks can replace the polling later.</td></tr>
           <tr><td><span class="chip planned">planned</span><br><strong>Agent registry</strong></td><td>Give each connected agent its own allowance and pause</td><td>Owner adds an agent → token; each call carries the agent → lines scoped to that agent</td><td>Database (agents table), wallet, API auth, web app</td></tr>
-          <tr><td><span class="chip planned">planned</span><br><strong>Move between lines</strong></td><td>Fix most refusals without a new PayPal approval</td><td>Owner taps "move $10 from groceries" → envelope limits change, total unchanged</td><td>Wallet (owner-only method), web app, refusal message</td></tr>
+          <tr><td><span class="chip product">built</span><br><strong>Move between lines</strong></td><td>Fix most refusals without a new PayPal approval</td><td>Owner picks from, to and an amount on the plan lines card, or taps "Move money to this line" on a refusal → envelope limits change, total and holds unchanged, a <code>moved</code> event</td><td>Wallet (owner-only <code>moveBetweenLines</code>), <code>POST /api/lines/move</code>, web app, <code>OVER_LINE</code> message</td></tr>
           <tr><td><span class="chip planned">planned</span><br><strong>Notifier</strong></td><td>Bring decisions to the owner's phone</td><td>New request, refusal or weekly recap → push or email with approve and decline links</td><td>New service; API server routes for one-tap links</td></tr>
           <tr><td><span class="chip planned">planned</span><br><strong>PayPal webhooks</strong></td><td>Learn about approvals, declines, voids and expiry directly from PayPal</td><td>PayPal event → verified signature → wallet update</td><td>API server route, PayPal gateway, hosting with a public URL</td></tr>
           <tr><td><span class="chip planned">planned</span><br><strong>Merchant payment</strong></td><td>Pay the real shop instead of Remit's own sandbox account</td><td>Captured purchase → payment to the merchant or order with a PayPal merchant</td><td>PayPal gateway, purchases table</td></tr>

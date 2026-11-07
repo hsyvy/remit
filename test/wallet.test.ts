@@ -1,9 +1,13 @@
 import assert from "node:assert/strict";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
 import { beforeEach, describe, it } from "node:test";
 import { openDb, type Db } from "../src/db.ts";
 import { PayPalError } from "../src/paypal/gateway.ts";
 import { SimulatedPayPal } from "../src/paypal/simulated.ts";
-import { runWalletTool } from "../src/wallet/tools.ts";
+import { runWalletTool, walletToolDefs } from "../src/wallet/tools.ts";
 import { Wallet, WalletError, type Reviewer } from "../src/wallet/wallet.ts";
 
 const APP = "http://localhost:3000";
@@ -100,16 +104,145 @@ describe("budget requests", () => {
     paypal = new SimulatedPayPal(db, APP);
     makeWallet();
     assert.throws(
-      () => wallet.requestBudget({ summary: "Long", startsOn: day(0), endsOn: day(40), lines: [{ key: "x", label: "X", amountCents: 100, reason: "r" }] }),
+      () => wallet.requestBudget({ summary: "Long", startsOn: day(0), endsOn: day(40), lines: [{ key: "x", label: "X", amountCents: 100, reason: "Owner asked for it on Nov 4." }] }),
       (e: WalletError) => e.code === "BAD_DATES",
     );
   });
 
+  it("rejects budget lines without a reason the owner can check", () => {
+    const ask = (reason: string, buffer?: string) =>
+      wallet.requestBudget({
+        summary: "Week",
+        startsOn: day(0),
+        endsOn: day(6),
+        lines: [{ key: "groceries", label: "Groceries", amountCents: 8800, reason }],
+        buffer: buffer === undefined ? undefined : { amountCents: 880, reason: buffer },
+      });
+    for (const reason of ["", "   ", "needed", "weekly food", "groceries again"]) {
+      assert.throws(
+        () => ask(reason),
+        (e: WalletError) => e.code === "WEAK_REASON" && e.message.includes('"groceries"') && /Last 4 weeks averaged/.test(e.message),
+        `reason ${JSON.stringify(reason)}`,
+      );
+    }
+    assert.throws(() => ask("Last 4 weeks averaged $43.70 per order.", "Shipping"), (e: WalletError) => e.code === "WEAK_REASON" && e.message.includes('"buffer"'));
+    assert.equal(wallet.pendingRequests().length, 0);
+    assert.equal(ask("Last 4 weeks averaged $43.70 per order.", "Price changes and shipping.").totalCents, 9680);
+  });
+
   it("caps request size", () => {
     assert.throws(
-      () => wallet.requestBudget({ summary: "Big", startsOn: day(0), endsOn: day(6), lines: [{ key: "tv", label: "TV", amountCents: 90_000, reason: "r" }] }),
+      () => wallet.requestBudget({ summary: "Big", startsOn: day(0), endsOn: day(6), lines: [{ key: "tv", label: "TV", amountCents: 90_000, reason: "Owner asked for a new TV." }] }),
       (e: WalletError) => e.code === "TOO_LARGE",
     );
+  });
+});
+
+describe("approvals that don't go through", () => {
+  const card = (requestId: string) => wallet.pendingRequests().find((r) => r.id === requestId)!;
+
+  it("tells the owner when PayPal refused the card, and lets them try again", async () => {
+    const { requestId } = requestWeek();
+    const { orderId } = await wallet.checkout(requestId);
+    assert.equal(card(requestId).approval, null);
+
+    // PayPal declines on its own page and the order keeps waiting, as the real sandbox does.
+    paypal.decline(orderId);
+    const [result] = await wallet.checkApprovals({ requestId, force: true });
+    assert.equal(result.outcome, "not_approved");
+    assert.equal(card(requestId).status, "checkout");
+    assert.equal(card(requestId).approval?.state, "not_approved");
+    assert.equal(card(requestId).approval?.paypalStatus, "PAYER_ACTION_REQUIRED");
+    assert.equal(wallet.balance().period?.status, "pending");
+    assert.match(wallet.state().events[0].message, /PayPal didn't approve the \$176\.50 budget request/);
+
+    // Approve again: a new order, and the old message goes away.
+    const retry = await wallet.checkout(requestId);
+    assert.notEqual(retry.orderId, orderId);
+    assert.equal(card(requestId).approval, null);
+    paypal.approve(retry.orderId);
+    await wallet.completeApproval(requestId, retry.orderId);
+    assert.equal(wallet.balance().period?.status, "open");
+  });
+
+  it("notices an abandoned PayPal page, and logs it once", async () => {
+    const { requestId } = requestWeek();
+    await wallet.checkout(requestId);
+    await wallet.checkApprovals();
+    clock = new Date(clock.getTime() + 60_000);
+    await wallet.checkApprovals();
+    assert.equal(card(requestId).approval?.state, "not_approved");
+    assert.equal(wallet.state().events.filter((e) => /didn't approve/.test(e.message)).length, 1);
+  });
+
+  it("finishes an approval whose redirect back got lost", async () => {
+    const { requestId } = requestWeek();
+    const { orderId } = await wallet.checkout(requestId);
+    paypal.approve(orderId);
+    const [result] = await wallet.checkApprovals();
+    assert.equal(result.outcome, "approved");
+    assert.equal(wallet.balance().period?.status, "open");
+    assert.equal(wallet.balance().leftCents, 17650);
+    // The return URL arriving late is still harmless.
+    assert.deepEqual(await wallet.completeApproval(requestId, orderId), { alreadyApproved: true });
+  });
+
+  it("says so when PayPal voided the order", async () => {
+    const { requestId } = requestWeek();
+    const { orderId } = await wallet.checkout(requestId);
+    paypal.voidOrder(orderId);
+    await wallet.checkApprovals();
+    assert.equal(card(requestId).approval?.state, "voided");
+    assert.equal(card(requestId).status, "checkout");
+  });
+
+  it("asks PayPal at most once per 15 seconds unless forced", async () => {
+    const { requestId } = requestWeek();
+    await wallet.checkout(requestId);
+    let calls = 0;
+    const getOrderStatus = paypal.getOrderStatus.bind(paypal);
+    paypal.getOrderStatus = (id) => (calls++, getOrderStatus(id));
+
+    await wallet.checkApprovals();
+    const [skipped] = await wallet.checkApprovals();
+    assert.equal(calls, 1);
+    assert.equal(skipped.outcome, "skipped");
+    assert.equal(skipped.check?.state, "not_approved");
+    await wallet.checkApprovals({ force: true });
+    assert.equal(calls, 2);
+    clock = new Date(clock.getTime() + 16_000);
+    await wallet.checkApprovals();
+    assert.equal(calls, 3);
+  });
+
+  it("leaves the request alone when PayPal can't be reached", async () => {
+    const { requestId } = requestWeek();
+    await wallet.checkout(requestId);
+    paypal.getOrderStatus = async () => {
+      throw new PayPalError("Service unavailable", 503);
+    };
+    const [result] = await wallet.checkApprovals();
+    assert.equal(result.outcome, "unknown");
+    assert.equal(card(requestId).approval, null);
+    assert.equal(card(requestId).status, "checkout");
+  });
+
+  it("ignores requests that aren't in checkout", async () => {
+    requestWeek();
+    assert.deepEqual(await wallet.checkApprovals(), []);
+  });
+
+  it("adds the new column to a database made before it existed", () => {
+    const dir = mkdtempSync(join(tmpdir(), "remit-"));
+    const path = join(dir, "old.db");
+    const old = new DatabaseSync(path);
+    old.exec("CREATE TABLE requests (id TEXT PRIMARY KEY, period_id TEXT NOT NULL, kind TEXT NOT NULL, status TEXT NOT NULL, reason TEXT NOT NULL, paypal_order_id TEXT, created_at TEXT NOT NULL, decided_at TEXT)");
+    old.close();
+    const migrated = openDb(path);
+    const columns = (migrated.prepare("PRAGMA table_info(requests)").all() as { name: string }[]).map((c) => c.name);
+    migrated.close();
+    rmSync(dir, { recursive: true });
+    assert.ok(columns.includes("approval_check"));
   });
 });
 
@@ -148,6 +281,13 @@ describe("spending", () => {
     await buy("groceries", 1600); // all of the buffer
     await assert.rejects(buy("groceries", 1), (e: WalletError) => e.code === "OVER_LINE");
     assert.equal(wallet.balance().leftCents, 3250 + 4000);
+  });
+
+  it("rejects a top-up without a real reason", async () => {
+    for (const reason of ["", "more", "more money"]) {
+      assert.throws(() => wallet.requestTopup({ lineKey: "gift-sam", amountCents: 4000, reason }), (e: WalletError) => e.code === "WEAK_REASON", reason);
+    }
+    assert.equal(wallet.pendingRequests().length, 0);
   });
 
   it("top-ups are a new approval and a new hold, spent oldest first", async () => {
@@ -204,6 +344,80 @@ describe("spending", () => {
   });
 });
 
+describe("moving money between lines", () => {
+  beforeEach(async () => {
+    await approve(requestWeek().requestId);
+  });
+  const line = (key: string) => wallet.balance().lines.find((l) => l.key === key)!;
+
+  it("moves unspent money and records it in the activity feed", async () => {
+    const result = await wallet.moveBetweenLines("groceries", "gift-sam", 1000);
+    assert.equal(result.from.limitCents, 7800);
+    assert.equal(result.to.limitCents, 5000);
+    assert.equal(line("gift-sam").leftCents, 5000);
+    const event = wallet.state().events[0];
+    assert.equal(event.type, "moved");
+    assert.equal(event.message, "You moved $10.00 from Groceries, 2 orders to Birthday gift for Sam.");
+  });
+
+  it("keeps the total and the holds the same, with no PayPal call", async () => {
+    const before = wallet.state();
+    const ordersBefore = db.prepare("SELECT COUNT(*) AS n FROM sim_paypal").get() as { n: number };
+    await wallet.moveBetweenLines("dog-food", "buffer", 250);
+    await wallet.moveBetweenLines("buffer", "groceries", 1850);
+    const after = wallet.state();
+    assert.equal(after.totals.approvedCents, before.totals.approvedCents);
+    assert.equal(after.totals.heldCents, before.totals.heldCents);
+    assert.deepEqual(after.holds, before.holds);
+    assert.deepEqual(db.prepare("SELECT COUNT(*) AS n FROM sim_paypal").get(), ordersBefore);
+    assert.equal(line("buffer").leftCents, 0);
+    assert.equal(line("groceries").limitCents, 10650);
+  });
+
+  it("refuses to move more than is unspent on the source line", async () => {
+    await buy("dog-food", 3000);
+    await assert.rejects(wallet.moveBetweenLines("dog-food", "gift-sam", 251), (e: WalletError) => e.code === "OVER_UNSPENT");
+    await assert.rejects(wallet.moveBetweenLines("dog-food", "dog-food", 100), (e: WalletError) => e.code === "SAME_LINE");
+    await assert.rejects(wallet.moveBetweenLines("dog-food", "nope", 100), (e: WalletError) => e.code === "NO_SUCH_LINE");
+    await assert.rejects(wallet.moveBetweenLines("dog-food", "gift-sam", 0), (e: WalletError) => e.code === "BAD_AMOUNT");
+    // The buffer's unspent counts what other lines drew from it.
+    await buy("gift-sam", 5000);
+    await assert.rejects(wallet.moveBetweenLines("buffer", "groceries", 601), (e: WalletError) => e.code === "OVER_UNSPENT");
+    assert.equal(line("dog-food").limitCents, 3250);
+    assert.equal(line("buffer").limitCents, 1600);
+  });
+
+  it("lets a refused purchase go through after the owner moves money", async () => {
+    await assert.rejects(buy("gift-sam", 9500, "Headphones"), (e: WalletError) => e.code === "OVER_LINE" && /move unspent money/.test(e.message));
+    // Line 4000 + buffer 1600 leaves the headphones 3900 short.
+    await wallet.moveBetweenLines("groceries", "gift-sam", 3900);
+    const result = await buy("gift-sam", 9500, "Headphones");
+    assert.equal(result.fromLineCents, 7900);
+    assert.equal(result.fromBufferCents, 1600);
+    assert.equal(wallet.state().holds.length, 1);
+    assert.equal(wallet.balance().leftCents, 17650 - 9500);
+  });
+
+  it("creates the buffer when moving into a plan that had none", async () => {
+    await wallet.closePeriod();
+    const { requestId } = wallet.requestBudget({
+      summary: "No buffer",
+      startsOn: day(0),
+      endsOn: day(6),
+      lines: [{ key: "groceries", label: "Groceries", amountCents: 5000, reason: "Last 4 weeks averaged $50 per order." }, { key: "dog-food", label: "Dog food", amountCents: 3000, reason: "Last bag bought Oct 16, lasts about 4 weeks." }],
+    });
+    await approve(requestId);
+    await wallet.moveBetweenLines("groceries", "buffer", 500);
+    assert.equal(line("buffer").leftCents, 500);
+    const result = await buy("dog-food", 3400);
+    assert.equal(result.fromBufferCents, 400);
+  });
+
+  it("is not something an agent can call", () => {
+    assert.ok(!Object.keys(walletToolDefs).some((name) => /move/i.test(name)));
+  });
+});
+
 describe("close-out", () => {
   it("voids an untouched hold", async () => {
     await approve(requestWeek().requestId);
@@ -243,13 +457,38 @@ describe("simulated PayPal", () => {
 });
 
 describe("tool layer", () => {
+  it("get_history returns closed periods with lines and dated purchases", async () => {
+    assert.deepEqual(((await runWalletTool(wallet, "get_history", {}, "mcp")) as { periods: unknown[] }).periods, []);
+    await approve(requestWeek().requestId);
+    await buy("dog-food", 3249, "Dog food 12 kg");
+    await buy("groceries", 4185, "Weekly order");
+    await wallet.closePeriod();
+
+    const history = (await runWalletTool(wallet, "get_history", {}, "mcp")) as {
+      periods: { period: string; approved: string; spent: string; lines: Record<string, string>[]; purchases: Record<string, string>[] }[];
+    };
+    assert.equal(history.periods.length, 1);
+    const [week] = history.periods;
+    assert.equal(week.period, `${day(0)} to ${day(6)}`);
+    assert.equal(week.approved, "$176.50");
+    assert.equal(week.spent, "$74.34");
+    assert.deepEqual(week.lines.find((l) => l.line === "dog-food"), { line: "dog-food", label: "Dog food, 12 kg bag", approved: "$32.50", used: "$32.49" });
+    assert.deepEqual(
+      week.purchases.map((p) => [p.date, p.title, p.amount, p.line]),
+      [
+        [day(0), "Dog food 12 kg", "$32.49", "dog-food"],
+        [day(0), "Weekly order", "$41.85", "groceries"],
+      ],
+    );
+  });
+
   it("takes dollars and returns readable balances", async () => {
     await runWalletTool(wallet, "request_budget", {
       summary: "Week",
       starts_on: day(0),
       ends_on: day(6),
       lines: [{ key: "groceries", label: "Groceries", amount: 88, reason: "Average of last 4 weeks" }],
-      buffer: { amount: 8.8, reason: "Shipping" },
+      buffer: { amount: 8.8, reason: "Price changes and shipping." },
     }, "remit");
     await approve(wallet.pendingRequests()[0].id);
     const paid = await runWalletTool(wallet, "spend", { line: "groceries", amount: 41.85, title: "Weekly order", merchant: "FreshCart", reasoning: "Staples" }, "mcp");
