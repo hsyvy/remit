@@ -41,7 +41,7 @@ const app = createApp({
 
 serve({ fetch: app.fetch, port: config.port }, () => {
   console.log(`Remit on ${config.appUrl}`);
-  console.log(`  PayPal: ${modes.paypal}  search: ${modes.search}  agent: ${modes.agent}  reviewer: ${modes.reviewer}`);
+  console.log(`  PayPal: ${modes.paypal}  search: ${modes.search}  agent: ${modes.agent}  purpose check: ${modes.reviewer}`);
   console.log(`  agent API for MCP: ${config.agentToken ? "on" : "off (set REMIT_AGENT_TOKEN)"}`);
 });
 

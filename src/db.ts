@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS purchases (
   reasoning TEXT NOT NULL,
   agent TEXT NOT NULL,             -- which agent asked: remit | mcp
   refusal TEXT,
-  review TEXT,                     -- JSON from the second-opinion check
+  review TEXT,                     -- JSON from the purpose check
   created_at TEXT NOT NULL
 );
 

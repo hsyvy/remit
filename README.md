@@ -40,7 +40,7 @@ All of this is server code in [`src/wallet/wallet.ts`](src/wallet/wallet.ts). A 
 - **Only you approve money.** A budget or top-up opens only after PayPal authorizes the order, and PayPal only does that once you've approved it. Visiting the return URL without approving does nothing.
 - **Lines are envelopes.** Each purchase names a plan line. It can use that line and then the shared buffer, never another line.
 - **No overspending.** The wallet checks the line and the total before capturing, and PayPal refuses to capture more than the hold (`MAX_CAPTURE_AMOUNT_EXCEEDED`). Spends are serialized so two at once can't both pass.
-- **Second opinion.** Before paying, a separate Claude call sees the plan line and the purchase, but not the page the agent read, and can refuse a purchase that doesn't fit the line. If the reviewer is unreachable, the wallet refuses.
+- **Purpose check.** Before paying, an independent Claude call sees the plan line and the purchase, but not the page the agent read, and can refuse a purchase that doesn't fit the line. If the purpose check is unreachable, the wallet refuses.
 - **Refusals are recorded.** A refused purchase shows in the ledger with the reason. The agent is told to ask for a top-up rather than work around it.
 - **Top-ups are new approvals.** Each one is a new PayPal order and a new hold. Purchases capture from the oldest hold first.
 - **Close-out.** At the end date (or when you click Close), holds with nothing captured are voided right away. PayPal won't void a hold after a partial capture (`PREVIOUSLY_CAPTURED`), so that leftover is released when the authorization expires, and the ledger says so. `npm run sandbox-check` tests this against the real sandbox.
@@ -79,7 +79,7 @@ npm run sandbox-check
 
 | Path | What |
 |---|---|
-| `src/wallet/` | Money rules, the four agent tools, the second-opinion reviewer |
+| `src/wallet/` | Money rules, the four agent tools, the purpose check |
 | `src/paypal/` | Orders and Payments REST client, and the local simulator |
 | `src/agent/` | The Claude shopping agent (tool loop, planning, history) |
 | `src/search/` | Channel3 search and the demo catalog |

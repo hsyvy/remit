@@ -104,7 +104,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
     <ol class="steps">
       <li><strong>The agent proposes a budget.</strong><span class="muted">One line per need, each with evidence: what past weeks cost, when something was last bought, today's prices.</span></li>
       <li><strong>You approve it on PayPal.</strong><span class="muted">That places an authorization hold on your own PayPal account. No new card, no new bank. You can trim or remove lines first.</span></li>
-      <li><strong>The agent spends line by line.</strong><span class="muted">Each purchase is a partial capture from the hold. It can use its own line and a shared buffer, never another line. A second Claude call checks the purchase against the line's reason before any money moves.</span></li>
+      <li><strong>The agent spends line by line.</strong><span class="muted">Each purchase is a partial capture from the hold. It can use its own line and a shared buffer, never another line. An independent purpose check, a second Claude call that never sees the pages the agent read, compares the purchase with the line's reason before any money moves.</span></li>
       <li><strong>Over the limit? It asks.</strong><span class="muted">The wallet refuses with a reason, and the agent requests more money with its own reason. Extra money is a new approval and a new hold.</span></li>
       <li><strong>The leftover comes back.</strong><span class="muted">At the end of the period, untouched holds are voided right away. The rest is released when the hold expires.</span></li>
     </ol>
@@ -125,7 +125,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
       <div class="row">
         <span class="what"><span class="tag paid">paid</span>Dog food, 12 kg bag</span>
         <span class="num">$32.49 <span class="inr">≈ ₹2,859</span></span>
-        <span class="why">Second opinion: same bag and price as the Oct 16 order, so it matches the line. Partial capture; PayPal shows the hold as PARTIALLY_CAPTURED.</span>
+        <span class="why">Purpose check: same bag and price as the Oct 16 order, so it matches the line. Partial capture; PayPal shows the hold as PARTIALLY_CAPTURED.</span>
       </div>
       <div class="row">
         <span class="what"><span class="tag refused">asked first</span>Birthday gift for Sam</span>
@@ -140,7 +140,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
       <div class="row">
         <span class="what"><span class="tag paid">paid</span>Wireless noise-cancelling headphones</span>
         <span class="num">$95.00 <span class="inr">≈ ₹8,360</span></span>
-        <span class="why">Second opinion: the headphones the owner approved, at the approved price. $109.50 left for the week.</span>
+        <span class="why">Purpose check: the headphones the owner approved, at the approved price. $109.50 left for the week.</span>
       </div>
     </div>
     <p class="small muted">The store order is simulated: the money really moves on PayPal's sandbox, but no shop receives an order. Amounts are in USD because PayPal doesn't accept INR; the app shows an approximate rupee figure.</p>
@@ -174,7 +174,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
       <ul class="plain">
         <li>Wallet with per-line limits, a shared buffer, one purchase at a time, and reauthorization after PayPal's 3-day honor period</li>
         <li>PayPal Orders v2 and Payments v2: authorize, partial capture, reauthorize, void, refund</li>
-        <li>Claude Opus 5.5 shopping agent, plus a second Claude call that reviews each purchase</li>
+        <li>Claude Opus 5.5 shopping agent, plus an independent purpose check on every purchase</li>
         <li>MCP server, so any agent can use the wallet: <span class="num">get_balance</span>, <span class="num">request_budget</span>, <span class="num">request_topup</span>, <span class="num">spend</span></li>
         <li>Channel3 product search, and an owner web app with a ledger of reasons</li>
       </ul>
