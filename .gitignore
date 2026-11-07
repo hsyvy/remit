@@ -6,3 +6,4 @@ node_modules/
 *.sqlite
 dist/
 .DS_Store
+data/

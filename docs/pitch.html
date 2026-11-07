@@ -1,0 +1,224 @@
+<title>Remit Pitch</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* One reading column; the sandbox receipt and the comparison break out slightly wider. Same tokens as the app and the brief. */
+:root {
+  --paper: #f6f7f9; --sheet: #ffffff; --ink: #17223b; --ink-soft: #4a5672; --rule: #d9dde6;
+  --accent: #2348c9; --hold: #b7791f; --free: #2f7d5b; --danger: #b4322b; --tint: #eef1fb;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #10141d; --sheet: #171c28; --ink: #e6e9f2; --ink-soft: #a3abc2; --rule: #2c3346;
+    --accent: #7d9bff; --hold: #e0a84a; --free: #5fc495; --danger: #f07a72; --tint: #1c2338; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #10141d; --sheet: #171c28; --ink: #e6e9f2; --ink-soft: #a3abc2; --rule: #2c3346;
+  --accent: #7d9bff; --hold: #e0a84a; --free: #5fc495; --danger: #f07a72; --tint: #1c2338; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.6; }
+.page {
+  max-width: 760px; margin: 0 auto; display: grid; gap: 56px;
+  padding-block: 56px 72px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+section { display: grid; gap: 16px; min-width: 0; }
+h1, h2, h3 { font-family: var(--f-display); line-height: 1.12; margin: 0; text-wrap: balance; }
+h1 { font-size: clamp(2.3rem, 7vw, 3.6rem); font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 1.55rem; font-weight: 700; }
+h3 { font-size: 1.05rem; font-weight: 700; }
+p { margin: 0; max-width: 65ch; }
+.eyebrow { font-family: var(--f-mono); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+.lede { font-size: 1.2rem; color: var(--ink-soft); }
+.thesis { font-family: var(--f-display); font-size: 1.35rem; font-weight: 500; border-left: 3px solid var(--accent); padding-left: 16px; }
+.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--ink-soft); }
+.small { font-size: 0.88rem; }
+
+/* How it works: a real sequence, so it is numbered. */
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; counter-reset: step; }
+.steps li { display: grid; grid-template-columns: 2.2rem minmax(0, 1fr); gap: 4px 12px; counter-increment: step; }
+.steps li::before {
+  content: counter(step); grid-row: span 2; width: 2rem; height: 2rem; border-radius: 50%;
+  display: grid; place-items: center; font-family: var(--f-mono); font-size: 0.9rem;
+  background: var(--tint); color: var(--accent);
+}
+.steps strong { font-weight: 600; }
+
+/* The sandbox receipt */
+.receipt { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 20px; display: grid; gap: 14px; }
+.receipt-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; align-items: baseline; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 16px; padding-top: 12px; border-top: 1px dashed var(--rule); }
+.row:first-of-type { border-top: 0; padding-top: 0; }
+.row .what { font-weight: 500; }
+.row .why { grid-column: 1 / -1; font-size: 0.88rem; color: var(--ink-soft); }
+.tag { font-family: var(--f-mono); font-size: 0.72rem; letter-spacing: 0.05em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; border: 1px solid currentColor; margin-right: 6px; white-space: nowrap; }
+.tag.paid { color: var(--accent); }
+.tag.held { color: var(--hold); }
+.tag.refused { color: var(--danger); }
+.tag.free { color: var(--free); }
+.inr { color: var(--ink-soft); font-size: 0.82rem; }
+
+/* Comparison */
+.table-wrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 12px; background: var(--sheet); }
+table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 0.94rem; }
+th, td { text-align: left; vertical-align: top; padding: 12px 14px; border-top: 1px solid var(--rule); }
+thead th { border-top: 0; font-family: var(--f-mono); font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); font-weight: 500; }
+tbody th { font-weight: 600; width: 22%; }
+td.remit { background: var(--tint); }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; }
+.two > div { display: grid; gap: 8px; align-content: start; min-width: 0; }
+ul.plain { margin: 0; padding-left: 1.1rem; display: grid; gap: 6px; }
+
+.tagline { background: var(--sheet); border: 1px solid var(--rule); border-radius: 12px; padding: 16px; display: grid; gap: 10px; }
+.tagline p { font-family: var(--f-display); font-size: 1.1rem; font-weight: 500; }
+.copy { justify-self: start; font: 500 0.85rem var(--f-body); padding: 6px 12px; border-radius: 8px; border: 1px solid var(--rule); background: var(--paper); color: var(--ink); cursor: pointer; }
+.copy:hover { border-color: var(--ink-soft); }
+.copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+footer { border-top: 1px solid var(--rule); padding-top: 20px; }
+</style>
+
+<main class="page">
+  <section>
+    <span class="eyebrow">PayPal AI Hackathon · Remit</span>
+    <h1>Your agent spends within its remit.</h1>
+    <p class="lede">AI agents can already pay. Remit makes sure they pay for what you agreed to. The agent asks for a budget, you approve it on PayPal, and every purchase has to fit the reason you said yes to.</p>
+    <p class="thesis">Cards limit how much an agent can spend. Remit also limits what the money is for.</p>
+  </section>
+
+  <section>
+    <h2>The problem</h2>
+    <p>Giving an agent your card is all or nothing. A spending limit answers <em>how much</em>, but not <em>for what</em>. A $100 limit lets an agent spend $100 on anything, including something a product listing talked it into. And when a charge looks wrong, all you have is a transaction line, not the reason.</p>
+  </section>
+
+  <section>
+    <h2>How it works</h2>
+    <ol class="steps">
+      <li><strong>The agent proposes a budget.</strong><span class="muted">One line per need, each with evidence: what past weeks cost, when something was last bought, today's prices.</span></li>
+      <li><strong>You approve it on PayPal.</strong><span class="muted">That places an authorization hold on your own PayPal account. No new card, no new bank. You can trim or remove lines first.</span></li>
+      <li><strong>The agent spends line by line.</strong><span class="muted">Each purchase is a partial capture from the hold. It can use its own line and a shared buffer, never another line. A second Claude call checks the purchase against the line's reason before any money moves.</span></li>
+      <li><strong>Over the limit? It asks.</strong><span class="muted">The wallet refuses with a reason, and the agent requests more money with its own reason. Extra money is a new approval and a new hold.</span></li>
+      <li><strong>The leftover comes back.</strong><span class="muted">At the end of the period, untouched holds are voided right away. The rest is released when the hold expires.</span></li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>A real run on the PayPal sandbox</h2>
+    <div class="receipt">
+      <div class="receipt-head">
+        <h3>Week of Nov 6 to 12</h3>
+        <span class="eyebrow">Claude Opus 5.5 · PayPal sandbox · Nov 6, 2026</span>
+      </div>
+      <div class="row">
+        <span class="what"><span class="tag held">held</span>Budget approved on PayPal</span>
+        <span class="num">$132.49 <span class="inr">≈ ₹11,659</span></span>
+        <span class="why">Groceries $88.00 (two orders a week, $87 to $88 for the last four weeks), dog food $32.49 (last 12 kg bag Oct 16, three weeks ago), buffer $12.00. Hold 4UP41481T7762431N.</span>
+      </div>
+      <div class="row">
+        <span class="what"><span class="tag paid">paid</span>Dog food, 12 kg bag</span>
+        <span class="num">$32.49 <span class="inr">≈ ₹2,859</span></span>
+        <span class="why">Second opinion: same bag and price as the Oct 16 order, so it matches the line. Partial capture; PayPal shows the hold as PARTIALLY_CAPTURED.</span>
+      </div>
+      <div class="row">
+        <span class="what"><span class="tag refused">asked first</span>Birthday gift for Sam</span>
+        <span class="num">no line</span>
+        <span class="why">Nothing in the budget covered a gift. The agent didn't take it from groceries or the buffer. It listed five options and asked the owner which one, and how much.</span>
+      </div>
+      <div class="row">
+        <span class="what"><span class="tag held">held</span>Extra money approved on PayPal</span>
+        <span class="num">$104.50 <span class="inr">≈ ₹9,196</span></span>
+        <span class="why">"You picked these for Sam's birthday. They're $95.00, plus about 10% for shipping or a price change." A second, separate hold.</span>
+      </div>
+      <div class="row">
+        <span class="what"><span class="tag paid">paid</span>Wireless noise-cancelling headphones</span>
+        <span class="num">$95.00 <span class="inr">≈ ₹8,360</span></span>
+        <span class="why">Second opinion: the headphones the owner approved, at the approved price. $109.50 left for the week.</span>
+      </div>
+    </div>
+    <p class="small muted">The store order is simulated: the money really moves on PayPal's sandbox, but no shop receives an order. Amounts are in USD because PayPal doesn't accept INR; the app shows an approximate rupee figure.</p>
+  </section>
+
+  <section>
+    <h2>What's new</h2>
+    <p>Agent payment rails, cards with spending limits, and protocols that record what a person authorized already exist. Remit adds the part they leave out: money tied to a stated purpose, and a check that each purchase serves it.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th scope="col"></th><th scope="col">Cards with limits, mandates</th><th scope="col">Remit</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Who writes the budget</th><td>The person sets a number, or a mandate records what they asked</td><td class="remit">The agent proposes each line with a reason you can check. You approve a plan, not just an amount.</td></tr>
+          <tr><th scope="row">What's checked at payment</th><td>Amount and type of shop</td><td class="remit">Amount, the line it draws from, and whether the purchase serves that line's purpose</td></tr>
+          <tr><th scope="row">What approval means</th><td>A limit on a card</td><td class="remit">Money reserved on your own PayPal account, with the leftover released automatically</td></tr>
+          <tr><th scope="row">At the limit</th><td>A decline</td><td class="remit">A refusal with a reason, then a request for more that you approve on PayPal</td></tr>
+          <tr><th scope="row">The record</th><td>A list of transactions</td><td class="remit">A reason for every purchase, including the refused ones</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Why PayPal</h2>
+    <p>Authorization holds and partial captures map exactly onto a budget: approving reserves the money, each purchase captures part of it, and what's left is released. The owner uses the PayPal account they already have, and the agent never sees a card number.</p>
+  </section>
+
+  <section class="two">
+    <div>
+      <h2>What's built</h2>
+      <ul class="plain">
+        <li>Wallet with per-line limits, a shared buffer, one purchase at a time, and reauthorization after PayPal's 3-day honor period</li>
+        <li>PayPal Orders v2 and Payments v2: authorize, partial capture, reauthorize, void, refund</li>
+        <li>Claude Opus 5.5 shopping agent, plus a second Claude call that reviews each purchase</li>
+        <li>MCP server, so any agent can use the wallet: <span class="num">get_balance</span>, <span class="num">request_budget</span>, <span class="num">request_topup</span>, <span class="num">spend</span></li>
+        <li>Channel3 product search, and an owner web app with a ledger of reasons</li>
+      </ul>
+    </div>
+    <div>
+      <h2>What's next</h2>
+      <ul class="plain">
+        <li>A separate allowance for each connected agent, with its own pause button</li>
+        <li>Approve from your phone instead of the web app</li>
+        <li>Move money between lines with one tap, with no new PayPal approval</li>
+        <li>Accept AP2 mandates, so Remit enforces what they record</li>
+        <li>Pay real merchants that accept PayPal</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>Tagline</h2>
+    <div class="tagline">
+      <p id="tagline-text">Remit gives AI agents a PayPal budget they have to justify: the agent proposes each line with a reason, you approve a hold, and every purchase is checked against what the money is for.</p>
+      <button class="copy" id="copy-tagline" type="button">Copy tagline</button>
+    </div>
+  </section>
+
+  <footer class="small muted">
+    <p>Built with Claude Opus 5.5, PayPal Orders and Payments v2, MCP and Channel3. Source: github.com/hsyvy/remit</p>
+  </footer>
+</main>
+
+<script>
+document.getElementById("copy-tagline").addEventListener("click", async (e) => {
+  const btn = e.currentTarget;
+  const text = document.getElementById("tagline-text").textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+    btn.textContent = "Copied";
+  } catch {
+    const range = document.createRange();
+    range.selectNodeContents(document.getElementById("tagline-text"));
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    btn.textContent = "Selected. Press Ctrl+C to copy";
+  }
+  setTimeout(() => (btn.textContent = "Copy tagline"), 2500);
+});
+</script>
