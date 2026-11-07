@@ -5,6 +5,7 @@ import { HONOR_PERIOD_MS, PayPalError, type PayPalGateway } from "../paypal/gate
 /**
  * The wallet owns every money rule. The agent (in-process or over MCP) can only call
  * requestBudget, requestTopup, spend, balance and history; approvals come back from PayPal.
+ * Moving money between lines is the owner's alone.
  */
 
 export class WalletError extends Error {
@@ -275,7 +276,8 @@ export class Wallet {
         refuse(
           "OVER_LINE",
           `${fmt(input.amountCents)} is more than "${line.label}" allows: ${fmt(line.leftCents)} left on the line${bufferNote}. ` +
-            "Don't charge it to another line. If it's still worth buying, ask the owner with request_topup.",
+            "Don't charge it to another line. If it's still worth buying, tell the owner: they can move unspent money " +
+            "from another line in the Remit app (no new PayPal approval), or you can ask for more with request_topup.",
         );
       }
       // Total rule: never more than what is still held. (Envelopes and holds are created together, so this is a backstop.)
@@ -461,6 +463,50 @@ export class Wallet {
       this.event(purchase.period_id, "refunded", `Refunded ${fmt(purchase.amount_cents)} for "${purchase.title}" to you.`);
       return { refundedCents: purchase.amount_cents };
     });
+  }
+
+  // ---------------------------------------------------------------- owner: moving money between lines
+
+  /**
+   * Owner only; never part of the agent tool contract. Moves unspent money from one line to
+   * another inside what is already held, so the total and the PayPal holds don't change.
+   */
+  moveBetweenLines(fromKey: string, toKey: string, cents: number) {
+    return this.serial(async () => {
+      const period = this.openPeriod();
+      if (!Number.isInteger(cents) || cents <= 0) throw new WalletError("BAD_AMOUNT", "Amount must be positive.");
+      if (fromKey === toKey) throw new WalletError("SAME_LINE", "Pick two different lines.");
+      return tx(this.db, () => {
+        const lines = this.lines(period.id);
+        const from = lines.find((l) => l.key === fromKey);
+        if (!from) throw new WalletError("NO_SUCH_LINE", `There is no approved line "${fromKey}".`);
+        // The buffer can receive money even if the plan had none.
+        const to = lines.find((l) => l.key === toKey) ?? (toKey === BUFFER_KEY ? this.addBuffer(period.id) : undefined);
+        if (!to) throw new WalletError("NO_SUCH_LINE", `There is no approved line "${toKey}".`);
+        if (cents > from.leftCents) {
+          throw new WalletError("OVER_UNSPENT", `"${from.label}" has only ${fmt(Math.max(0, from.leftCents))} unspent.`);
+        }
+        const update = this.db.prepare("UPDATE envelopes SET limit_cents = limit_cents + ? WHERE id = ?");
+        update.run(-cents, from.envelopeId);
+        update.run(cents, to.envelopeId);
+        this.event(period.id, "moved", `You moved ${fmt(cents)} from ${from.label} to ${to.label}.`);
+        const after = this.lines(period.id);
+        return {
+          movedCents: cents,
+          from: after.find((l) => l.key === from.key)!,
+          to: after.find((l) => l.key === to.key)!,
+          approvedCents: this.approvedCents(period.id),
+        };
+      });
+    });
+  }
+
+  private addBuffer(periodId: string) {
+    const id = newId("env");
+    this.db
+      .prepare("INSERT INTO envelopes (id, period_id, line_key, label, reason, limit_cents) VALUES (?, ?, ?, 'Buffer', ?, 0)")
+      .run(id, periodId, BUFFER_KEY, "Money you moved here from other lines.");
+    return { envelopeId: id, key: BUFFER_KEY, label: "Buffer" };
   }
 
   // ---------------------------------------------------------------- reads

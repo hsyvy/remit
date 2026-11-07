@@ -27,6 +27,17 @@
       <section class="card" id="lines-card" hidden>
         <div class="card-head"><h2>Plan lines</h2><span class="label">each line is its own budget</span></div>
         <div class="lines" id="lines"></div>
+        <form class="move" id="move-form" hidden>
+          <span class="label">Move money</span>
+          <div class="move-fields">
+            <select id="move-from" aria-label="Move from line"></select>
+            <span aria-hidden="true">→</span>
+            <select id="move-to" aria-label="Move to line"></select>
+            <label class="amount-in">$<input id="move-amount" type="number" min="0.01" step="0.01" placeholder="0.00" aria-label="Amount to move"></label>
+            <button class="btn small" type="submit">Move</button>
+          </div>
+          <p class="small muted">Only unspent money, within what PayPal already holds. No new approval.</p>
+        </form>
       </section>
       <section class="card">
         <div class="card-head"><h2>Ledger</h2><span class="label">every dollar has a reason</span></div>
