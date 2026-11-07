@@ -1,6 +1,7 @@
 const env = process.env;
 
-const appUrl = (env.APP_URL ?? `http://localhost:${env.PORT ?? 3000}`).replace(/\/$/, "");
+// On Render, RENDER_EXTERNAL_URL is the service's public address, so APP_URL can be left unset there.
+const appUrl = (env.APP_URL || env.RENDER_EXTERNAL_URL || `http://localhost:${env.PORT ?? 3000}`).replace(/\/$/, "");
 
 export const config = {
   port: Number(env.PORT ?? 3000),
@@ -23,6 +24,13 @@ export const config = {
   },
   channel3Key: env.CHANNEL3_API_KEY ?? "",
   agentToken: env.REMIT_AGENT_TOKEN ?? "",
+  ownerPassword: env.REMIT_OWNER_PASSWORD ?? "",
 };
 
 export const paypalMode = config.paypal.clientId && config.paypal.clientSecret ? "sandbox" : "simulated";
+
+/** True when APP_URL points at this machine, where an open web app is fine. */
+export function isLocalUrl(url: string) {
+  const host = new URL(url).hostname;
+  return host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host.endsWith(".localhost");
+}

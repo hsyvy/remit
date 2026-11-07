@@ -4,7 +4,7 @@ import { bearerAuth } from "hono/bearer-auth";
 import { HTTPException } from "hono/http-exception";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { z } from "zod";
-import type { ShoppingAgent } from "../agent/agent.ts";
+import type { ShoppingAgent } from "../demo/agent.ts";
 import { fmt } from "../money.ts";
 import { PayPalError } from "../paypal/gateway.ts";
 import { isWaiting, type SimOrder, type SimulatedPayPal } from "../paypal/simulated.ts";
@@ -35,6 +35,9 @@ export function createApp(deps: AppDeps) {
     console.error(err);
     return c.json({ error: "INTERNAL", message: errorText(err) }, 500);
   });
+
+  // For the host's health check, so it sits in front of the owner password.
+  app.get("/healthz", (c) => c.json({ ok: true }));
 
   // ------------------------------------------------------------ agent API (used by the MCP server)
 
@@ -85,6 +88,14 @@ export function createApp(deps: AppDeps) {
   app.post("/api/period/close", async (c) => c.json(await wallet.closePeriod()));
 
   app.post("/api/purchases/:id/refund", async (c) => c.json(await wallet.refund(c.req.param("id"))));
+
+  // Owner only: the agent API above has no route to this.
+  app.post("/api/lines/move", async (c) => {
+    const body = z
+      .object({ from: z.string(), to: z.string(), amountCents: z.number().int().positive() })
+      .parse(await c.req.json().catch(() => ({})));
+    return c.json(await wallet.moveBetweenLines(body.from, body.to, body.amountCents));
+  });
 
   app.post("/api/chat", async (c) => {
     const { message } = z.object({ message: z.string().trim().min(1).max(4000) }).parse(await c.req.json());

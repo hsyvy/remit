@@ -13,7 +13,7 @@ const time = (iso) => new Date(iso).toLocaleTimeString(undefined, { hour: "2-dig
 
 let state = null;
 let pollTimer = null;
-const rendered = { requests: "", chat: "" };
+const rendered = { requests: "", chat: "", move: "" };
 
 async function api(path, body) {
   const res = await fetch(path, {
@@ -224,7 +224,72 @@ function renderLines() {
       </div>`,
     )
     .join("");
+  renderMoveForm();
 }
+
+// Owner-only: move unspent money between lines. Options are rebuilt only when the lines change,
+// so a poll doesn't wipe what the owner picked.
+function renderMoveForm() {
+  const open = state.period?.status === "open";
+  const lines = state.lines;
+  $("move-form").hidden = !open || lines.length < 2;
+  const sig = JSON.stringify(lines.map((l) => [l.key, l.leftCents]));
+  if (sig === rendered.move) return;
+  rendered.move = sig;
+  for (const id of ["move-from", "move-to"]) {
+    const select = $(id);
+    const picked = select.value;
+    select.innerHTML = lines.map((l) => `<option value="${esc(l.key)}">${esc(l.label)} · ${money(l.leftCents)} left</option>`).join("");
+    if (lines.some((l) => l.key === picked)) select.value = picked;
+  }
+  if ($("move-from").value === $("move-to").value) $("move-to").value = lines.find((l) => l.key !== $("move-from").value)?.key ?? "";
+}
+
+/** Fill the move form for a line that came up short, taking from the line with the most unspent. */
+function prefillMove(toKey, cents) {
+  const from = state.lines.filter((l) => l.key !== toKey).sort((a, b) => b.leftCents - a.leftCents)[0];
+  if (from) $("move-from").value = from.key;
+  $("move-to").value = toKey;
+  $("move-amount").value = (cents / 100).toFixed(2);
+  const form = $("move-form");
+  form.scrollIntoView({ block: "center", behavior: "smooth" });
+  form.classList.remove("flash-in");
+  void form.offsetWidth;
+  form.classList.add("flash-in");
+  $("move-amount").focus({ preventScroll: true });
+}
+
+/** How much more a refused purchase needs on its line (line plus buffer), or 0 if it would fit now. */
+function shortfall(p) {
+  const line = state.lines.find((l) => l.key === p.lineKey);
+  if (!line) return 0;
+  const buffer = line.key === "buffer" ? null : state.lines.find((l) => l.key === "buffer");
+  return Math.max(0, p.amountCents - line.leftCents - (buffer?.leftCents ?? 0));
+}
+
+$("move-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const from = $("move-from").value;
+  const to = $("move-to").value;
+  const amountCents = Math.round(Number($("move-amount").value) * 100);
+  if (from === to) return flash("Pick two different lines.", true);
+  if (!(amountCents > 0)) return flash("Enter an amount to move.", true);
+  const button = e.target.querySelector("button");
+  button.disabled = true;
+  try {
+    await api("/api/lines/move", { from, to, amountCents });
+    const label = (key) => state.lines.find((l) => l.key === key)?.label ?? key;
+    flash(`Moved ${money(amountCents)} from ${label(from)} to ${label(to)}. Your agent can try again.`);
+    $("move-amount").value = "";
+  } catch (err) {
+    flash(err.message, true);
+  }
+  button.disabled = false;
+  refresh();
+});
+
+// An OVER_LINE refusal: refused before the purpose check ran, on a line that still exists and is still short.
+const canMoveFor = (p) => p.status === "refused" && !p.review && state.period?.status === "open" && state.lines.length > 1 && shortfall(p) > 0;
 
 function renderPurchases() {
   const items = state.purchases;
@@ -245,10 +310,14 @@ function renderPurchases() {
         <span class="note">Why: ${esc(p.reasoning)}</span>
         ${p.review && p.review.verdict !== "skipped" ? `<span class="note">Purpose check: ${esc(p.review.reason)}</span>` : ""}
         ${p.refusal ? `<span class="note refusal">${esc(p.refusal)}</span>` : ""}
+        ${canMoveFor(p) ? `<span class="note"><button class="btn small" data-move-to="${esc(p.lineKey)}" data-cents="${shortfall(p)}" type="button">Move money to this line</button> ${money(shortfall(p))} short</span>` : ""}
         ${p.status === "captured" ? `<span class="note"><button class="btn small" data-refund="${esc(p.id)}" type="button">Refund to me</button></span>` : ""}
       </div>`,
     )
     .join("");
+  $("purchases").querySelectorAll("[data-move-to]").forEach((btn) =>
+    btn.addEventListener("click", () => prefillMove(btn.dataset.moveTo, Number(btn.dataset.cents))),
+  );
   $("purchases").querySelectorAll("[data-refund]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       if (!confirm("Refund this purchase to your PayPal account?")) return;
@@ -283,6 +352,8 @@ function toolLine(t) {
       return `request_topup ${r.amount ?? ""} · ${i.line} → waiting for you`;
     case "search_products":
       return `search "${i.query}" → ${r.products?.length ?? 0} results`;
+    case "get_history":
+      return `get_history → ${r.periods?.length ?? 0} earlier periods`;
     case "get_balance":
       return `get_balance → ${r.left ?? r.budget ?? ""}`;
     default:
