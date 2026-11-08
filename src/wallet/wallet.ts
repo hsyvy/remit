@@ -34,6 +34,14 @@ export interface ReviewResult {
   reason: string;
 }
 
+/** Set when the owner paid for a purchase the purpose check refused. The original review is kept as it was. */
+export interface PurchaseOverride {
+  by: "owner";
+  at: string;
+  /** Set when the capture after the override failed. */
+  error?: string;
+}
+
 export interface PlanLineInput {
   key: string;
   label: string;
@@ -375,41 +383,26 @@ export class Wallet {
       // (made before agents existed, or asked for without an agent). Another agent's line is refused.
       const lines = this.lines(period.id);
       const mine = (l: { agentId: string | null }) => !l.agentId || l.agentId === input.agent;
-      const line = lines.find((l) => l.key === input.lineKey);
-      const refuse = (code: string, message: string): never => {
-        this.recordRefusal(period.id, line?.envelopeId ?? null, input, message);
+      const owned = lines.find((l) => l.key === input.lineKey);
+      const refuse = (envelopeId: string | null, code: string, message: string): never => {
+        this.recordRefusal(period.id, envelopeId, input, message);
         throw new WalletError(code, message, 409);
       };
       const yours = () => lines.filter(mine).map((l) => l.key).join(", ") || "none";
-      if (!line) {
-        refuse("NO_SUCH_LINE", `There is no approved line "${input.lineKey}". Your lines: ${yours()}.`);
-        throw new Error("unreachable");
-      }
-      if (!mine(line)) {
-        refuse(
+      if (!owned) return refuse(null, "NO_SUCH_LINE", `There is no approved line "${input.lineKey}". Your lines: ${yours()}.`);
+      if (!mine(owned)) {
+        return refuse(
+          owned.envelopeId,
           "LINE_NOT_YOURS",
-          `"${line.label}" is another agent's line, so you can't spend from it. Your lines: ${yours()}. ` +
+          `"${owned.label}" is another agent's line, so you can't spend from it. Your lines: ${yours()}. ` +
             "If this purchase is still needed, ask for a line of your own with request_topup.",
         );
       }
 
-      // Envelope rule: spend from the line first, then the shared buffer. Never from another line.
-      const buffer = lines.find((l) => l.key === BUFFER_KEY);
-      const fromLine = Math.min(input.amountCents, line.leftCents);
-      const fromBuffer = line.key === BUFFER_KEY ? 0 : input.amountCents - fromLine;
-      const bufferLeft = buffer && line.key !== BUFFER_KEY ? buffer.leftCents : 0;
-      if (input.amountCents - fromLine - fromBuffer > 0 || fromBuffer > bufferLeft) {
-        const bufferNote = line.key === BUFFER_KEY ? "" : ` plus ${fmt(bufferLeft)} left in the buffer`;
-        refuse(
-          "OVER_LINE",
-          `${fmt(input.amountCents)} is more than "${line.label}" allows: ${fmt(line.leftCents)} left on the line${bufferNote}. ` +
-            "Don't charge it to another line. If it's still worth buying, tell the owner: they can move unspent money " +
-            "from another line in the Remit app (no new PayPal approval), or you can ask for more with request_topup.",
-        );
-      }
-      // Total rule: never more than what is still held. (Envelopes and holds are created together, so this is a backstop.)
-      const heldLeft = this.heldLeft(period.id);
-      if (input.amountCents > heldLeft) refuse("OVER_BALANCE", `Only ${fmt(heldLeft)} is still held for this period.`);
+      // Envelope and total rules, shared with the owner's "pay anyway".
+      const check = this.checkLimits(period.id, input.lineKey, input.amountCents);
+      if (!check.ok) return refuse(check.envelopeId, check.code, check.message);
+      const { line, fromLine, fromBuffer, bufferEnvelopeId } = check;
 
       const purchaseId = newId("pur");
       this.db
@@ -435,7 +428,7 @@ export class Wallet {
         throw new WalletError("REVIEW_REJECTED", message, 409);
       }
 
-      const parts = { lineEnvelopeId: line.envelopeId, lineCents: fromLine, bufferEnvelopeId: buffer?.envelopeId ?? null, bufferCents: fromBuffer };
+      const parts = { lineEnvelopeId: line.envelopeId, lineCents: fromLine, bufferEnvelopeId, bufferCents: fromBuffer };
       const captures = await this.captureFromHolds(period.id, purchaseId, parts, title).catch((err) => {
         const message = `PayPal capture failed: ${errorText(err)}`;
         this.db.prepare("UPDATE purchases SET status = 'failed', refusal = ? WHERE id = ?").run(message, purchaseId);
@@ -633,6 +626,71 @@ export class Wallet {
       this.db.prepare("UPDATE purchases SET status = 'refunded' WHERE id = ?").run(purchaseId);
       this.event(purchase.period_id, "refunded", `Refunded ${fmt(purchase.amount_cents)} for "${purchase.title}" to you.`);
       return { refundedCents: purchase.amount_cents };
+    });
+  }
+
+  // ---------------------------------------------------------------- owner: paying anyway after the purpose check refused
+
+  /**
+   * Owner only; never part of the agent tool contract. Pays for a purchase the purpose check refused.
+   * The line and total rules run again (the purpose check doesn't), then it captures the normal way.
+   * A purchase can be overridden once.
+   */
+  overridePurchase(purchaseId: string) {
+    return this.serial(async () => {
+      const purchase = this.db.prepare("SELECT * FROM purchases WHERE id = ?").get(purchaseId) as unknown as PurchaseRow | undefined;
+      if (!purchase) throw new WalletError("NOT_FOUND", "No such purchase.", 404);
+      if (purchase.owner_override) throw new WalletError("ALREADY_OVERRIDDEN", "You already chose to pay for this purchase anyway.", 409);
+      const review = purchase.review ? (JSON.parse(purchase.review) as ReviewResult) : null;
+      if (purchase.status !== "refused" || review?.verdict !== "reject") {
+        throw new WalletError("NOT_OVERRIDABLE", "Only a purchase the purpose check refused can be paid anyway.", 409);
+      }
+      const period = this.openPeriod();
+      if (purchase.period_id !== period.id) throw new WalletError("NOT_OVERRIDABLE", "This purchase is from an earlier budget period.", 409);
+      if (this.isPastEnd(period)) throw new WalletError("PERIOD_ENDED", `The budget period ended on ${period.ends_on}.`);
+
+      const cents = purchase.amount_cents;
+      const check = this.checkLimits(period.id, purchase.line_key, cents);
+      if (!check.ok) {
+        this.event(period.id, "override_refused", `Couldn't pay ${fmt(cents)} for "${purchase.title}" anyway. ${check.message}`);
+        throw new WalletError(check.code, check.message, 409);
+      }
+      const { line, fromLine, fromBuffer, bufferEnvelopeId } = check;
+      const override: PurchaseOverride = { by: "owner", at: this.iso() };
+      this.db
+        .prepare("UPDATE purchases SET status = 'pending', envelope_id = ?, from_line_cents = ?, from_buffer_cents = ?, owner_override = ? WHERE id = ?")
+        .run(line.envelopeId, fromLine, fromBuffer, JSON.stringify(override), purchaseId);
+
+      const parts = { lineEnvelopeId: line.envelopeId, lineCents: fromLine, bufferEnvelopeId, bufferCents: fromBuffer };
+      const captures = await this.captureFromHolds(period.id, purchaseId, parts, purchase.title).catch((err) => {
+        // Not retried: a second capture with the same idempotency keys would replay this one.
+        const message = `PayPal capture failed: ${errorText(err)}`;
+        tx(this.db, () => {
+          this.db.prepare("UPDATE purchases SET status = 'failed', owner_override = ? WHERE id = ?").run(JSON.stringify({ ...override, error: message }), purchaseId);
+          this.event(period.id, "spend_failed", `Paying ${fmt(cents)} for "${purchase.title}" anyway failed. ${message}`);
+        });
+        throw new WalletError("CAPTURE_FAILED", message, 502);
+      });
+
+      tx(this.db, () => {
+        this.db.prepare("UPDATE purchases SET status = 'captured' WHERE id = ?").run(purchaseId);
+        this.event(
+          period.id,
+          "overridden",
+          `You paid ${fmt(cents)} for "${purchase.title}" anyway, over the purpose check's refusal. Line "${line.label}".`,
+        );
+      });
+      const after = this.lines(period.id).find((l) => l.key === line.key)!;
+      return {
+        purchaseId,
+        amountCents: cents,
+        fromLineCents: fromLine,
+        fromBufferCents: fromBuffer,
+        lineLeftCents: after.leftCents,
+        totalLeftCents: this.heldLeft(period.id),
+        captureIds: captures.map((c) => c.captureId),
+        override,
+      };
     });
   }
 
@@ -884,6 +942,7 @@ export class Wallet {
             agent: p.agent,
             refusal: p.refusal,
             review: p.review ? (JSON.parse(p.review) as ReviewResult) : null,
+            override: p.owner_override ? (JSON.parse(p.owner_override) as PurchaseOverride) : null,
             createdAt: p.created_at,
           }))
         : [],
@@ -918,6 +977,40 @@ export class Wallet {
   }
 
   // ---------------------------------------------------------------- internals
+
+  /** The line and total rules for one purchase. On success, says how much comes from the line and how much from the buffer. */
+  private checkLimits(periodId: string, lineKey: string, amountCents: number) {
+    const lines = this.lines(periodId);
+    const line = lines.find((l) => l.key === lineKey);
+    if (!line) {
+      return {
+        ok: false as const,
+        envelopeId: null,
+        code: "NO_SUCH_LINE",
+        message: `There is no approved line "${lineKey}". Approved lines: ${lines.map((l) => l.key).join(", ")}.`,
+      };
+    }
+    const refusal = (code: string, message: string) => ({ ok: false as const, envelopeId: line.envelopeId, code, message });
+
+    // Envelope rule: spend from the line first, then the shared buffer. Never from another line.
+    const buffer = lines.find((l) => l.key === BUFFER_KEY);
+    const fromLine = Math.min(amountCents, line.leftCents);
+    const fromBuffer = line.key === BUFFER_KEY ? 0 : amountCents - fromLine;
+    const bufferLeft = buffer && line.key !== BUFFER_KEY ? buffer.leftCents : 0;
+    if (amountCents - fromLine - fromBuffer > 0 || fromBuffer > bufferLeft) {
+      const bufferNote = line.key === BUFFER_KEY ? "" : ` plus ${fmt(bufferLeft)} left in the buffer`;
+      return refusal(
+        "OVER_LINE",
+        `${fmt(amountCents)} is more than "${line.label}" allows: ${fmt(line.leftCents)} left on the line${bufferNote}. ` +
+          "Don't charge it to another line. If it's still worth buying, tell the owner: they can move unspent money " +
+          "from another line in the Remit app (no new PayPal approval), or you can ask for more with request_topup.",
+      );
+    }
+    // Total rule: never more than what is still held. (Envelopes and holds are created together, so this is a backstop.)
+    const heldLeft = this.heldLeft(periodId);
+    if (amountCents > heldLeft) return refusal("OVER_BALANCE", `Only ${fmt(heldLeft)} is still held for this period.`);
+    return { ok: true as const, line, fromLine, fromBuffer, bufferEnvelopeId: buffer?.envelopeId ?? null };
+  }
 
   private lines(periodId: string) {
     const rows = this.db
@@ -1188,6 +1281,7 @@ interface PurchaseRow {
   agent: string;
   refusal: string | null;
   review: string | null;
+  owner_override: string | null;
   created_at: string;
 }
 

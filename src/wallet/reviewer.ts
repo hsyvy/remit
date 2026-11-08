@@ -2,7 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
 import { fmt } from "../money.ts";
-import type { ReviewInput, ReviewResult, Reviewer } from "./wallet.ts";
+import { errorText, type ReviewInput, type ReviewResult, type Reviewer } from "./wallet.ts";
 
 const Verdict = z.object({
   verdict: z.enum(["approve", "reject"]),
@@ -24,7 +24,17 @@ export class ClaudeReviewer implements Reviewer {
     private readonly model: string,
   ) {}
 
+  /** Never throws: a refusal, a missing or malformed verdict, and an error all become a rejection. */
   async review(input: ReviewInput): Promise<ReviewResult> {
+    try {
+      return await this.judge(input);
+    } catch (err) {
+      return { verdict: "reject", reason: `Purpose check unavailable, so the purchase was refused to be safe: ${errorText(err)}` };
+    }
+  }
+
+  /** One model call. Throws if the API call fails; review() turns that into a rejection. The eval script calls this to tell errors apart. */
+  async judge(input: ReviewInput): Promise<ReviewResult> {
     const response = await this.client.messages.parse({
       model: this.model,
       max_tokens: 4000,
@@ -46,8 +56,8 @@ export class ClaudeReviewer implements Reviewer {
       ],
     });
     if (response.stop_reason === "refusal") return { verdict: "reject", reason: "The purpose check declined to assess this purchase." };
-    const parsed = response.parsed_output;
-    if (!parsed) return { verdict: "reject", reason: "The purpose check gave no clear verdict." };
-    return parsed;
+    const parsed = Verdict.safeParse(response.parsed_output);
+    if (!parsed.success || !parsed.data.reason.trim()) return { verdict: "reject", reason: "The purpose check gave no clear verdict." };
+    return parsed.data;
   }
 }

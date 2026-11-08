@@ -172,6 +172,8 @@ export function openDb(path: string): Db {
   addColumn(db, "envelopes", "agent_id", "TEXT");
   addColumn(db, "captures", "from_line_cents", "INTEGER");
   addColumn(db, "captures", "from_buffer_cents", "INTEGER");
+  // JSON, set when the owner paid for a purchase the purpose check refused: { by: "owner", at, error? }.
+  addColumn(db, "purchases", "owner_override", "TEXT");
   return db;
 }
 

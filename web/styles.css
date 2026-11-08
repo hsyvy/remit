@@ -387,3 +387,18 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .sim-items small { display: block; color: var(--ink3); font-size: 12.5px; }
 .sim .btns { display: flex; flex-wrap: wrap; gap: 10px; }
 .sim form { margin: 0; }
+
+/* ------------------------------------------------------------ pay anyway (owner override) */
+.chip.over { color: var(--ask); background: rgba(143, 99, 18, .12); }
+.entry .what p.override { padding-left: 12px; border-left: 2px solid var(--ask); color: var(--ink); }
+dialog.decide { width: min(460px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; border: 0; }
+dialog.decide::backdrop { background: rgba(13, 26, 45, .4); }
+dialog.decide .ch { margin-bottom: 10px; }
+dialog.decide h2 { margin: 0; font: 600 20px/1.25 var(--fd); letter-spacing: -.02em; overflow-wrap: anywhere; }
+dialog.decide .meta { margin-top: 2px; font-size: 13px; color: var(--ink3); }
+dialog.decide .amt { margin-top: 12px; font-size: 22px; }
+dialog.decide p { margin: 14px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--ink2); text-wrap: pretty; }
+dialog.decide p span { display: block; margin-bottom: 2px; font: 500 10.5px/1.4 var(--fm); letter-spacing: .1em; text-transform: uppercase; color: var(--ink3); }
+dialog.decide p.pc { padding-left: 12px; border-left: 2px solid var(--no); }
+dialog.decide p.next { padding-left: 12px; border-left: 2px solid var(--ask); color: var(--ink); }
+dialog.decide .btns { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 20px; }
