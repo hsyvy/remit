@@ -9,6 +9,8 @@ import { fmt } from "../money.ts";
 import { PayPalError } from "../paypal/gateway.ts";
 import { isWaiting, type SimOrder, type SimulatedPayPal } from "../paypal/simulated.ts";
 import { agentFromAuthHeader, type AgentRecord } from "../wallet/agents.ts";
+import type { LinkSigner } from "../notify/links.ts";
+import { mountLinkRoutes } from "../notify/routes.ts";
 import { runWalletTool, walletToolDefs, type WalletToolName } from "../wallet/tools.ts";
 import { errorText, WalletError, type Wallet } from "../wallet/wallet.ts";
 import type { PayPalWebhooks } from "../wallet/webhooks.ts";
@@ -24,6 +26,8 @@ export interface AppDeps {
   inrRate?: number;
   agentToken?: string;
   ownerPassword?: string;
+  /** One-tap links from notifications. Signed links work without the owner password. */
+  links?: { signer: LinkSigner; appUrl: string };
 }
 
 /** The one check for agent requests, on /agent/v1/* and /mcp: finds the agent the token belongs to. */
@@ -82,6 +86,10 @@ export function createApp(deps: AppDeps) {
   app.on(["GET", "DELETE"], "/mcp", (c) =>
     c.json({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed." }, id: null }, 405),
   );
+
+  // ------------------------------------------------------------ one-tap links (signed, so in front of the owner password)
+
+  if (deps.links) mountLinkRoutes(app, { wallet, links: deps.links.signer, appUrl: deps.links.appUrl, agent });
 
   // ------------------------------------------------------------ owner routes
 

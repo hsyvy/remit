@@ -34,6 +34,24 @@ Every key in `.env` is optional. Without a key, that part runs in a stand-in mod
 | `REMIT_INR_RATE` (default 88) | Next to each dollar amount, the app and agent also show approximately what it is in rupees. PayPal doesn't accept INR (`CURRENCY_NOT_SUPPORTED`), so holds and captures stay in USD | Set it to 0 to show dollars only |
 | `REMIT_OWNER_PASSWORD` | The web app asks for a password (user `owner`) | Open. Allowed only when `APP_URL` is localhost: with a public `APP_URL` the server refuses to start |
 
+### Notifications
+
+Remit can tell your phone when a budget or top-up request is waiting for you, when a purchase is refused, and when a period closes (the weekly recap). Set one of these, or both:
+
+| Key | What |
+|---|---|
+| `NTFY_TOPIC` | Push through [ntfy](https://ntfy.sh): install the ntfy app, subscribe to a hard-to-guess topic, and set the same name here. `NTFY_URL` (default `https://ntfy.sh`) for your own server, `NTFY_TOKEN` for a protected topic |
+| `NOTIFY_WEBHOOK_URL` | Remit POSTs each notice as JSON (`kind`, `title`, `body`, `url`, `actions`, `data`) to this URL |
+| `REMIT_LINK_SECRET` | Signs the links in notices. Without it, a random secret is made at each start and older links stop working |
+
+With neither set, notices are only written to the log.
+
+A request notice has **Approve** and **Decline** links. Each is signed for one request and one action, and works for 24 hours without the owner password. Opening a link changes nothing: Approve shows the request's lines and reasons with an "Approve on PayPal" button, which goes through the same PayPal checkout as the app; Decline asks you to confirm. A changed or expired link does nothing.
+
+The recap lists approved and spent per line, refusals, and what was released. When the built-in agent is on, it has a **Plan next week** link that asks the agent to draft the next budget, which then arrives as a new request notice.
+
+To try it, run `npm start` with `NTFY_TOPIC=remit-<something random>` and open `https://ntfy.sh/remit-<something random>` in a browser (or the ntfy app). Links in a notice point at `APP_URL`, so on a phone they work only once Remit has a public address.
+
 ## Deploy
 
 Remit runs on [Render](https://render.com) as one Docker web service with a 1 GB disk for the SQLite database. The repo has the [`Dockerfile`](Dockerfile) and a Render Blueprint, [`render.yaml`](render.yaml). It needs the Starter instance (about $7 a month plus $0.25 for the disk, billed by the second): Render's free instances can't have a disk and sleep after 15 idle minutes, which would also stop the close-out timer.
@@ -48,8 +66,9 @@ It stays on PayPal's **sandbox**: no real money moves. With PayPal keys set, own
    - `PAYPAL_WEBHOOK_ID`: optional, see [PayPal webhooks](#paypal-webhooks). You can add it after the first deploy, once you know the address.
    - `ANTHROPIC_API_KEY`: for the chat agent and the purpose check. Empty turns chat off.
    - `CHANNEL3_API_KEY`: optional; empty uses the demo catalog.
+   - `NTFY_TOPIC` or `NOTIFY_WEBHOOK_URL`: optional, for phone notifications (see Notifications above).
 
-   `REMIT_DB` is already set to the disk (`/var/data/remit.db`), and `REMIT_AGENT_TOKEN` is generated for you.
+   `REMIT_DB` is already set to the disk (`/var/data/remit.db`), and `REMIT_AGENT_TOKEN` and `REMIT_LINK_SECRET` are generated for you.
 4. Click **Apply**. The first build takes a few minutes. When the service shows **Live**, open its address, `https://<name>.onrender.com`, and sign in as `owner`.
 5. `APP_URL` is the address PayPal sends you back to after approving. On Render it defaults to the service's own address (`RENDER_EXTERNAL_URL`), so you don't need to set it. If you add a custom domain, set `APP_URL` to `https://your.domain` under **Environment**. The service log's first line, `Remit on https://...`, shows the address in use.
 6. Optional, for the example history: open the service's **Shell** tab and run `npm run seed`. It adds four closed example weeks to the database on the disk, once.
@@ -158,6 +177,7 @@ npm run sandbox-check
 | `src/paypal/` | Orders and Payments REST client, and the local simulator |
 | `src/demo/` | Demo only: the built-in Claude shopping agent, and Channel3 search with the demo catalog |
 | `src/server/` | Web app API, PayPal return handling, agent API, remote MCP at `/mcp` |
+| `src/notify/` | Notices to the owner (ntfy, webhook), the recap, and the signed one-tap link pages |
 | `src/mcp/` | The MCP tool registration shared by both transports, the remote handler, and the stdio server |
 | `web/` | The owner's web app (no build step) |
 | `test/` | Wallet, server route, MCP and PayPal REST client tests, all offline: `npm test` |

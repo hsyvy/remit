@@ -10,6 +10,9 @@ import { ClaudeReviewer } from "../wallet/reviewer.ts";
 import { Wallet } from "../wallet/wallet.ts";
 import { PayPalWebhooks } from "../wallet/webhooks.ts";
 import { createApp } from "./app.ts";
+import { LinkSigner } from "../notify/links.ts";
+import { Notifications } from "../notify/notices.ts";
+import { makeNotifier } from "../notify/notifier.ts";
 
 // Anyone who can open a public web app can approve holds and run the agent, so it must have a password.
 if (!isLocalUrl(config.appUrl) && !config.ownerPassword) {
@@ -26,10 +29,22 @@ const search = config.channel3Key ? new Channel3Search(config.channel3Key) : new
 const claude = config.anthropic.configured ? new Anthropic() : null;
 const reviewer = claude && config.anthropic.reviewer ? new ClaudeReviewer(claude, config.anthropic.model) : undefined;
 
-const wallet = new Wallet(db, paypal, { appUrl: config.appUrl, maxRequestCents: config.maxRequestCents, reviewer });
+if (!config.linkSecret) console.warn("REMIT_LINK_SECRET is not set: using a random one, so notification links stop working when the server restarts.");
+const links = new LinkSigner(config.linkSecret || LinkSigner.randomSecret());
+const notifier = makeNotifier(config.notify);
+// The wallet is built before the notifications that read from it, so the hook looks it up when an event arrives.
+let notifications: Notifications | undefined;
+
+const wallet = new Wallet(db, paypal, {
+  appUrl: config.appUrl,
+  maxRequestCents: config.maxRequestCents,
+  reviewer,
+  onEvent: (event) => notifications?.onEvent(event),
+});
 // The simulator signs its own webhooks. The real sandbox needs the webhook's ID to verify them.
 const webhooks = simulated || config.paypal.webhookId ? new PayPalWebhooks(db, wallet) : undefined;
 const agent = new ShoppingAgent(db, wallet, search, claude, config.anthropic.model, config.inrRate);
+notifications = new Notifications(wallet, notifier, links, { appUrl: config.appUrl, canPlan: () => agent.enabled });
 
 const modes = {
   paypal: paypal.mode,
@@ -38,6 +53,7 @@ const modes = {
   reviewer: reviewer ? "on" : "off",
   model: config.anthropic.model,
   mcp: config.agentToken ? "on" : "off",
+  notify: notifier.name,
 };
 
 const app = createApp({
@@ -49,6 +65,7 @@ const app = createApp({
   inrRate: config.inrRate,
   agentToken: config.agentToken || undefined,
   ownerPassword: config.ownerPassword || undefined,
+  links: { signer: links, appUrl: config.appUrl },
 });
 
 // The simulator sends its webhooks straight to the route, in process, so keyless demos take the same path.
@@ -67,6 +84,7 @@ serve({ fetch: app.fetch, port: config.port }, () => {
   console.log(`  PayPal: ${modes.paypal}  search: ${modes.search}  agent: ${modes.agent}  purpose check: ${modes.reviewer}`);
   console.log(`  PayPal webhooks: ${webhookMode}`);
   console.log(`  agent API and remote MCP at ${config.appUrl}/mcp: per-agent tokens from the Agents page; shared token ${config.agentToken ? "on" : "off (set REMIT_AGENT_TOKEN)"}`);
+  console.log(`  notifications: ${notifier.name === "none" ? "log only (set NTFY_TOPIC or NOTIFY_WEBHOOK_URL)" : notifier.name}`);
 });
 
 // Scheduled close-out: when a period's end date passes, release what's left.

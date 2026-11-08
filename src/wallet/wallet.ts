@@ -106,6 +106,16 @@ export interface WalletOptions {
   maxRequestCents: number;
   reviewer?: Reviewer;
   now?: () => Date;
+  /** Called after each ledger event is written, once the change is committed. For notifications; errors are logged, never thrown. */
+  onEvent?: (event: WalletEvent) => void;
+}
+
+/** A ledger event as passed to WalletOptions.onEvent. */
+export interface WalletEvent {
+  periodId: string | null;
+  type: string;
+  message: string;
+  at: string;
 }
 
 export class Wallet {
@@ -195,7 +205,12 @@ export class Wallet {
   // ---------------------------------------------------------------- owner: approval on PayPal
 
   /** The owner sends a request to PayPal, with any lines removed or resized. Returns PayPal's approval page. */
-  async checkout(requestId: string, edits: { lineId: string; amountCents: number }[] = []) {
+  async checkout(
+    requestId: string,
+    edits: { lineId: string; amountCents: number }[] = [],
+    /** Where PayPal sends the owner back; the one-tap link pages use their own. */
+    back?: { returnUrl: string; cancelUrl: string },
+  ) {
     const request = this.request(requestId);
     if (request.status !== "pending" && request.status !== "checkout") {
       throw new WalletError("NOT_PENDING", `This request is already ${request.status}.`);
@@ -220,8 +235,8 @@ export class Wallet {
       referenceId: requestId,
       description: request.kind === "budget" ? `Remit budget ${period.starts_on} to ${period.ends_on}` : `Remit top-up: ${request.reason}`,
       items: kept.map((l) => ({ name: l.label, description: l.reason, cents: l.approved_cents })),
-      returnUrl: `${this.opts.appUrl}/paypal/return?request=${requestId}`,
-      cancelUrl: `${this.opts.appUrl}/paypal/cancel?request=${requestId}`,
+      returnUrl: back?.returnUrl ?? `${this.opts.appUrl}/paypal/return?request=${requestId}`,
+      cancelUrl: back?.cancelUrl ?? `${this.opts.appUrl}/paypal/cancel?request=${requestId}`,
     });
     tx(this.db, () => {
       const update = this.db.prepare("UPDATE request_lines SET approved_cents = ? WHERE id = ?");
@@ -1050,6 +1065,63 @@ export class Wallet {
     });
   }
 
+  /** One request in any state, with its lines and, for a line that already exists, what it has now. For the one-tap approve page. */
+  requestDetail(requestId: string) {
+    const r = this.request(requestId);
+    const p = this.period(r.period_id);
+    const current = p.status === "open" ? this.lines(p.id) : [];
+    const lines = this.requestLines(r.id);
+    return {
+      id: r.id,
+      kind: r.kind,
+      status: r.status,
+      reason: r.reason,
+      createdAt: r.created_at,
+      period: { id: p.id, summary: p.summary, startsOn: p.starts_on, endsOn: p.ends_on, status: p.status },
+      totalCents: lines.reduce((sum, l) => sum + (l.approved_cents ?? l.amount_cents), 0),
+      lines: lines.map((l) => {
+        const now = current.find((c) => c.key === l.line_key);
+        return {
+          key: l.line_key,
+          label: l.label,
+          reason: l.reason,
+          amountCents: l.approved_cents ?? l.amount_cents,
+          current: now ? { limitCents: now.limitCents, leftCents: now.leftCents } : null,
+        };
+      }),
+    };
+  }
+
+  /** What happened in a period, for the weekly recap: each line's approved and spent amounts, refusals, and what was released. */
+  periodRecap(periodId: string) {
+    const p = this.db.prepare("SELECT * FROM periods WHERE id = ?").get(periodId) as unknown as PeriodRow | undefined;
+    if (!p) throw new WalletError("NOT_FOUND", "No such period.", 404);
+    const holds = this.db.prepare("SELECT * FROM holds WHERE period_id = ? ORDER BY authorized_at").all(periodId) as unknown as HoldRow[];
+    const left = (h: HoldRow) => h.amount_cents - h.captured_cents;
+    const lapsing = holds.filter((h) => h.status === "lapsing");
+    const refusals = this.db
+      .prepare("SELECT title, merchant, amount_cents, line_key, refusal, created_at FROM purchases WHERE period_id = ? AND status = 'refused' ORDER BY created_at")
+      .all(periodId) as unknown as { title: string; merchant: string; amount_cents: number; line_key: string; refusal: string | null; created_at: string }[];
+    return {
+      period: { id: p.id, summary: p.summary, startsOn: p.starts_on, endsOn: p.ends_on, status: p.status },
+      lines: this.lines(periodId).map((l) => ({ key: l.key, label: l.label, approvedCents: l.limitCents, spentCents: l.usedCents })),
+      approvedCents: this.approvedCents(periodId),
+      spentCents: this.spentCents(periodId),
+      refundedCents: this.refundedCents(periodId),
+      refusals: refusals.map((r) => ({
+        title: r.title,
+        merchant: r.merchant,
+        amountCents: r.amount_cents,
+        lineKey: r.line_key,
+        reason: r.refusal ?? "",
+        at: r.created_at,
+      })),
+      releasedCents: holds.filter((h) => h.status === "voided").reduce((sum, h) => sum + left(h), 0),
+      lapsingCents: lapsing.reduce((sum, h) => sum + left(h), 0),
+      lapsesOn: lapsing.length ? lapsing.map((h) => h.expires_at.slice(0, 10)).sort().at(-1)! : null,
+    };
+  }
+
   // ---------------------------------------------------------------- internals
 
   /** The line and total rules for one purchase. On success, says how much comes from the line and how much from the buffer. */
@@ -1185,7 +1257,19 @@ export class Wallet {
   }
 
   private event(periodId: string | null, type: string, message: string) {
-    this.db.prepare("INSERT INTO events (period_id, type, message, created_at) VALUES (?, ?, ?, ?)").run(periodId, type, message, this.iso());
+    const at = this.iso();
+    this.db.prepare("INSERT INTO events (period_id, type, message, created_at) VALUES (?, ?, ?, ?)").run(periodId, type, message, at);
+    const onEvent = this.opts.onEvent;
+    // Events are often written inside a transaction. A microtask runs after the synchronous commit.
+    if (onEvent) {
+      queueMicrotask(() => {
+        try {
+          onEvent({ periodId, type, message, at });
+        } catch (err) {
+          console.error("onEvent:", err);
+        }
+      });
+    }
   }
 
   private currentPeriod() {

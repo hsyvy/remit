@@ -27,6 +27,15 @@ export const config = {
   channel3Key: env.CHANNEL3_API_KEY ?? "",
   agentToken: env.REMIT_AGENT_TOKEN ?? "",
   ownerPassword: env.REMIT_OWNER_PASSWORD ?? "",
+  // Notifications to the owner's phone. Neither set: notices are only logged.
+  notify: {
+    ntfyUrl: (env.NTFY_URL || "https://ntfy.sh").replace(/\/$/, ""),
+    ntfyTopic: env.NTFY_TOPIC ?? "",
+    ntfyToken: env.NTFY_TOKEN ?? "",
+    webhookUrl: env.NOTIFY_WEBHOOK_URL ?? "",
+  },
+  // Signs the one-tap approve and decline links. Unset: a random secret per start, so old links stop working on restart.
+  linkSecret: env.REMIT_LINK_SECRET ?? "",
 };
 
 export const paypalMode = config.paypal.clientId && config.paypal.clientSecret ? "sandbox" : "simulated";
