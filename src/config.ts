@@ -15,6 +15,8 @@ export const config = {
     clientId: env.PAYPAL_CLIENT_ID ?? "",
     clientSecret: env.PAYPAL_CLIENT_SECRET ?? "",
     baseUrl: "https://api-m.sandbox.paypal.com",
+    // The webhook's ID from the PayPal developer dashboard. Without it (in sandbox mode) the webhook route is off.
+    webhookId: env.PAYPAL_WEBHOOK_ID ?? "",
   },
   anthropic: {
     model: env.REMIT_MODEL ?? "claude-opus-5-5",

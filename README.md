@@ -27,6 +27,7 @@ Every key in `.env` is optional. Without a key, that part runs in a stand-in mod
 | Key | With it | Without it |
 |---|---|---|
 | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | Real PayPal sandbox: you approve on PayPal's page | A local page, clearly labelled "Simulated checkout", stands in for PayPal and enforces the same limits |
+| `PAYPAL_WEBHOOK_ID` | With sandbox keys: PayPal tells Remit about approvals, declines and voided holds directly (see [PayPal webhooks](#paypal-webhooks)) | With sandbox keys, the webhook route is off and Remit asks PayPal instead. The simulator always sends its own webhooks |
 | `ANTHROPIC_API_KEY` | The Claude agent chats, plans and shops; a second Claude call reviews each purchase | Chat is off. The wallet, approvals and MCP still work |
 | `CHANNEL3_API_KEY` | Live products and prices from Channel3 | A small built-in demo catalog |
 | `REMIT_AGENT_TOKEN` | The agent API (and so the MCP server) is on | Agent API off |
@@ -44,6 +45,7 @@ It stays on PayPal's **sandbox**: no real money moves. With PayPal keys set, own
 3. Render asks for the values marked `sync: false`. Fill in:
    - `REMIT_OWNER_PASSWORD`: required. The server won't start on a public address without it. Share it with whoever should use the app (user `owner`).
    - `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET`: your sandbox app's keys. Leave both empty for simulated checkout.
+   - `PAYPAL_WEBHOOK_ID`: optional, see [PayPal webhooks](#paypal-webhooks). You can add it after the first deploy, once you know the address.
    - `ANTHROPIC_API_KEY`: for the chat agent and the purpose check. Empty turns chat off.
    - `CHANNEL3_API_KEY`: optional; empty uses the demo catalog.
 
@@ -55,6 +57,19 @@ It stays on PayPal's **sandbox**: no real money moves. With PayPal keys set, own
 Check it: `https://<name>.onrender.com/healthz` returns `{"ok":true}` without a password. Render uses the same route as its health check.
 
 To point the MCP server at the hosted wallet, set `REMIT_URL` to the public address and `REMIT_AGENT_TOKEN` to the value under the service's **Environment** tab.
+
+### PayPal webhooks
+
+With webhooks, PayPal tells Remit when you approve an order, when it declines one, and when it voids a hold (including when a hold expires). Without them, Remit finds out by asking PayPal when you open the app or come back from PayPal. That asking stays on as a fallback either way.
+
+1. In the [PayPal developer dashboard](https://developer.paypal.com/dashboard/), open **Apps & Credentials**, pick your sandbox app, and under **Sandbox Webhooks** click **Add Webhook**.
+2. Set the URL to `${APP_URL}/paypal/webhook`, e.g. `https://<name>.onrender.com/paypal/webhook`. PayPal needs a public HTTPS address, so this doesn't work on localhost.
+3. Subscribe to at least `CHECKOUT.ORDER.APPROVED`, `CHECKOUT.PAYMENT-APPROVAL.REVERSED`, `PAYMENT.AUTHORIZATION.VOIDED`, `PAYMENT.CAPTURE.REFUNDED`, `PAYMENT.CAPTURE.REVERSED` and `PAYMENT.CAPTURE.DECLINED`. **All events** is fine too: Remit records the rest and ignores them.
+4. Save, copy the **Webhook ID** PayPal shows, and set it as `PAYPAL_WEBHOOK_ID`. Restart.
+
+The service log then says `PayPal webhooks: on at https://.../paypal/webhook`. The route doesn't need the owner password. Instead, Remit asks PayPal to verify each event's signature (`/v1/notifications/verify-webhook-signature`) and answers 400 to anything that doesn't pass. Each event's ID is stored in the `paypal_events` table with what the wallet did, so a redelivered event is ignored. With sandbox keys but no `PAYPAL_WEBHOOK_ID`, `/paypal/webhook` answers 404.
+
+Without PayPal keys, the simulated checkout sends the same events to the same route in process, signed with its own key, so the keyless demo and the tests take the same path.
 
 To run the same container yourself:
 

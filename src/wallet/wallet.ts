@@ -302,6 +302,12 @@ export class Wallet {
     // The request may have changed while PayPal answered (approved, declined, or sent to PayPal again).
     const current = this.request(row.id);
     if (current.status !== "checkout" || current.paypal_order_id !== orderId) return { outcome: "skipped", check: null };
+    this.noteApprovalCheck(row, check, last);
+    return { outcome: check.state, check };
+  }
+
+  /** Put what PayPal said on the request card, and log it when it changed. Used by the watcher and by webhooks. */
+  private noteApprovalCheck(row: RequestRow, check: ApprovalCheck, last: ApprovalCheck | null) {
     tx(this.db, () => {
       this.db.prepare("UPDATE requests SET approval_check = ? WHERE id = ?").run(JSON.stringify(check), row.id);
       if (last?.state !== check.state) {
@@ -314,7 +320,75 @@ export class Wallet {
         this.event(row.period_id, "approval_not_done", message);
       }
     });
-    return { outcome: check.state, check };
+  }
+
+  // ---------------------------------------------------------------- PayPal webhooks
+  // Called by src/wallet/webhooks.ts once an event is verified. Each returns a short note of what
+  // the wallet did, which is stored with the event.
+
+  /** CHECKOUT.ORDER.APPROVED: finish the approval exactly as the return redirect does. */
+  async approvedOnPayPal(orderId: string): Promise<string> {
+    const row = this.requestForOrder(orderId);
+    if (!row) return "No request uses this order.";
+    if (row.status === "approved") return `Request ${row.id} was already approved.`;
+    // completeApproval runs one at a time and re-reads the request, so a redirect racing this can't place a second hold.
+    const result = await this.completeApproval(row.id, orderId);
+    return result.holdCents !== undefined ? `Approved request ${row.id}. Hold of ${fmt(result.holdCents)} placed.` : `Request ${row.id} was already approved.`;
+  }
+
+  /** An order PayPal declined or dropped: the same "PayPal didn't approve this" note the watcher puts on the card. */
+  notApprovedOnPayPal(orderId: string, state: "not_approved" | "voided", paypalStatus: string, detail?: string): string {
+    const row = this.requestForOrder(orderId);
+    if (!row) return "No request uses this order.";
+    if (row.status !== "checkout") return `Request ${row.id} is ${row.status}. Nothing changed.`;
+    this.noteApprovalCheck(row, { state, paypalStatus, detail, checkedAt: this.iso() }, parseCheck(row.approval_check));
+    return `Request ${row.id} marked ${state === "voided" ? "voided" : "not approved"} by PayPal.`;
+  }
+
+  /** PAYMENT.AUTHORIZATION.VOIDED: PayPal voided a hold, either on request or because it expired. */
+  voidedOnPayPal(authorizationId: string): Promise<string> {
+    return this.serial(async () => {
+      const hold = this.db.prepare("SELECT * FROM holds WHERE authorization_id = ?").get(authorizationId) as unknown as HoldRow | undefined;
+      if (!hold) return "No hold uses this authorization.";
+      if (hold.status === "voided" || hold.status === "captured") return `Hold ${hold.id} was already ${hold.status}. Nothing changed.`;
+      const left = hold.amount_cents - hold.captured_cents;
+      const lapsed = hold.status === "lapsing";
+      const note = lapsed ? `PayPal's hold expired. ${fmt(left)} released.` : `Voided by PayPal, ${fmt(left)} released.`;
+      const message = lapsed
+        ? `PayPal's hold ${authorizationId} expired. The last ${fmt(left)} is released back to you.`
+        : `PayPal voided hold ${authorizationId}. ${fmt(left)} is released back to you and can't be spent.`;
+      tx(this.db, () => {
+        this.db.prepare("UPDATE holds SET status = 'voided', release_note = ? WHERE id = ?").run(note, hold.id);
+        this.event(hold.period_id, "released", message);
+      });
+      return `Hold ${hold.id} ${lapsed ? "expired" : "voided"}. ${fmt(left)} released.`;
+    });
+  }
+
+  /** PAYMENT.CAPTURE.REFUNDED, REVERSED, DECLINED or DENIED: put it on the ledger. Totals don't change here. */
+  captureNewsFromPayPal(eventType: string, captureId: string, cents: number | null): string {
+    const row = this.db
+      .prepare("SELECT c.refund_id, c.amount_cents, p.period_id, p.title FROM captures c JOIN purchases p ON p.id = c.purchase_id WHERE c.capture_id = ?")
+      .get(captureId) as { refund_id: string | null; amount_cents: number; period_id: string; title: string } | undefined;
+    if (!row) return "No purchase uses this capture.";
+    const amount = fmt(cents ?? row.amount_cents);
+    let message: string;
+    if (eventType === "PAYMENT.CAPTURE.REFUNDED") {
+      if (row.refund_id) return `Refund for "${row.title}" was already recorded.`;
+      message = `PayPal reports a ${amount} refund for "${row.title}" that wasn't made in Remit.`;
+    } else if (eventType === "PAYMENT.CAPTURE.REVERSED") {
+      message = `PayPal reversed the ${amount} payment for "${row.title}".`;
+    } else {
+      message = `PayPal declined the ${amount} payment for "${row.title}".`;
+    }
+    this.event(row.period_id, "paypal_notice", message);
+    return `Logged: ${message}`;
+  }
+
+  private requestForOrder(orderId: string) {
+    return this.db.prepare("SELECT * FROM requests WHERE paypal_order_id = ? ORDER BY created_at DESC LIMIT 1").get(orderId) as unknown as
+      | RequestRow
+      | undefined;
   }
 
   decline(requestId: string, why = "You declined") {

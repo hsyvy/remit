@@ -25,6 +25,18 @@ export interface PayPalGateway {
 
   /** POST /v2/payments/captures/{id}/refund */
   refund(captureId: string, cents: number, idempotencyKey: string): Promise<{ refundId: string }>;
+
+  /**
+   * True only if PayPal (or, for the simulator, the simulator) sent this webhook.
+   * REST: POST /v1/notifications/verify-webhook-signature with the transmission headers and PAYPAL_WEBHOOK_ID.
+   */
+  verifyWebhook(delivery: WebhookDelivery): Promise<boolean>;
+}
+
+/** A webhook as it reached us: headers with lowercase names, and the body exactly as sent. */
+export interface WebhookDelivery {
+  headers: Record<string, string | undefined>;
+  body: string;
 }
 
 export interface CreateOrderInput {

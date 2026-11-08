@@ -10,11 +10,14 @@ import { PayPalError } from "../paypal/gateway.ts";
 import { isWaiting, type SimOrder, type SimulatedPayPal } from "../paypal/simulated.ts";
 import { runWalletTool, walletToolDefs, type WalletToolName } from "../wallet/tools.ts";
 import { errorText, WalletError, type Wallet } from "../wallet/wallet.ts";
+import type { PayPalWebhooks } from "../wallet/webhooks.ts";
 
 export interface AppDeps {
   wallet: Wallet;
   agent: ShoppingAgent;
   simulated?: SimulatedPayPal;
+  /** Set when PayPal webhooks are on: always with the simulator, and with PAYPAL_WEBHOOK_ID in sandbox mode. */
+  webhooks?: PayPalWebhooks;
   modes: { paypal: string; search: string; agent: string; reviewer: string; model: string; mcp?: string };
   /** Rupees per dollar for the approximate ₹ figure in the web app; 0 for dollars only. */
   inrRate?: number;
@@ -38,6 +41,13 @@ export function createApp(deps: AppDeps) {
 
   // For the host's health check, so it sits in front of the owner password.
   app.get("/healthz", (c) => c.json({ ok: true }));
+
+  // PayPal can't send the owner password, so this also sits in front of it. Every event is verified instead.
+  app.post("/paypal/webhook", async (c) => {
+    if (!deps.webhooks) return c.json({ error: "NOT_FOUND", message: "PayPal webhooks are off. Set PAYPAL_WEBHOOK_ID." }, 404);
+    const result = await deps.webhooks.receive({ headers: c.req.header(), body: await c.req.text() });
+    return c.json(result, result.status);
+  });
 
   // ------------------------------------------------------------ agent API (used by the MCP server)
 
@@ -209,7 +219,7 @@ function simDeclinedPage(order: SimOrder) {
 <main class="sim">
   ${SIM_BANNER}
   <h1>This payment method was declined</h1>
-  <p class="muted">Simulated: PayPal couldn't use the buyer's funding for a hold of <span class="num">${fmt(order.totalCents)}</span>. The order stays open, waiting for the buyer, and Remit isn't told.</p>
+  <p class="muted">Simulated: PayPal couldn't use the buyer's funding for a hold of <span class="num">${fmt(order.totalCents)}</span>. The order stays open, waiting for the buyer. The simulator also sends Remit a declined-order webhook.</p>
   <div class="btns">
     <a class="btn primary" href="/sim-paypal/checkout/${esc(order.id)}">Pick a different payment method</a>
     <a class="btn" href="${esc(withToken(order.cancelUrl, order.id))}">Cancel and return to Remit</a>

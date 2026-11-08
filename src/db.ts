@@ -122,6 +122,15 @@ CREATE TABLE IF NOT EXISTS sim_paypal (
   kind TEXT NOT NULL,              -- order | authorization | capture
   data TEXT NOT NULL
 );
+
+-- Every verified PayPal webhook, by PayPal's event id, so a redelivery is handled once.
+CREATE TABLE IF NOT EXISTS paypal_events (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,              -- e.g. CHECKOUT.ORDER.APPROVED
+  resource_id TEXT,                -- order, authorization or capture id
+  received_at TEXT NOT NULL,
+  action TEXT NOT NULL             -- what the wallet did
+);
 `;
 
 export function openDb(path: string): Db {
