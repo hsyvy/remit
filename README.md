@@ -73,7 +73,7 @@ All of this is server code in [`src/wallet/wallet.ts`](src/wallet/wallet.ts). A 
 - **Purpose check.** Before paying, an independent Claude call sees the plan line and the purchase, but not the page the agent read, and can refuse a purchase that doesn't fit the line. If the purpose check is unreachable, the wallet refuses.
 - **Every line has a reason.** A budget line or top-up with an empty or trivially short reason is rejected, and the agent is told to cite evidence such as when something was last bought.
 - **Refusals are recorded.** A refused purchase shows in the ledger with the reason. The agent is told to ask for a top-up rather than work around it.
-- **Top-ups are new approvals.** Each one is a new PayPal order and a new hold. Purchases capture from the oldest hold first.
+- **Top-ups are new approvals.** Each one is a new PayPal order and a new hold. The wallet records which hold funds each line, and a purchase captures from the holds that fund its line (and the buffer's, for any part taken from the buffer). It falls back to other holds only if those don't have enough left.
 - **Close-out.** At the end date (or when you click Close), holds with nothing captured are voided right away. PayPal won't void a hold after a partial capture (`PREVIOUSLY_CAPTURED`), so that leftover is released when the authorization expires, and the ledger says so. `npm run sandbox-check` tests this against the real sandbox.
 - **Honor period.** PayPal guarantees funds for 3 days. After that the wallet reauthorizes the remaining amount once before capturing.
 - **Refunds** go back to you, not to the agent's line.

@@ -458,7 +458,7 @@ function requestCard(r) {
     : [
         `PayPal places a separate hold of <span data-total-text>${money(r.totalCents)}</span>.`,
         `It adds to ${esc(r.lines[0]?.label ?? "this line")} only. Your other lines don’t change.`,
-        `Purchases take from the oldest hold first.${ends ? ` Anything unspent is released on ${esc(weekdayDate(ends))}.` : ""}`,
+        `Purchases on this line take from this hold first.${ends ? ` Anything unspent is released on ${esc(weekdayDate(ends))}.` : ""}`,
       ];
   return `
     <article class="req" id="${esc(r.id)}" aria-label="${budget ? "Budget request" : "Top-up request"}">
@@ -557,13 +557,33 @@ const FILTERS = [
   ["paid", "Paid", (p) => p.status === "captured"],
   ["refused", "Refused", (p) => p.status === "refused" || p.status === "failed"],
   ["refunded", "Refunded", (p) => p.status === "refunded"],
+  ["moved", "Moves", (p) => p.kind === "move"],
 ];
 
 // An OVER_LINE refusal: refused before the purpose check ran, on a line that still exists and is still short.
 const canMoveFor = (p) => p.status === "refused" && !p.review && state.period?.status === "open" && state.lines.length > 1 && shortfall(p) > 0;
 
+/** A move between lines, as its own ledger row. */
+function moveEntry(m) {
+  return `<li class="entry">
+    <div class="w">${esc(when(m.createdAt))}</div>
+    <div class="what">
+      <b>Moved from ${esc(m.fromLabel)} to ${esc(m.toLabel)}</b>
+      <div class="meta">${m.who === "owner" ? "By you" : esc(m.who)} · Total and PayPal holds unchanged</div>
+    </div>
+    <div class="side-col">
+      <div class="money">${money(m.cents)}</div>
+      ${state.inrRate ? `<div class="inr">${inr(m.cents)}</div>` : ""}
+      <span class="chip"><i></i>Moved</span>
+    </div>
+  </li>`;
+}
+
 function renderLedger() {
-  const items = state.purchases;
+  const purchases = state.purchases;
+  const moves = (state.moves ?? []).map((m) => ({ ...m, kind: "move" }));
+  // Newest first, purchases and moves together.
+  const items = [...purchases, ...moves].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   // Re-render only when something changed, so a poll doesn't swap the buttons under the owner's pointer.
   const sig = JSON.stringify([ledgerFilter, items.map((p) => [p.id, p.status]), state.lines.map((l) => l.leftCents), state.period?.status, state.totals]);
   if (sig === rendered.ledger) return;
@@ -579,6 +599,7 @@ function renderLedger() {
   $("purchases").innerHTML = shown.length
     ? `<ol class="entries">${shown
         .map((p) => {
+          if (p.kind === "move") return moveEntry(p);
           const [cls, text] = STATUS[p.status] ?? ["", p.status];
           const crossed = p.status === "refused" || p.status === "failed";
           const acts = [
@@ -614,7 +635,7 @@ function renderLedger() {
     : `<p class="empty" style="padding:4px 0 16px">${items.length ? "Nothing in this view." : "No purchases yet. When your agent buys something, it shows up here with its reason."}</p>`;
 
   const { totals } = state;
-  const refused = items.filter((p) => p.status === "refused");
+  const refused = purchases.filter((p) => p.status === "refused");
   $("totals").innerHTML = [
     `<span>Approved <b class="money">${money(totals.approvedCents)}</b></span>`,
     `<span>Spent <b class="money">${money(totals.spentCents)}</b></span>`,
