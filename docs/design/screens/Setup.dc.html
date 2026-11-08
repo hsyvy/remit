@@ -8,96 +8,159 @@
 <body>
 <x-dc>
 <helmet>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@6..144,400..700&amp;family=Google+Sans+Code:wght@400;500&amp;family=Courier+Prime:wght@400;700&amp;family=Caveat:wght@500;600&amp;display=swap">
 <style>
-body{margin:0;background:#07080a}
-a{color:#f2f3f5}a:hover{color:#ffffff}
-.r{--bg:#07080a;--bg1:#0c0d10;--bg2:#121317;--bg3:#191a1f;--bg4:#24252c;--ln:rgba(255,255,255,.07);--ln2:rgba(255,255,255,.11);--ln3:rgba(255,255,255,.18);--fg:#f2f3f5;--fg2:#a6a9b1;--fg3:#80838c;--ok:#5fd3a0;--okb:rgba(95,211,160,.1);--ask:#e8b85e;--askb:rgba(232,184,94,.11);font-family:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--fg);background:var(--bg);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:1080px}
+body{margin:0;background:#6fa7d9}
+a{color:inherit}
+.r{--navy:#101e34;--t1:#0d1a2d;--t2:rgba(16,30,52,.74);--t3:rgba(16,30,52,.56);--amber:#7a4c06;--ok:#2e7650;--no:#a23a2e;--ask:#8f6312;
+  --paper:#fbf9f4;--ink:#1b2433;--ink2:#4a5466;--ink3:#5f6778;--rule:rgba(27,36,51,.13);
+  --fd:"Google Sans Flex","Google Sans",ui-sans-serif,system-ui,-apple-system,sans-serif;--fm:"Google Sans Code",ui-monospace,monospace;--ft:"Courier Prime","Courier New",monospace;
+  --sh:0 1px 2px rgba(24,48,84,.14),0 22px 40px -22px rgba(24,58,102,.55);
+  position:relative;min-height:1080px;display:flex;align-items:stretch;font-family:var(--fd);font-size:14.5px;line-height:1.5;color:var(--t1);
+  background:#6fa7d9 url(/_blob/c102c5fa184d7b0df167af06aa9708b0) center/cover no-repeat;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
 .r *{box-sizing:border-box}
-.bar{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px 32px;border-bottom:1px solid var(--ln)}
-.brand{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15.5px;letter-spacing:-.015em}
-.brand svg{width:18px;height:18px}
-.wrapc{max-width:760px;margin:0 auto;padding:72px 24px 80px}
-.t{margin:0;font-size:40px;font-weight:560;letter-spacing:-.04em;line-height:1.05;text-wrap:balance}
-.sub{margin:14px 0 0;font-size:16px;color:var(--fg2);max-width:52ch}
-.steps{list-style:none;margin:44px 0 0;padding:0;display:flex;flex-direction:column;gap:12px}
-.step{display:grid;grid-template-columns:32px minmax(0,1fr) auto;gap:4px 16px;align-items:start;padding:22px;border-radius:12px;background:var(--bg1);border:1px solid var(--ln2)}
-.step.cur{border-color:var(--ln3);background:var(--bg2)}
-.step.later{opacity:.55}
-.dot{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-family:"Geist Mono",ui-monospace,Menlo,monospace;font-size:12px;color:var(--fg2);border:1px solid var(--ln3)}
-.dot.done{background:var(--okb);color:var(--ok);border-color:transparent}
-.dot svg{width:13px;height:13px}
-.step h2{margin:3px 0 0;font-size:16px;font-weight:560;letter-spacing:-.01em}
-.step p{margin:4px 0 0;font-size:14px;color:var(--fg2);grid-column:2}
-.step .side{grid-row:1;grid-column:3;align-self:center}
-.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;color:var(--fg2);background:var(--bg3)}
-.chip i{width:6px;height:6px;border-radius:50%;background:currentColor}
-.chip.ok{color:var(--ok);background:var(--okb)}
-.chip.ask{color:var(--ask);background:var(--askb)}
-.more{grid-column:2/-1;margin-top:16px;display:flex;flex-direction:column;gap:14px}
-.tabs{display:flex;gap:2px;padding:3px;border-radius:9px;background:var(--bg3);align-self:flex-start;flex-wrap:wrap}
-.tab{border:0;background:transparent;color:var(--fg2);font-family:inherit;font-size:13px;font-weight:500;min-height:30px;padding:0 12px;border-radius:7px;cursor:pointer}
-.tab.on{background:var(--bg4);color:var(--fg)}
-pre{margin:0;padding:16px 18px;border-radius:10px;background:var(--bg);border:1px solid var(--ln);font:12.5px/1.7 "Geist Mono",ui-monospace,Menlo,monospace;color:var(--fg3);overflow-x:auto;white-space:pre}
-pre .k{color:#d3d5db}pre .s{color:#e3d2ae}
+.mono{font-family:var(--fm)}
+/* frosted glass: the chrome */
+.glass{background:rgba(228,240,250,.62);-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(255,255,255,.62);border-radius:18px;box-shadow:inset 0 1px 0 rgba(255,255,255,.75),0 20px 40px -24px rgba(24,58,102,.5)}
+/* paper: the content */
+.paper{position:relative;background:var(--paper) url(/_blob/80f473ffb4fbe6b37da1c055afd9a865) center/700px auto;border-radius:4px;box-shadow:var(--sh);color:var(--ink);padding:24px 26px}
+.ch{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 16px;font:500 11.5px/1 var(--fm);letter-spacing:.14em;text-transform:uppercase;color:var(--amber)}
+.k{font:400 12.5px/1.4 var(--fm);color:var(--t3)}
+.paper .k{color:var(--ink3)}
+.big{font:600 64px/1 var(--fd);letter-spacing:-.045em;color:var(--t1)}
+.money{font-family:var(--ft);font-weight:700}
+/* sidebar */
+.side{flex:none;width:236px;margin:14px 0 14px 14px;padding:20px 12px 16px;display:flex;flex-direction:column;gap:2px}
+.ws{display:flex;align-items:center;gap:10px;padding:4px 12px 22px;font:600 20px/1 var(--fd);letter-spacing:-.025em}
+.mk{width:24px;height:24px;flex:none;background:var(--navy);-webkit-mask:url(/_blob/05d26856a6b51fdf3bde88bf8104603b) center/contain no-repeat;mask:url(/_blob/05d26856a6b51fdf3bde88bf8104603b) center/contain no-repeat}
+.ni{display:flex;align-items:center;gap:11px;min-height:40px;padding:0 12px;border-radius:11px;font-size:14px;color:var(--t2);text-decoration:none}
+.ni:hover{background:rgba(255,255,255,.45);color:var(--t1)}
+.ni.on{background:rgba(255,255,255,.85);color:var(--t1);box-shadow:0 1px 2px rgba(24,48,84,.14)}
+.ni svg{width:16px;height:16px;flex:none}
+.count{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--navy);color:#eef5fb;font:500 11.5px/20px var(--fm);text-align:center}
+.sh{margin:24px 12px 8px;font:500 11px/1 var(--fm);letter-spacing:.14em;text-transform:uppercase;color:var(--amber)}
+.agent{display:flex;align-items:center;gap:10px;padding:6px 12px;font-size:14px;line-height:1.3}
+.agent small{display:block;color:var(--t3);font-size:12px}
+.pic{width:30px;height:30px;flex:none;border-radius:9px;display:grid;place-items:center;background:var(--navy);color:#eef5fb}
+.pic svg{width:15px;height:15px}
+.sfoot{margin-top:auto;padding:14px 12px 0;border-top:1px solid rgba(16,30,52,.12);font-size:12.5px;line-height:1.45;color:var(--t2)}
+.sfoot b{display:block;color:var(--t1);font-weight:600;margin-bottom:2px}
+/* page */
+.main{flex:1;min-width:0;padding:40px 44px 56px;display:flex;flex-direction:column;gap:26px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap}
+.crumb{margin:0 0 10px;font:400 12.5px var(--fm);color:var(--t3)}
+.crumb a{text-decoration:none}
+.t{margin:0;font:600 38px/1.06 var(--fd);letter-spacing:-.032em;max-width:26ch;text-wrap:balance}
+.sub{margin:10px 0 0;font-size:15.5px;color:var(--t2);max-width:64ch;text-wrap:pretty}
+.acts-top{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+/* controls */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;border:1.5px solid var(--navy);background:transparent;color:var(--navy);font:500 14.5px/1 var(--fd);text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn.pri{background:var(--navy);color:#eef5fb}
+.btn.pri:hover{background:#1f3658}
+.btn.sec:hover{background:rgba(16,30,52,.06)}
+.btn.sm{min-height:36px;padding:0 14px;font-size:13.5px}
+.btn.ghost{border-color:transparent}
+.btn.danger{border-color:var(--no);color:var(--no)}
+.chip{display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-radius:13px;background:rgba(16,30,52,.07);font:500 12.5px/1 var(--fd);color:var(--t2);white-space:nowrap}
+.chip i{width:7px;height:7px;border-radius:50%;background:currentColor}
+.chip.ok{color:var(--ok);background:rgba(46,118,80,.11)}
+.chip.no{color:var(--no);background:rgba(162,58,46,.1)}
+.chip.ask{color:var(--ask);background:rgba(143,99,18,.12)}
+.chip.glass{border-radius:13px;background:rgba(255,255,255,.62);color:var(--t1)}
+.top>.chip,.acts-top>.chip,.hd>.chip{box-shadow:inset 0 0 0 1px rgba(255,255,255,.7);background-color:rgba(255,255,255,.78)}
+.chip.live i{background:var(--ok);box-shadow:0 0 0 3px rgba(46,118,80,.18)}
+.track{height:6px;border-radius:3px;background:rgba(27,36,51,.1);overflow:hidden}
+.fill{height:100%;border-radius:3px;background:var(--navy)}
+.facts{list-style:none;margin:0;padding:0;border-top:1.5px solid currentColor}
+.facts li{padding:12px 0;border-bottom:1px solid rgba(16,30,52,.14);font-size:14.5px;color:var(--t2)}
+.paper .facts li{border-color:var(--rule);color:var(--ink2)}
+.dl{margin:0}
+.dl div{display:grid;grid-template-columns:150px minmax(0,1fr);gap:16px;padding:11px 0;border-bottom:1px solid var(--rule)}
+.dl div:last-child{border-bottom:0}
+.dl dt{font:400 12.5px/1.6 var(--fm);color:var(--ink3)}
+.dl dd{margin:0}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font:500 11px/1 var(--fm);letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);padding:0 12px 12px;border-bottom:1.5px solid var(--ink)}
+td{padding:13px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+td small{display:block;color:var(--ink3);font-size:12.5px;line-height:1.45;margin-top:2px}
+td a{text-decoration-color:rgba(27,36,51,.3);text-underline-offset:3px}
+th.n,td.n{text-align:right;white-space:nowrap}
+td.n{font:700 14px/1.5 var(--ft)}
+tr.tot td{border-bottom:0;border-top:1.5px solid var(--ink);font-weight:600}
+.x{text-decoration:line-through;color:var(--ink3)}
+.stamp{position:absolute;pointer-events:none;mix-blend-mode:multiply}
+
+.setup{display:block}
+.bar{display:flex;align-items:center;justify-content:space-between;max-width:1040px;margin:14px auto 0;height:58px;padding:0 20px 0 8px}
+.bar .ws{padding:0 12px}
+.wrapc{max-width:760px;margin:0 auto;padding:40px 24px 48px}
+.wrapc .t{font-size:46px;max-width:16ch;letter-spacing:-.038em}
+.wrapc .sub{font-size:17px}
+.steps{list-style:none;margin:40px 0 0;padding:0;display:flex;flex-direction:column;gap:16px}
+.step{display:grid;grid-template-columns:36px minmax(0,1fr) auto;gap:4px 16px;align-items:start}
+.step.later{opacity:.66}
+.n{font:500 16px/1.5 var(--fm);color:var(--ink3)}
+.step h2{margin:0;font:600 19px/1.4 var(--fd);letter-spacing:-.015em}
+.step>p{margin:4px 0 0;grid-column:2;color:var(--ink2)}
+.st{grid-row:1;grid-column:3}
+.done{width:84px;transform:rotate(-7deg);grid-row:1/3;grid-column:3;align-self:center;mix-blend-mode:multiply}
+.more{grid-column:2/-1;margin-top:18px;display:flex;flex-direction:column;gap:14px}
+.tabs{display:inline-flex;gap:2px;padding:3px;border-radius:11px;background:rgba(27,36,51,.07);width:fit-content}
+.tab{border:0;border-radius:8px;background:transparent;color:var(--ink2);font:500 13.5px var(--fd);min-height:34px;padding:0 14px;cursor:pointer}
+.tab.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(24,48,84,.18)}
+pre{margin:0;padding:16px 18px;border-radius:10px;background:#101e34;color:#9fb0c6;font:13px/1.7 var(--fm);overflow-x:auto}
+pre .k2{color:#eef5fb}pre .s{color:#a9cdeb}
 .field{display:flex;flex-direction:column;gap:6px}
-.field label{font-size:12.5px;color:var(--fg3)}
+.field label{font:400 12.5px var(--fm);color:var(--ink3)}
 .tok{display:flex;gap:8px;flex-wrap:wrap}
-.tok input{flex:1 1 260px;min-height:40px;padding:0 12px;border-radius:9px;border:1px solid var(--ln2);background:var(--bg);color:var(--fg);font:13px "Geist Mono",ui-monospace,Menlo,monospace}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 16px;border-radius:9px;font-family:inherit;font-size:14px;font-weight:500;border:1px solid transparent;text-decoration:none;cursor:pointer;white-space:nowrap}
-.btn.pri{background:var(--fg);color:var(--bg)}
-.btn.sec{background:transparent;color:var(--fg);border-color:var(--ln3)}
-.wait{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--fg2)}
-.wait i{width:8px;height:8px;border-radius:50%;background:var(--ask)}
-.foot{margin-top:28px;font-size:13px;color:var(--fg3)}
-@media (max-width:640px){.bar{padding:16px}.wrapc{padding:40px 16px 56px}.t{font-size:30px}.step{grid-template-columns:28px minmax(0,1fr);padding:18px}.step .side{grid-column:2;grid-row:auto;margin-top:10px}.more{grid-column:1/-1}}
+.tok input{flex:1 1 260px;min-height:44px;padding:0 12px;border-radius:10px;border:1.5px solid rgba(27,36,51,.24);background:#fff;color:var(--ink);font:14px var(--fm)}
+.wait{margin:0;font-size:14px;color:var(--ink2)}
+.wait b{font-family:var(--fm);font-weight:500}
+.foot{margin-top:28px;font-size:14.5px;color:var(--t2)}
 </style>
 </helmet>
-<div class="r">
-  <header class="bar">
-    <div class="brand"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M10 4.5H4.5v23H10M22 4.5h5.5v23H22" fill="none" stroke="currentColor" stroke-width="3"></path><rect x="8" y="9.5" width="8.5" height="13" fill="currentColor"></rect></svg>Remit</div>
-    <span class="chip">PayPal sandbox</span>
+<div class="r setup">
+  <header class="bar glass">
+    <div class="ws"><span class="mk"></span>Remit</div>
+    <span class="k">Step 2 of 3</span>
   </header>
   <main class="wrapc">
     <h1 class="t">Set up a wallet your agent can’t overspend.</h1>
     <p class="sub">Three steps. Nothing is held or spent until you approve a plan, and you can disconnect at any time.</p>
     <ol class="steps">
-      <li class="step">
-        <span class="dot done"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+      <li class="step paper">
+        <span class="n">1</span>
         <h2>Connect PayPal</h2>
-        <span class="side"><span class="chip ok"><i></i>Connected</span></span>
-        <p>Remit places holds on your PayPal account when you approve a plan. It never stores your card or bank details.</p>
+        <img class="done" src="/_blob/e2e711bc9a7c9f03adb044bd965acb11" alt="Done">
+        <p>Remit places holds on your PayPal account when you approve a plan. It never sees your card or bank details.</p>
       </li>
-      <li class="step cur">
-        <span class="dot">2</span>
-        <h2>Connect an agent</h2>
-        <span class="side"><span class="chip ask"><i></i>Waiting for the agent</span></span>
+      <li class="step paper">
+        <span class="n">2</span>
+        <h2>Connect your agent</h2>
+        <span class="chip ask st"><i></i>Waiting for the agent</span>
         <p>Add Remit to the agent you already use. It gets four tools and a token, and no access to PayPal.</p>
         <div class="more">
-          <div class="tabs" role="group" aria-label="Agent">
-            <button class="tab on" type="button" aria-pressed="true">Claude Desktop</button>
-            <button class="tab" type="button" aria-pressed="false">Cursor</button>
+          <div class="tabs" role="group" aria-label="How to connect">
+            <button class="tab on" type="button" aria-pressed="true">MCP config</button>
+            <button class="tab" type="button" aria-pressed="false">Command line</button>
             <button class="tab" type="button" aria-pressed="false">Remit’s own agent</button>
           </div>
-<pre><span class="k">"remit"</span>: {
-  <span class="k">"command"</span>: <span class="s">"npx"</span>,
-  <span class="k">"args"</span>: [<span class="s">"tsx"</span>, <span class="s">"src/mcp/main.ts"</span>],
-  <span class="k">"env"</span>: {
-    <span class="k">"REMIT_URL"</span>: <span class="s">"http://localhost:3000"</span>,
-    <span class="k">"REMIT_AGENT_TOKEN"</span>: <span class="s">"remit_agt_7Qx…3f9c"</span>
-  }
+<pre><span class="k2">"remit"</span>: {
+  <span class="k2">"command"</span>: <span class="s">"npx"</span>,
+  <span class="k2">"args"</span>: [<span class="s">"remit-mcp"</span>],
+  <span class="k2">"env"</span>: { <span class="k2">"REMIT_AGENT_TOKEN"</span>: <span class="s">"remit_agt_7Qx…3f9c"</span> }
 }</pre>
           <div class="field">
             <label for="tok">Agent token</label>
             <div class="tok"><input id="tok" type="text" value="remit_agt_7Qx…3f9c" readonly><button class="btn sec" type="button">Copy</button></div>
           </div>
-          <div class="wait"><i></i>Remit will move on as soon as the agent calls get_balance.</div>
+          <p class="wait">Remit moves on as soon as the agent calls <b>get_balance</b>.</p>
         </div>
       </li>
-      <li class="step later">
-        <span class="dot">3</span>
+      <li class="step paper later">
+        <span class="n">3</span>
         <h2>Ask for a first plan</h2>
-        <p>Claude looks at what you usually buy and proposes a budget with a reason for every line. You review it, change it, and approve it on PayPal.</p>
+        <p>Your agent looks at what you usually buy and proposes a budget with a reason for every line. You review it, change it, and approve it on PayPal.</p>
       </li>
     </ol>
     <p class="foot">Already set up? <a href="Plan.dc.html">See a plan waiting for review</a></p>

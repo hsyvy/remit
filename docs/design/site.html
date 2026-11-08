@@ -333,7 +333,10 @@ footer { border-top: 1px solid var(--line); }
 footer .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 32px; padding-block: 28px 36px; font-size: 13px; color: var(--fg-3); }
 footer .brand { font-size: 14px; }
 footer .brand svg { width: 16px; height: 16px; }
-footer p { margin: 0 0 0 auto; }
+footer p { margin: 0 0 0 auto; max-width: 34em; }
+.foot-links { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+.foot-links a { color: inherit; text-decoration: none; }
+.foot-links a:hover { text-decoration: underline; text-underline-offset: 3px; }
 @media (max-width: 640px) { footer p { margin: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
@@ -523,7 +526,7 @@ footer p { margin: 0 0 0 auto; }
   <span class="k">"line"</span><span class="c">:</span> <span class="s">"groceries"</span><span class="c">,</span>
   <span class="k">"amount"</span><span class="c">:</span> <span class="n">43.40</span><span class="c">,</span>
   <span class="k">"title"</span><span class="c">:</span> <span class="s">"Grocery order"</span><span class="c">,</span>
-  <span class="k">"merchant"</span><span class="c">:</span> <span class="s">"grocer.example"</span><span class="c">,</span>
+  <span class="k">"merchant"</span><span class="c">:</span> <span class="s">"Grocery delivery"</span><span class="c">,</span>
   <span class="k">"reasoning"</span><span class="c">:</span> <span class="s">"Second order this week, same list"</span>
 <span class="c">}</span></pre>
         </div>
@@ -544,7 +547,7 @@ footer p { margin: 0 0 0 auto; }
   <section class="end" id="access" aria-labelledby="h-end">
     <div class="wrap">
       <h2 id="h-end">Let your agent shop. Keep the say on money.</h2>
-      <p>Remit is in a private beta on the PayPal sandbox. Tell us what your agent buys and we’ll set you up.</p>
+      <p>We’re opening Remit to households a few at a time. Tell us what your agent buys and we’ll set up your first plan with you.</p>
       <div class="actions">
         <a class="btn btn-pri" href="#access">Request access</a>
         <a class="btn btn-sec" href="#developers">Connect an agent</a>
@@ -556,8 +559,14 @@ footer p { margin: 0 0 0 auto; }
 <footer>
   <div class="wrap">
     <a class="brand" href="#top"><svg aria-hidden="true"><use href="#mark"/></svg>Remit</a>
-    <span>Built for the PayPal AI Hackathon</span>
-    <p>Store checkout in the demo is simulated. Payments run on the PayPal sandbox.</p>
+    <nav class="foot-links" aria-label="Footer">
+      <a href="#rules">Security</a>
+      <a href="#developers">Developers</a>
+      <a href="#top">Privacy</a>
+      <a href="#top">Terms</a>
+      <a href="#access">Contact</a>
+    </nav>
+    <p>Holds and payments are processed by PayPal. Remit never sees your card or bank details. © 2026 Remit</p>
   </div>
 </footer>
 
@@ -775,7 +784,7 @@ footer p { margin: 0 0 0 auto; }
     `\n<span class="c">})</span>`;
   const CASES = {
     dog: {
-      code: call({ line: q("dog-food"), amount: num("32.50"), title: q("Dog food, 12 kg bag"), merchant: q("petsupply.example"), reasoning: q("Same bag as the last three orders. Runs out Thursday.") }),
+      code: call({ line: q("dog-food"), amount: num("32.50"), title: q("Dog food, 12 kg bag"), merchant: q("Pet supply store"), reasoning: q("Same bag as the last three orders. Runs out Thursday.") }),
       checks: [
         ["pass", "Dog food is an approved line this week."],
         ["pass", "$32.50 of $32.50 left on Dog food."],
@@ -785,7 +794,7 @@ footer p { margin: 0 0 0 auto; }
       out: ["ok", "Paid", "Your ledger records the item, the store and Claude’s reasoning."],
     },
     case: {
-      code: call({ line: q("groceries"), amount: num("18.99"), title: q("Phone case, clear"), merchant: q("accessories.example"), reasoning: q("The owner’s case is cracked.") }),
+      code: call({ line: q("groceries"), amount: num("18.99"), title: q("Phone case, clear"), merchant: q("Accessories shop"), reasoning: q("The owner’s case is cracked.") }),
       checks: [
         ["pass", "Groceries is an approved line this week."],
         ["pass", "$18.99 fits the $44.60 left on Groceries."],
@@ -795,7 +804,7 @@ footer p { margin: 0 0 0 auto; }
       out: ["no", "Refused", "Recorded with the reason. Claude is told to ask you rather than try another line."],
     },
     more: {
-      code: call({ line: q("groceries"), amount: num("52.00"), title: q("Grocery order"), merchant: q("grocer.example"), reasoning: q("Hosting dinner on Saturday.") }),
+      code: call({ line: q("groceries"), amount: num("52.00"), title: q("Grocery order"), merchant: q("Grocery delivery"), reasoning: q("Hosting dinner on Saturday.") }),
       checks: [
         ["pass", "Groceries is an approved line this week."],
         ["fail", "Groceries has $1.20 left and the shared buffer $14.00. $52.00 doesn’t fit."],
