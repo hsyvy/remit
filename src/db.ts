@@ -116,6 +116,18 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   created_at TEXT NOT NULL
 );
 
+-- Agents that can call the wallet. Only a hash of each token is kept; the owner sees the token once.
+-- "default" (the shared REMIT_AGENT_TOKEN) and "remit" (the built-in shopping agent) are built in and have no stored token.
+CREATE TABLE IF NOT EXISTS agents (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  token_hash TEXT UNIQUE,          -- sha256 hex; NULL for built-ins and revoked agents
+  status TEXT NOT NULL,            -- active | paused | revoked
+  builtin INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  last_used_at TEXT
+);
+
 -- State for the simulated PayPal used when no sandbox credentials are set.
 CREATE TABLE IF NOT EXISTS sim_paypal (
   id TEXT PRIMARY KEY,
@@ -131,6 +143,9 @@ export function openDb(path: string): Db {
   db.exec(SCHEMA);
   // Columns added after the first release. CREATE TABLE IF NOT EXISTS doesn't add them to an existing database.
   addColumn(db, "requests", "approval_check", "TEXT");
+  // Which agent asked, and which agent a line belongs to. NULL: from before agents, usable by any agent.
+  addColumn(db, "requests", "agent_id", "TEXT");
+  addColumn(db, "envelopes", "agent_id", "TEXT");
   return db;
 }
 

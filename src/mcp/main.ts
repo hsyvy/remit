@@ -12,7 +12,7 @@ import { walletToolDefs, type WalletToolName } from "../wallet/tools.ts";
 const baseUrl = (process.env.REMIT_URL ?? process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 const token = process.env.REMIT_AGENT_TOKEN;
 if (!token) {
-  console.error("Set REMIT_AGENT_TOKEN to the same value the wallet service uses.");
+  console.error("Set REMIT_AGENT_TOKEN to an agent's token from the Agents page, or to the wallet service's shared token.");
   process.exit(1);
 }
 

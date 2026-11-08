@@ -29,7 +29,7 @@ Every key in `.env` is optional. Without a key, that part runs in a stand-in mod
 | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | Real PayPal sandbox: you approve on PayPal's page | A local page, clearly labelled "Simulated checkout", stands in for PayPal and enforces the same limits |
 | `ANTHROPIC_API_KEY` | The Claude agent chats, plans and shops; a second Claude call reviews each purchase | Chat is off. The wallet, approvals and MCP still work |
 | `CHANNEL3_API_KEY` | Live products and prices from Channel3 | A small built-in demo catalog |
-| `REMIT_AGENT_TOKEN` | The agent API (and so the MCP server) is on | Agent API off |
+| `REMIT_AGENT_TOKEN` | A shared token for the agent API (and so the MCP server), as the built-in "Shared token" agent | Only tokens made on the Agents page work |
 | `REMIT_INR_RATE` (default 88) | Next to each dollar amount, the app and agent also show approximately what it is in rupees. PayPal doesn't accept INR (`CURRENCY_NOT_SUPPORTED`), so holds and captures stay in USD | Set it to 0 to show dollars only |
 | `REMIT_OWNER_PASSWORD` | The web app asks for a password (user `owner`) | Open. Allowed only when `APP_URL` is localhost: with a public `APP_URL` the server refuses to start |
 
@@ -84,7 +84,9 @@ Store checkout is simulated: a purchase takes the money from your PayPal hold, b
 
 The MCP server exposes `get_history`, `get_balance`, `request_budget`, `request_topup` and `spend`. The tool descriptions carry the planning rules: read the history first, cite evidence in every line's reason, add about a 10% buffer, default to a 7-day period, and ask with `request_topup` after a refusal. It holds no PayPal keys; it calls the running wallet with `REMIT_AGENT_TOKEN`.
 
-For Claude Desktop, add to `claude_desktop_config.json` (use your own absolute path and token):
+Give each agent its own token: open **Agents** in the web app, name the agent and click **Create token**. The token is shown once; Remit stores only its hash. From the same page you can pause an agent (it can still read its balance and history, but can't spend or ask for money) or revoke its token. Each agent spends only from the lines it asked for, plus the shared buffer. The shared `REMIT_AGENT_TOKEN` from `.env` still works, as the built-in "Shared token" agent.
+
+For Claude Desktop, add to `claude_desktop_config.json` (use your own absolute path, and the agent's token or the shared one):
 
 ```json
 {
@@ -92,7 +94,7 @@ For Claude Desktop, add to `claude_desktop_config.json` (use your own absolute p
     "remit": {
       "command": "/absolute/path/to/remit/node_modules/.bin/tsx",
       "args": ["/absolute/path/to/remit/src/mcp/main.ts"],
-      "env": { "REMIT_URL": "http://localhost:3000", "REMIT_AGENT_TOKEN": "same-token-as-.env" }
+      "env": { "REMIT_URL": "http://localhost:3000", "REMIT_AGENT_TOKEN": "remit_agt_... or the token in .env" }
     }
   }
 }

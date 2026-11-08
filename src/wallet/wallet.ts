@@ -1,6 +1,7 @@
 import { newId, tx, type Db } from "../db.ts";
 import { fmt } from "../money.ts";
 import { HONOR_PERIOD_MS, PayPalError, type PayPalGateway } from "../paypal/gateway.ts";
+import { AgentRegistry, BUILTIN_AGENT_ID, normalizeAgentId } from "./agents.ts";
 
 /**
  * The wallet owns every money rule. The agent (in-process or over MCP) can only call
@@ -46,6 +47,8 @@ export interface BudgetRequestInput {
   endsOn: string;
   lines: PlanLineInput[];
   buffer?: { amountCents: number; reason: string };
+  /** Which agent asked. The lines it gets are its own. Omitted: lines any agent can use. */
+  agentId?: string;
 }
 
 export interface TopupInput {
@@ -53,6 +56,8 @@ export interface TopupInput {
   label?: string;
   amountCents: number;
   reason: string;
+  /** Which agent asked. A new line becomes its own; it can't top up another agent's line. */
+  agentId?: string;
 }
 
 export interface SpendInput {
@@ -62,7 +67,8 @@ export interface SpendInput {
   merchant: string;
   url?: string;
   reasoning: string;
-  agent: "remit" | "mcp";
+  /** The agent's ID from the registry, e.g. "remit" for the built-in agent or "default" for the shared token. */
+  agent: string;
 }
 
 /** What PayPal last said about an order the owner went to approve but didn't finish. */
@@ -96,16 +102,20 @@ export interface WalletOptions {
 
 export class Wallet {
   private queue: Promise<unknown> = Promise.resolve();
+  readonly agents: AgentRegistry;
 
   constructor(
     private readonly db: Db,
     readonly paypal: PayPalGateway,
     private readonly opts: WalletOptions,
-  ) {}
+  ) {
+    this.agents = new AgentRegistry(db, () => this.now());
+  }
 
   // ---------------------------------------------------------------- agent: budget requests
 
   requestBudget(input: BudgetRequestInput) {
+    this.refuseIfBlocked(input.agentId, "budget request");
     const current = this.currentPeriod();
     if (current?.status === "open") {
       throw new WalletError("PERIOD_OPEN", `A budget is already open until ${current.ends_on}. Use request_topup for extra money.`);
@@ -139,13 +149,14 @@ export class Wallet {
       this.db
         .prepare("INSERT INTO periods (id, summary, starts_on, ends_on, status, created_at) VALUES (?, ?, ?, ?, 'pending', ?)")
         .run(periodId, summary, input.startsOn, input.endsOn, this.iso());
-      this.insertRequest(requestId, periodId, "budget", summary, lines);
-      this.event(periodId, "budget_requested", `Agent asked for ${fmt(total)} for ${input.startsOn} to ${input.endsOn}.`);
+      this.insertRequest(requestId, periodId, "budget", summary, lines, input.agentId);
+      this.event(periodId, "budget_requested", `${this.asker(input.agentId)} asked for ${fmt(total)} for ${input.startsOn} to ${input.endsOn}.`);
     });
     return { requestId, periodId, totalCents: total, status: "waiting_for_owner" as const, reviewUrl: `${this.opts.appUrl}/#${requestId}` };
   }
 
   requestTopup(input: TopupInput) {
+    this.refuseIfBlocked(input.agentId, "top-up");
     const period = this.openPeriod();
     const pending = this.db
       .prepare("SELECT id FROM requests WHERE period_id = ? AND kind = 'topup' AND status IN ('pending','checkout')")
@@ -153,6 +164,13 @@ export class Wallet {
     if (pending) throw new WalletError("REQUEST_PENDING", "A top-up is already waiting for the owner. Wait for their decision.");
 
     const existing = this.envelope(period.id, input.lineKey);
+    if (existing?.agent_id && input.agentId && existing.agent_id !== normalizeAgentId(input.agentId)) {
+      throw new WalletError(
+        "LINE_NOT_YOURS",
+        `"${existing.label}" is another agent's line. Ask for a new line of your own, with a different key and a label.`,
+        403,
+      );
+    }
     const label = existing?.label ?? input.label;
     if (!label) throw new WalletError("BAD_LINES", `There is no line "${input.lineKey}". Give a label to add it as a new line.`);
     const line = checkLine({ key: input.lineKey, label, amountCents: input.amountCents, reason: input.reason });
@@ -160,8 +178,8 @@ export class Wallet {
 
     const requestId = newId("req");
     tx(this.db, () => {
-      this.insertRequest(requestId, period.id, "topup", line.reason, [line]);
-      this.event(period.id, "topup_requested", `Agent asked for ${fmt(line.amountCents)} more for "${label}": ${line.reason}`);
+      this.insertRequest(requestId, period.id, "topup", line.reason, [line], input.agentId);
+      this.event(period.id, "topup_requested", `${this.asker(input.agentId)} asked for ${fmt(line.amountCents)} more for "${label}": ${line.reason}`);
     });
     return { requestId, totalCents: line.amountCents, status: "waiting_for_owner" as const, reviewUrl: `${this.opts.appUrl}/#${requestId}` };
   }
@@ -231,10 +249,11 @@ export class Wallet {
         for (const l of lines) {
           this.db
             .prepare(
-              `INSERT INTO envelopes (id, period_id, line_key, label, reason, limit_cents) VALUES (?, ?, ?, ?, ?, ?)
+              `INSERT INTO envelopes (id, period_id, line_key, label, reason, limit_cents, agent_id) VALUES (?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(period_id, line_key) DO UPDATE SET limit_cents = limit_cents + excluded.limit_cents`,
             )
-            .run(newId("env"), request.period_id, l.line_key, l.label, l.reason, l.approved_cents!);
+            // A new line belongs to the agent that asked for it; the buffer is always shared. A top-up keeps the line's owner.
+            .run(newId("env"), request.period_id, l.line_key, l.label, l.reason, l.approved_cents!, l.line_key === BUFFER_KEY ? null : request.agent_id);
         }
         this.db.prepare("UPDATE requests SET status = 'approved', decided_at = ? WHERE id = ?").run(now.toISOString(), requestId);
         this.db.prepare("UPDATE periods SET status = 'open' WHERE id = ? AND status = 'pending'").run(request.period_id);
@@ -333,6 +352,14 @@ export class Wallet {
 
   spend(input: SpendInput) {
     return this.serial(async () => {
+      input = { ...input, agent: normalizeAgentId(input.agent) };
+      const blocked = this.agents.blocked(input.agent);
+      if (blocked) {
+        const current = this.currentPeriod();
+        if (current?.status === "open") this.recordRefusal(current.id, null, input, blocked.message);
+        else this.event(current?.id ?? null, "spend_refused", `Refused ${fmt(input.amountCents)} for "${input.title.slice(0, 80)}". ${blocked.message}`);
+        throw new WalletError(blocked.code, blocked.message, 403);
+      }
       const period = this.openPeriod();
       if (this.isPastEnd(period)) throw new WalletError("PERIOD_ENDED", `The budget period ended on ${period.ends_on}.`);
       if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) throw new WalletError("BAD_AMOUNT", "Amount must be positive.");
@@ -340,15 +367,27 @@ export class Wallet {
       const merchant = requireText(input.merchant, "merchant", 100);
       const reasoning = requireText(input.reasoning, "reasoning", 1000);
 
+      // Per-agent lines: a line belongs to the agent whose request created it (envelopes.agent_id).
+      // An agent can spend from its own lines, from the shared buffer, and from lines with no owner
+      // (made before agents existed, or asked for without an agent). Another agent's line is refused.
       const lines = this.lines(period.id);
+      const mine = (l: { agentId: string | null }) => !l.agentId || l.agentId === input.agent;
       const line = lines.find((l) => l.key === input.lineKey);
       const refuse = (code: string, message: string): never => {
         this.recordRefusal(period.id, line?.envelopeId ?? null, input, message);
         throw new WalletError(code, message, 409);
       };
+      const yours = () => lines.filter(mine).map((l) => l.key).join(", ") || "none";
       if (!line) {
-        refuse("NO_SUCH_LINE", `There is no approved line "${input.lineKey}". Approved lines: ${lines.map((l) => l.key).join(", ")}.`);
+        refuse("NO_SUCH_LINE", `There is no approved line "${input.lineKey}". Your lines: ${yours()}.`);
         throw new Error("unreachable");
+      }
+      if (!mine(line)) {
+        refuse(
+          "LINE_NOT_YOURS",
+          `"${line.label}" is another agent's line, so you can't spend from it. Your lines: ${yours()}. ` +
+            "If this purchase is still needed, ask for a line of your own with request_topup.",
+        );
       }
 
       // Envelope rule: spend from the line first, then the shared buffer. Never from another line.
@@ -401,7 +440,7 @@ export class Wallet {
       });
 
       this.db.prepare("UPDATE purchases SET status = 'captured' WHERE id = ?").run(purchaseId);
-      const via = input.agent === "mcp" ? " (via MCP)" : "";
+      const via = input.agent === BUILTIN_AGENT_ID ? "" : ` (by ${this.agents.label(input.agent)})`;
       this.event(period.id, "spent", `Spent ${fmt(input.amountCents)} on "${title}" from ${merchant}, line "${line.label}"${via}.`);
       const after = this.lines(period.id).find((l) => l.key === line.key)!;
       return {
@@ -693,6 +732,7 @@ export class Wallet {
         status: r.status,
         reason: r.reason,
         createdAt: r.created_at,
+        agentId: r.agent_id,
         totalCents: lines.reduce((sum, l) => sum + (l.approved_cents ?? l.amount_cents), 0),
         approval: r.status === "checkout" ? parseCheck(r.approval_check) : null,
         lines: lines.map((l) => ({ id: l.id, key: l.line_key, label: l.label, reason: l.reason, amountCents: l.amount_cents, approvedCents: l.approved_cents })),
@@ -705,11 +745,11 @@ export class Wallet {
   private lines(periodId: string) {
     const rows = this.db
       .prepare(
-        `SELECT e.id, e.line_key, e.label, e.reason, e.limit_cents,
+        `SELECT e.id, e.line_key, e.label, e.reason, e.limit_cents, e.agent_id,
            COALESCE((SELECT SUM(p.from_line_cents) FROM purchases p WHERE p.envelope_id = e.id AND p.status IN ${LIVE}), 0) AS line_used
          FROM envelopes e WHERE e.period_id = ? ORDER BY e.rowid`,
       )
-      .all(periodId) as unknown as { id: string; line_key: string; label: string; reason: string; limit_cents: number; line_used: number }[];
+      .all(periodId) as unknown as { id: string; line_key: string; label: string; reason: string; limit_cents: number; agent_id: string | null; line_used: number }[];
     const bufferDraw = (
       this.db.prepare(`SELECT COALESCE(SUM(from_buffer_cents), 0) AS n FROM purchases WHERE period_id = ? AND status IN ${LIVE}`).get(periodId) as {
         n: number;
@@ -717,7 +757,10 @@ export class Wallet {
     ).n;
     return rows.map((r) => {
       const used = r.line_used + (r.line_key === BUFFER_KEY ? bufferDraw : 0);
-      return { envelopeId: r.id, key: r.line_key, label: r.label, reason: r.reason, limitCents: r.limit_cents, usedCents: used, leftCents: r.limit_cents - used };
+      return {
+        envelopeId: r.id, key: r.line_key, label: r.label, reason: r.reason, limitCents: r.limit_cents, usedCents: used, leftCents: r.limit_cents - used,
+        agentId: r.agent_id,
+      };
     });
   }
 
@@ -762,14 +805,33 @@ export class Wallet {
     this.event(periodId, "spend_refused", `Refused ${fmt(input.amountCents)} for "${input.title.slice(0, 80)}". ${message}`);
   }
 
-  private insertRequest(id: string, periodId: string, kind: "budget" | "topup", reason: string, lines: PlanLineInput[]) {
+  private insertRequest(id: string, periodId: string, kind: "budget" | "topup", reason: string, lines: PlanLineInput[], agentId?: string) {
     this.db
-      .prepare("INSERT INTO requests (id, period_id, kind, status, reason, created_at) VALUES (?, ?, ?, 'pending', ?, ?)")
-      .run(id, periodId, kind, reason, this.iso());
+      .prepare("INSERT INTO requests (id, period_id, kind, status, reason, created_at, agent_id) VALUES (?, ?, ?, 'pending', ?, ?, ?)")
+      .run(id, periodId, kind, reason, this.iso(), agentId ? normalizeAgentId(agentId) : null);
     const insert = this.db.prepare(
       "INSERT INTO request_lines (id, request_id, line_key, label, reason, amount_cents, position) VALUES (?, ?, ?, ?, ?, ?, ?)",
     );
     lines.forEach((l, i) => insert.run(newId("line"), id, l.key, l.label, l.reason, l.amountCents, i));
+  }
+
+  /** A paused or revoked agent can't ask for money. The refusal goes in the activity feed. */
+  private refuseIfBlocked(agentId: string | undefined, what: string) {
+    if (!agentId) return;
+    const blocked = this.agents.blocked(agentId);
+    if (!blocked) return;
+    this.event(this.currentPeriod()?.id ?? null, "request_refused", `Refused a ${what} from ${this.agents.label(agentId)}. ${blocked.message}`);
+    throw new WalletError(blocked.code, blocked.message, 403);
+  }
+
+  /** Who asked, for the activity feed. The built-in agent stays "Agent", as before. */
+  private asker(agentId: string | undefined) {
+    return !agentId || normalizeAgentId(agentId) === BUILTIN_AGENT_ID ? "Agent" : this.agents.label(agentId);
+  }
+
+  /** Registered agents with what each spent this period, for the owner's Agents view. */
+  agentSummaries() {
+    return this.agents.list((this.currentPeriod() ?? this.lastPeriod())?.id);
   }
 
   private checkRequestSize(cents: number) {
@@ -820,7 +882,7 @@ export class Wallet {
 
   private envelope(periodId: string, key: string) {
     return this.db.prepare("SELECT * FROM envelopes WHERE period_id = ? AND line_key = ?").get(periodId, key) as unknown as
-      | { id: string; label: string }
+      | { id: string; label: string; agent_id: string | null }
       | undefined;
   }
 
@@ -906,6 +968,7 @@ interface RequestRow {
   paypal_order_id: string | null;
   approval_check: string | null;
   created_at: string;
+  agent_id: string | null;
 }
 
 interface RequestLineRow {
