@@ -3,6 +3,9 @@ import { fromValue } from "../money.ts";
 import { PayPalError, type WebhookDelivery } from "../paypal/gateway.ts";
 import { errorText, WalletError, type Wallet } from "./wallet.ts";
 
+/** How long an event may stay "handling" before a redelivery takes it over. Handling takes a few seconds at most. */
+const STALE_CLAIM_MS = 2 * 60_000;
+
 export interface WebhookResult {
   status: 200 | 400;
   eventId?: string;
@@ -42,7 +45,14 @@ export class PayPalWebhooks {
     const claimed = this.db
       .prepare("INSERT OR IGNORE INTO paypal_events (id, type, resource_id, received_at, action) VALUES (?, ?, ?, ?, 'handling')")
       .run(event.id, event.event_type, resourceId, nowIso());
-    if (claimed.changes === 0) {
+    // A claim still "handling" after STALE_CLAIM_MS means the server stopped mid-event (a restart or a crash):
+    // take it over, or PayPal's retries would be ignored for good.
+    const retaken =
+      claimed.changes === 0 &&
+      this.db
+        .prepare("UPDATE paypal_events SET received_at = ? WHERE id = ? AND action = 'handling' AND received_at < ?")
+        .run(nowIso(), event.id, new Date(Date.now() - STALE_CLAIM_MS).toISOString()).changes === 1;
+    if (claimed.changes === 0 && !retaken) {
       const seen = this.db.prepare("SELECT action FROM paypal_events WHERE id = ?").get(event.id) as { action: string };
       return { status: 200, eventId: event.id, duplicate: true, action: `Already received: ${seen.action}` };
     }

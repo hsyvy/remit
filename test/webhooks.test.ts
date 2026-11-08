@@ -138,6 +138,59 @@ describe("PayPal webhooks", () => {
     assert.equal(wallet.balance().approvedCents, 13650);
   });
 
+  it("handles an event again when an earlier delivery was left mid-way by a restart", async () => {
+    const { requestId } = requestWeek();
+    const { orderId } = await wallet.checkout(requestId);
+    paypal.approve(orderId);
+    const delivery = paypal.signWebhook(approvedEvent(orderId));
+    // The server stopped while handling this event three minutes ago.
+    db.prepare("INSERT INTO paypal_events (id, type, resource_id, received_at, action) VALUES (?, ?, ?, ?, 'handling')")
+      .run(`WH-${orderId}`, "CHECKOUT.ORDER.APPROVED", orderId, new Date(Date.now() - 3 * 60_000).toISOString());
+
+    const res = await post(delivery);
+    assert.equal(((await res.json()) as { duplicate?: boolean }).duplicate, undefined);
+    assert.equal(holdCount(), 1);
+    assert.match(paypalEvents()[0]!.action, /Approved request/);
+    // A fresh claim is still respected.
+    assert.equal(((await (await post(delivery)).json()) as { duplicate?: boolean }).duplicate, true);
+  });
+
+  it("voids the new hold when the owner declines while PayPal is authorizing", async () => {
+    const { requestId } = requestWeek();
+    const { orderId } = await wallet.checkout(requestId);
+    paypal.approve(orderId);
+    const authorize = paypal.authorizeOrder.bind(paypal);
+    const voided: string[] = [];
+    const voidAuth = paypal.voidAuthorization.bind(paypal);
+    paypal.authorizeOrder = async (id) => {
+      const auth = await authorize(id);
+      wallet.decline(requestId); // the owner taps Decline on the one-tap link while PayPal answers
+      return auth;
+    };
+    paypal.voidAuthorization = async (id) => {
+      voided.push(id);
+      return voidAuth(id);
+    };
+
+    const res = await post(paypal.signWebhook(approvedEvent(orderId)));
+    assert.match(((await res.json()) as { action: string }).action, /^Failed: This request is declined now, so the \$136\.50 PayPal hold was voided/);
+    assert.equal(holdCount(), 0);
+    assert.equal(voided.length, 1);
+    assert.equal(db.prepare("SELECT status FROM requests WHERE id = ?").get(requestId)!.status, "declined");
+  });
+
+  it("doesn't undo a decline that lands while PayPal creates the order", async () => {
+    const { requestId } = requestWeek();
+    const create = paypal.createAuthorizeOrder.bind(paypal);
+    paypal.createAuthorizeOrder = async (input) => {
+      const order = await create(input);
+      wallet.decline(requestId);
+      return order;
+    };
+    await assert.rejects(wallet.checkout(requestId), /already declined/);
+    assert.equal(db.prepare("SELECT status FROM requests WHERE id = ?").get(requestId)!.status, "declined");
+  });
+
   it("places one hold when the webhook and the return redirect race", async () => {
     wireWebhooks();
     const { requestId } = requestWeek();

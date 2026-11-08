@@ -243,6 +243,11 @@ export class Wallet {
       cancelUrl: back?.cancelUrl ?? `${this.opts.appUrl}/paypal/cancel?request=${requestId}`,
     });
     tx(this.db, () => {
+      // The request may have been declined or approved while PayPal created the order. Don't undo that.
+      const now = this.request(requestId);
+      if (now.status !== "pending" && now.status !== "checkout") {
+        throw new WalletError("NOT_PENDING", `This request is already ${now.status}.`);
+      }
       const update = this.db.prepare("UPDATE request_lines SET approved_cents = ? WHERE id = ?");
       for (const l of approved) update.run(l.approved_cents, l.id);
       // A new order starts with a clean slate: an earlier "PayPal didn't approve" was about the old one.
@@ -263,6 +268,14 @@ export class Wallet {
         throw new WalletError("NOT_IN_CHECKOUT", "This PayPal order doesn't match a request waiting for approval.");
       }
       const auth = await this.paypal.authorizeOrder(orderId);
+      // The owner may have declined, or sent the request to PayPal again, while PayPal authorized.
+      // decline() and checkout() don't wait for us, so check again: a hold nothing points to would stay on the owner's card.
+      const after = this.request(requestId);
+      if (after.status !== "checkout" || after.paypal_order_id !== orderId) {
+        await this.paypal.voidAuthorization(auth.authorizationId).catch(() => undefined);
+        this.event(request.period_id, "released", `PayPal approved an order for a request that was already ${after.status}. Its ${fmt(auth.cents)} hold was voided.`);
+        throw new WalletError("NOT_IN_CHECKOUT", `This request is ${after.status} now, so the ${fmt(auth.cents)} PayPal hold was voided.`);
+      }
       const lines = this.requestLines(requestId).filter((l) => (l.approved_cents ?? 0) > 0);
       const now = this.now();
       tx(this.db, () => {
