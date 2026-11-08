@@ -8,137 +8,157 @@
 <body>
 <x-dc>
 <helmet>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@6..144,400..700&amp;family=Google+Sans+Code:wght@400;500&amp;family=Courier+Prime:wght@400;700&amp;family=Caveat:wght@500;600&amp;display=swap">
 <style>
-body{margin:0;background:#07080a}
-a{color:#f2f3f5}a:hover{color:#ffffff}
-.r{--bg:#07080a;--bg1:#0c0d10;--bg2:#121317;--bg3:#191a1f;--bg4:#24252c;--ln:rgba(255,255,255,.07);--ln2:rgba(255,255,255,.11);--ln3:rgba(255,255,255,.18);--fg:#f2f3f5;--fg2:#a6a9b1;--fg3:#80838c;--bar:#d9dbe1;--ok:#5fd3a0;--okb:rgba(95,211,160,.1);--no:#f27a5c;--nob:rgba(242,122,92,.11);--ask:#e8b85e;--askb:rgba(232,184,94,.11);font-family:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--fg);background:var(--bg);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:1080px;display:flex;flex-wrap:wrap;align-items:stretch}
+body{margin:0;background:#6fa7d9}
+a{color:inherit}
+.r{--navy:#101e34;--t1:#0d1a2d;--t2:rgba(16,30,52,.74);--t3:rgba(16,30,52,.56);--amber:#7a4c06;--ok:#2e7650;--no:#a23a2e;--ask:#8f6312;
+  --paper:#fbf9f4;--ink:#1b2433;--ink2:#4a5466;--ink3:#5f6778;--rule:rgba(27,36,51,.13);
+  --fd:"Google Sans Flex","Google Sans",ui-sans-serif,system-ui,-apple-system,sans-serif;--fm:"Google Sans Code",ui-monospace,monospace;--ft:"Courier Prime","Courier New",monospace;
+  --sh:0 1px 2px rgba(24,48,84,.14),0 22px 40px -22px rgba(24,58,102,.55);
+  position:relative;min-height:1080px;display:flex;align-items:stretch;font-family:var(--fd);font-size:14.5px;line-height:1.5;color:var(--t1);
+  background:#6fa7d9 url(/_blob/c102c5fa184d7b0df167af06aa9708b0) center/cover no-repeat;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
 .r *{box-sizing:border-box}
-.side{flex:1 1 220px;max-width:240px;border-right:1px solid var(--ln);padding:16px 12px 20px;display:flex;flex-direction:column;gap:2px;background:#0a0b0d}
-.ws{display:flex;align-items:center;gap:10px;padding:6px 9px 18px;font-size:13.5px;font-weight:600}
-.av{width:22px;height:22px;border-radius:6px;background:var(--fg);color:var(--bg);display:grid;place-items:center;flex:none}
-.av svg{width:13px;height:13px}
-.ni{display:flex;align-items:center;gap:10px;min-height:34px;padding:0 9px;border-radius:7px;font-size:13.5px;color:var(--fg2);text-decoration:none}
-.ni:hover{background:var(--bg3);color:var(--fg)}
-.ni.on{background:var(--bg3);color:var(--fg)}
-.ni svg{width:15px;height:15px;color:var(--fg3);flex:none}
-.count{margin-left:auto;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--askb);color:var(--ask);font-size:11px;font-weight:600;display:grid;place-items:center}
-.side-foot{margin-top:auto;padding:14px 9px 0;border-top:1px solid var(--ln);font-size:12.5px;color:var(--fg3);line-height:1.5}
-.side-foot b{display:block;color:var(--fg2);font-weight:500}
-.main{flex:999 1 560px;min-width:0;padding:28px 40px 64px;display:flex;flex-direction:column;gap:24px}
-.top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
-.crumb{font-size:12.5px;color:var(--fg3);margin:0 0 8px}
-.crumb a{color:var(--fg3);text-decoration:none}
-.t{margin:0;font-size:26px;font-weight:560;letter-spacing:-.025em;line-height:1.15}
-.sub{margin:6px 0 0;font-size:14px;color:var(--fg2);max-width:64ch}
-.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;color:var(--fg2);background:var(--bg3)}
-.chip i{width:6px;height:6px;border-radius:50%;background:currentColor}
-.chip.ok{color:var(--ok);background:var(--okb)}
-.chip.no{color:var(--no);background:var(--nob)}
-.chip.ask{color:var(--ask);background:var(--askb)}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 16px;border-radius:9px;font-family:inherit;font-size:14px;font-weight:500;border:1px solid transparent;text-decoration:none;cursor:pointer;white-space:nowrap}
-.btn.pri{background:var(--fg);color:var(--bg)}
-.btn.sec{background:transparent;color:var(--fg);border-color:var(--ln3)}
-.card{background:var(--bg1);border:1px solid var(--ln2);border-radius:12px;min-width:0}
-.k{font-size:12.5px;color:var(--fg3)}
-@media (max-width:760px){.side{max-width:none;flex-basis:100%;border-right:0;border-bottom:1px solid var(--ln)}.main{padding:20px 16px 40px}}
-/* this screen */
-.grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(320px,1fr);gap:20px;align-items:start}
-@media (max-width:1100px){.grid{grid-template-columns:minmax(0,1fr)}}
-.ch{padding:18px 22px;border-bottom:1px solid var(--ln);font-size:14px;font-weight:560}
-.checks{list-style:none;margin:0;padding:0}
-.ck{display:grid;grid-template-columns:26px minmax(0,1fr);gap:4px 14px;padding:18px 22px;border-bottom:1px solid var(--ln)}
-.ck:last-child{border-bottom:0}
-.ic{grid-row:1/3;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--ln3);color:var(--fg3);font:500 11px "Geist Mono",ui-monospace,Menlo,monospace}
-.ic svg{width:12px;height:12px}
-.ic.pass{background:var(--okb);color:var(--ok);border-color:transparent}
-.ic.fail{background:var(--nob);color:var(--no);border-color:transparent}
-.ck b{font-size:14.5px;font-weight:560}
-.ck p{margin:0;font-size:13.5px;color:var(--fg2)}
-.ck.skip{opacity:.42}
-.quote{grid-column:2;margin-top:12px;padding:14px 16px;border-radius:10px;background:var(--bg2);border:1px solid var(--ln);font-size:13.5px;color:var(--fg2)}
-.quote .k{display:block;margin-bottom:6px}
-.quote strong{color:var(--no);font-weight:500}
-.dl{margin:0;padding:6px 22px 10px}
-.dl div{display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;padding:12px 0;border-bottom:1px solid var(--ln);font-size:13.5px}
+.mono{font-family:var(--fm)}
+/* frosted glass: the chrome */
+.glass{background:rgba(228,240,250,.62);-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(255,255,255,.62);border-radius:18px;box-shadow:inset 0 1px 0 rgba(255,255,255,.75),0 20px 40px -24px rgba(24,58,102,.5)}
+/* paper: the content */
+.paper{position:relative;background:var(--paper) url(/_blob/80f473ffb4fbe6b37da1c055afd9a865) center/700px auto;border-radius:4px;box-shadow:var(--sh);color:var(--ink);padding:24px 26px}
+.ch{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 16px;font:500 11.5px/1 var(--fm);letter-spacing:.14em;text-transform:uppercase;color:var(--amber)}
+.k{font:400 12.5px/1.4 var(--fm);color:var(--t3)}
+.paper .k{color:var(--ink3)}
+.big{font:600 64px/1 var(--fd);letter-spacing:-.045em;color:var(--t1)}
+.money{font-family:var(--ft);font-weight:700}
+/* sidebar */
+.side{flex:none;width:236px;margin:14px 0 14px 14px;padding:20px 12px 16px;display:flex;flex-direction:column;gap:2px}
+.ws{display:flex;align-items:center;gap:10px;padding:4px 12px 22px;font:600 20px/1 var(--fd);letter-spacing:-.025em}
+.mk{width:24px;height:24px;flex:none;background:var(--navy);-webkit-mask:url(/_blob/05d26856a6b51fdf3bde88bf8104603b) center/contain no-repeat;mask:url(/_blob/05d26856a6b51fdf3bde88bf8104603b) center/contain no-repeat}
+.ni{display:flex;align-items:center;gap:11px;min-height:40px;padding:0 12px;border-radius:11px;font-size:14px;color:var(--t2);text-decoration:none}
+.ni:hover{background:rgba(255,255,255,.45);color:var(--t1)}
+.ni.on{background:rgba(255,255,255,.85);color:var(--t1);box-shadow:0 1px 2px rgba(24,48,84,.14)}
+.ni svg{width:16px;height:16px;flex:none}
+.count{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--navy);color:#eef5fb;font:500 11.5px/20px var(--fm);text-align:center}
+.sh{margin:24px 12px 8px;font:500 11px/1 var(--fm);letter-spacing:.14em;text-transform:uppercase;color:var(--amber)}
+.agent{display:flex;align-items:center;gap:10px;padding:6px 12px;font-size:14px;line-height:1.3}
+.agent small{display:block;color:var(--t3);font-size:12px}
+.pic{width:30px;height:30px;flex:none;border-radius:9px;display:grid;place-items:center;background:var(--navy);color:#eef5fb}
+.pic svg{width:15px;height:15px}
+.sfoot{margin-top:auto;padding:14px 12px 0;border-top:1px solid rgba(16,30,52,.12);font-size:12.5px;line-height:1.45;color:var(--t2)}
+.sfoot b{display:block;color:var(--t1);font-weight:600;margin-bottom:2px}
+/* page */
+.main{flex:1;min-width:0;padding:40px 44px 56px;display:flex;flex-direction:column;gap:26px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap}
+.crumb{margin:0 0 10px;font:400 12.5px var(--fm);color:var(--t3)}
+.crumb a{text-decoration:none}
+.t{margin:0;font:600 38px/1.06 var(--fd);letter-spacing:-.032em;max-width:26ch;text-wrap:balance}
+.sub{margin:10px 0 0;font-size:15.5px;color:var(--t2);max-width:64ch;text-wrap:pretty}
+.acts-top{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+/* controls */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;border:1.5px solid var(--navy);background:transparent;color:var(--navy);font:500 14.5px/1 var(--fd);text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn.pri{background:var(--navy);color:#eef5fb}
+.btn.pri:hover{background:#1f3658}
+.btn.sec:hover{background:rgba(16,30,52,.06)}
+.btn.sm{min-height:36px;padding:0 14px;font-size:13.5px}
+.btn.ghost{border-color:transparent}
+.btn.danger{border-color:var(--no);color:var(--no)}
+.chip{display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-radius:13px;background:rgba(16,30,52,.07);font:500 12.5px/1 var(--fd);color:var(--t2);white-space:nowrap}
+.chip i{width:7px;height:7px;border-radius:50%;background:currentColor}
+.chip.ok{color:var(--ok);background:rgba(46,118,80,.11)}
+.chip.no{color:var(--no);background:rgba(162,58,46,.1)}
+.chip.ask{color:var(--ask);background:rgba(143,99,18,.12)}
+.chip.glass{border-radius:13px;background:rgba(255,255,255,.62);color:var(--t1)}
+.top>.chip,.acts-top>.chip,.hd>.chip{box-shadow:inset 0 0 0 1px rgba(255,255,255,.7);background-color:rgba(255,255,255,.78)}
+.chip.live i{background:var(--ok);box-shadow:0 0 0 3px rgba(46,118,80,.18)}
+.track{height:6px;border-radius:3px;background:rgba(27,36,51,.1);overflow:hidden}
+.fill{height:100%;border-radius:3px;background:var(--navy)}
+.facts{list-style:none;margin:0;padding:0;border-top:1.5px solid currentColor}
+.facts li{padding:12px 0;border-bottom:1px solid rgba(16,30,52,.14);font-size:14.5px;color:var(--t2)}
+.paper .facts li{border-color:var(--rule);color:var(--ink2)}
+.dl{margin:0}
+.dl div{display:grid;grid-template-columns:150px minmax(0,1fr);gap:16px;padding:11px 0;border-bottom:1px solid var(--rule)}
 .dl div:last-child{border-bottom:0}
-.dl dt{color:var(--fg3)}
+.dl dt{font:400 12.5px/1.6 var(--fm);color:var(--ink3)}
 .dl dd{margin:0}
-.next{padding:20px 22px;display:flex;flex-direction:column;gap:14px}
-.next p{margin:0;font-size:13.5px;color:var(--fg2)}
-.row{display:flex;gap:8px;flex-wrap:wrap}
-.stack{display:flex;flex-direction:column;gap:20px;min-width:0}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font:500 11px/1 var(--fm);letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);padding:0 12px 12px;border-bottom:1.5px solid var(--ink)}
+td{padding:13px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+td small{display:block;color:var(--ink3);font-size:12.5px;line-height:1.45;margin-top:2px}
+td a{text-decoration-color:rgba(27,36,51,.3);text-underline-offset:3px}
+th.n,td.n{text-align:right;white-space:nowrap}
+td.n{font:700 14px/1.5 var(--ft)}
+tr.tot td{border-bottom:0;border-top:1.5px solid var(--ink);font-weight:600}
+.x{text-decoration:line-through;color:var(--ink3)}
+.stamp{position:absolute;pointer-events:none;mix-blend-mode:multiply}
+
+.grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:22px;align-items:start}
+.stack{display:flex;flex-direction:column;gap:22px}
+.checks{list-style:none;margin:0;padding:0}
+.ck{display:grid;grid-template-columns:28px minmax(0,1fr);gap:2px 14px;padding:16px 0;border-top:1px solid var(--rule)}
+.ck:first-child{border-top:0;padding-top:4px}
+.ck b{font-weight:600;font-size:15px}
+.ck p{grid-column:2;margin:0;color:var(--ink2)}
+.ic{grid-row:1/3;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;border:1.5px solid var(--ink3);font:500 12px var(--fm);color:var(--ink3)}
+.ic.pass{border-color:var(--ok);background:var(--ok)}
+.ic.pass::after{content:"";width:9px;height:5px;border:2px solid #fff;border-top:0;border-right:0;transform:translateY(-1px) rotate(-45deg)}
+.ic.fail{border-color:var(--no);background:var(--no)}
+.ic.fail::after{content:"×";color:#fff;font:700 15px/1 var(--fd)}
+.ck.skip{opacity:.55}
+.quote{grid-column:2;margin-top:12px;padding:14px 16px;border-left:3px solid var(--no);background:rgba(162,58,46,.06);font:400 13.5px/1.6 var(--ft);color:var(--ink)}
+.quote span{display:block;margin-bottom:6px;font:400 12px var(--fm);color:var(--ink3)}
+.next{padding:24px 26px}
+.next p{margin:0;color:var(--t2)}
+.row2{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
 </style>
 </helmet>
 <div class="r">
-  <nav class="side" aria-label="Remit">
-    <div class="ws"><span class="av"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M10 4.5H4.5v23H10M22 4.5h5.5v23H22" fill="none" stroke="currentColor" stroke-width="3"></path><rect x="8" y="9.5" width="8.5" height="13" fill="currentColor"></rect></svg></span>Household</div>
-    <a class="ni" href="Main.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3" width="11" height="10.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"></rect><path d="M2.5 6.5h11M5.5 1.8v2.4M10.5 1.8v2.4" stroke="currentColor" stroke-width="1.3"></path></svg>This week</a>
+  <nav class="side glass" aria-label="Remit">
+    <div class="ws"><span class="mk"></span>Remit</div>
+    <a class="ni" href="Main.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3" width="11" height="10.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"></rect><path d="M2.5 6.5h11M5.5 1.8v2.4M10.5 1.8v2.4" stroke="currentColor" stroke-width="1.3"></path></svg>This week</a>
     <a class="ni" href="Topup.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.5h10v7H8.5L5.5 13v-2.5H3z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"></path></svg>Requests<span class="count">1</span></a>
     <a class="ni on" href="Ledger.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10M3 8h10M3 12h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"></path></svg>Ledger</a>
     <a class="ni" href="Statement.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h6l2.5 2.5v8.5H4z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"></path><path d="M6 8h4.5M6 10.5h3" stroke="currentColor" stroke-width="1.3"></path></svg>Statements</a>
     <a class="ni" href="Agents.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="5.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.3"></circle><path d="M3 13.5c.6-2.4 2.6-3.8 5-3.8s4.4 1.4 5 3.8" fill="none" stroke="currentColor" stroke-width="1.3"></path></svg>Agents</a>
-    <div class="side-foot"><b>PayPal hold</b>$176.50 authorized Sun, Nov 8. Anything left is released on Sun, Nov 15.</div>
+    <div class="sh">Shopping for you</div>
+    <div class="agent"><span class="pic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5c.5 3.2 1.8 5 5 5.6v.4c-3.2.6-4.5 2.4-5 5.5h-.4c-.5-3.1-1.8-4.9-5-5.5v-.4c3.2-.6 4.5-2.4 5-5.6z" fill="currentColor"></path></svg></span><span>Desktop assistant<small>Connected over MCP</small></span></div>
+    <div class="agent"><span class="pic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5c.5 3.2 1.8 5 5 5.6v.4c-3.2.6-4.5 2.4-5 5.5h-.4c-.5-3.1-1.8-4.9-5-5.5v-.4c3.2-.6 4.5-2.4 5-5.6z" fill="currentColor"></path></svg></span><span>Remit’s shopping agent<small>Plans each week</small></span></div>
+    <div class="sfoot"><b>Household</b>$176.50 held on PayPal since Sun, Nov 8. What’s left is released on Sun, Nov 15.</div>
   </nav>
-
   <main class="main">
     <div class="top">
       <div>
         <p class="crumb"><a href="Ledger.dc.html">Ledger</a> / Phone case</p>
         <h1 class="t">Phone case, $18.99</h1>
-        <p class="sub">Thu, Nov 12 at 14:15. Claude tried to pay for it from Groceries. Nothing was taken from your hold.</p>
+        <p class="sub">Thu, Nov 12 at 14:15. Your agent tried to pay for it from Groceries. Nothing was taken from your hold.</p>
       </div>
       <span class="chip no"><i></i>Refused</span>
     </div>
-
     <div class="grid">
-      <section class="card" aria-label="Checks">
+      <section class="paper" aria-label="Checks">
+        <img class="stamp" src="/_blob/7d79b23f37bac81a230590f66138e074" alt="" style="right:22px;top:14px;width:150px;transform:rotate(8deg)">
         <div class="ch">The four checks</div>
         <ol class="checks">
-          <li class="ck">
-            <span class="ic pass"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
-            <b>The line is in your plan</b>
-            <p>Groceries is an approved line this week.</p>
-          </li>
-          <li class="ck">
-            <span class="ic pass"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
-            <b>It fits what’s left</b>
-            <p>$18.99 fits the $44.60 left on Groceries.</p>
-          </li>
-          <li class="ck">
-            <span class="ic fail"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path></svg></span>
-            <b>Purpose check</b>
-            <p>A separate Claude call compared the purchase with the line. It did not see the page Claude was shopping on.</p>
-            <div class="quote"><span class="k">Purpose check, 14:15:06</span>The Groceries line was approved for food and household groceries, two orders a week. A clear phone case is an accessory, not groceries. <strong>Refuse.</strong></div>
-          </li>
-          <li class="ck skip">
-            <span class="ic">4</span>
-            <b>Capture from your PayPal hold</b>
-            <p>Not reached.</p>
-          </li>
+          <li class="ck"><span class="ic pass"></span><b>The line is in your plan</b><p>Groceries is an approved line this week.</p></li>
+          <li class="ck"><span class="ic pass"></span><b>It fits what’s left</b><p>$18.99 fits the $44.60 left on Groceries.</p></li>
+          <li class="ck"><span class="ic fail"></span><b>Purpose check</b><p>A separate model compared the purchase with the line. It didn’t see the page your agent was shopping on.</p>
+            <div class="quote"><span>Purpose check, 14:15:06</span>The Groceries line was approved for food and household groceries, two orders a week. A clear phone case is an accessory, not groceries. <strong>Refuse.</strong></div></li>
+          <li class="ck skip"><span class="ic">4</span><b>Capture from your PayPal hold</b><p>Not reached.</p></li>
         </ol>
       </section>
-
       <div class="stack">
-        <section class="card" aria-label="The request">
-          <div class="ch">What Claude asked to buy</div>
+        <section class="paper" aria-label="The request">
+          <div class="ch">What your agent asked to buy</div>
           <dl class="dl">
             <div><dt>Item</dt><dd>Phone case, clear</dd></div>
-            <div><dt>Store</dt><dd>accessories.example</dd></div>
+            <div><dt>Store</dt><dd>Accessories shop</dd></div>
             <div><dt>Line</dt><dd>Groceries</dd></div>
-            <div><dt>Price</dt><dd>$18.99 with shipping</dd></div>
-            <div><dt>Claude’s reason</dt><dd>Your case is cracked. This one fits your phone and is under $20.</dd></div>
+            <div><dt>Price</dt><dd><span class="money">$18.99</span> with shipping</dd></div>
+            <div><dt>Agent’s reason</dt><dd>Your case is cracked. This one fits your phone and is under $20.</dd></div>
           </dl>
         </section>
-        <section class="card" aria-label="What happens next">
+        <section class="glass next" aria-label="What happens next">
           <div class="ch">What happens next</div>
-          <div class="next">
-            <p>Claude was told why and that it can’t try another line. If you want the case, add it to the plan. That’s a new approval on PayPal.</p>
-            <div class="row">
-              <a class="btn sec" href="Topup.dc.html">Add a line for it</a>
-              <a class="btn sec" href="Main.dc.html">Leave it refused</a>
-            </div>
-          </div>
+          <p>Your agent was told why, and that it can’t try another line. If you want the case, add it to the plan. That’s a new approval on PayPal.</p>
+          <div class="row2"><a class="btn sec" href="Topup.dc.html">Add a line for it</a><a class="btn ghost" href="Main.dc.html">Leave it refused</a></div>
         </section>
       </div>
     </div>

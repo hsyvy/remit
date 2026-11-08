@@ -8,73 +8,116 @@
 <body>
 <x-dc>
 <helmet>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700&amp;family=Geist+Mono:wght@400;500&amp;display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@6..144,400..700&amp;family=Google+Sans+Code:wght@400;500&amp;family=Courier+Prime:wght@400;700&amp;family=Caveat:wght@500;600&amp;display=swap">
 <style>
-body{margin:0;background:#07080a}
-a{color:#f2f3f5}a:hover{color:#ffffff}
-.r{--bg:#07080a;--bg1:#0c0d10;--bg2:#121317;--bg3:#191a1f;--bg4:#24252c;--ln:rgba(255,255,255,.07);--ln2:rgba(255,255,255,.11);--ln3:rgba(255,255,255,.18);--fg:#f2f3f5;--fg2:#a6a9b1;--fg3:#80838c;--bar:#d9dbe1;--ok:#5fd3a0;--okb:rgba(95,211,160,.1);--no:#f27a5c;--nob:rgba(242,122,92,.11);--ask:#e8b85e;--askb:rgba(232,184,94,.11);font-family:"Geist",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;color:var(--fg);background:var(--bg);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;min-height:1080px;display:flex;flex-wrap:wrap;align-items:stretch}
+body{margin:0;background:#6fa7d9}
+a{color:inherit}
+.r{--navy:#101e34;--t1:#0d1a2d;--t2:rgba(16,30,52,.74);--t3:rgba(16,30,52,.56);--amber:#7a4c06;--ok:#2e7650;--no:#a23a2e;--ask:#8f6312;
+  --paper:#fbf9f4;--ink:#1b2433;--ink2:#4a5466;--ink3:#5f6778;--rule:rgba(27,36,51,.13);
+  --fd:"Google Sans Flex","Google Sans",ui-sans-serif,system-ui,-apple-system,sans-serif;--fm:"Google Sans Code",ui-monospace,monospace;--ft:"Courier Prime","Courier New",monospace;
+  --sh:0 1px 2px rgba(24,48,84,.14),0 22px 40px -22px rgba(24,58,102,.55);
+  position:relative;min-height:1080px;display:flex;align-items:stretch;font-family:var(--fd);font-size:14.5px;line-height:1.5;color:var(--t1);
+  background:#6fa7d9 url(/_blob/c102c5fa184d7b0df167af06aa9708b0) center/cover no-repeat;-webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums}
 .r *{box-sizing:border-box}
-.side{flex:1 1 220px;max-width:240px;border-right:1px solid var(--ln);padding:16px 12px 20px;display:flex;flex-direction:column;gap:2px;background:#0a0b0d}
-.ws{display:flex;align-items:center;gap:10px;padding:6px 9px 18px;font-size:13.5px;font-weight:600}
-.av{width:22px;height:22px;border-radius:6px;background:var(--fg);color:var(--bg);display:grid;place-items:center;flex:none}
-.av svg{width:13px;height:13px}
-.ni{display:flex;align-items:center;gap:10px;min-height:34px;padding:0 9px;border-radius:7px;font-size:13.5px;color:var(--fg2);text-decoration:none}
-.ni:hover{background:var(--bg3);color:var(--fg)}
-.ni.on{background:var(--bg3);color:var(--fg)}
-.ni svg{width:15px;height:15px;color:var(--fg3);flex:none}
-.side-foot{margin-top:auto;padding:14px 9px 0;border-top:1px solid var(--ln);font-size:12.5px;color:var(--fg3);line-height:1.5}
-.side-foot b{display:block;color:var(--fg2);font-weight:500}
-.main{flex:999 1 560px;min-width:0;padding:28px 40px 64px;display:flex;flex-direction:column;gap:26px}
-.top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
-.crumb{font-size:12.5px;color:var(--fg3);margin:0 0 8px}
-.crumb a{color:var(--fg3);text-decoration:none}
-.t{margin:0;font-size:26px;font-weight:560;letter-spacing:-.025em;line-height:1.15}
-.sub{margin:6px 0 0;font-size:14px;color:var(--fg2);max-width:64ch}
-.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap;color:var(--fg2);background:var(--bg3)}
-.chip i{width:6px;height:6px;border-radius:50%;background:currentColor}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;padding:0 16px;border-radius:9px;font-family:inherit;font-size:14px;font-weight:500;border:1px solid transparent;text-decoration:none;cursor:pointer;white-space:nowrap}
-.btn.sec{background:transparent;color:var(--fg);border-color:var(--ln3)}
-.btn.sm{min-height:34px;padding:0 12px;font-size:13px;border-radius:8px}
-.card{background:var(--bg1);border:1px solid var(--ln2);border-radius:12px;min-width:0}
-.k{font-size:12.5px;color:var(--fg3)}
-@media (max-width:760px){.side{max-width:none;flex-basis:100%;border-right:0;border-bottom:1px solid var(--ln)}.main{padding:20px 16px 40px}}
-/* this screen */
-.figs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--ln2);border-bottom:1px solid var(--ln)}
-.fig{padding:22px 24px 24px 0}
-.fig + .fig{padding-left:24px;border-left:1px solid var(--ln)}
-.fig .v{font-size:40px;font-weight:500;letter-spacing:-.035em;line-height:1.1;margin:8px 0 4px;font-variant-numeric:tabular-nums}
-.fig .d{font-size:13px;color:var(--fg3)}
-@media (max-width:760px){.figs{grid-template-columns:minmax(0,1fr)}.fig,.fig + .fig{padding:18px 0;border-left:0;border-bottom:1px solid var(--ln)}}
-.h2{margin:0 0 12px;font-size:15px;font-weight:560}
-.scroll{overflow-x:auto}
-table{width:100%;min-width:640px;border-collapse:collapse;font-size:13.5px}
-th{font-weight:500;color:var(--fg3);text-align:left;font-size:12.5px;padding:12px 18px;border-bottom:1px solid var(--ln2)}
-td{padding:14px 18px;border-bottom:1px solid var(--ln);vertical-align:top}
-td small{display:block;color:var(--fg3);font-size:12.5px}
-th.n,td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-tr.tot td{border-bottom:0;font-weight:560}
-.bar{display:flex;height:6px;border-radius:3px;overflow:hidden;gap:2px;margin-top:8px;min-width:120px}
-.bar span{display:block;height:100%}
-.two{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:20px;align-items:start}
-@media (max-width:1100px){.two{grid-template-columns:minmax(0,1fr)}}
-.ref{padding:18px 20px;display:flex;flex-direction:column;gap:12px}
-.ref div{display:flex;justify-content:space-between;gap:12px;font-size:13.5px}
-.ref div span:last-child{font-variant-numeric:tabular-nums;color:var(--fg2)}
-.fine{margin:0;font-size:13px;color:var(--fg3);max-width:80ch}
-.fine code{font:12.5px "Geist Mono",ui-monospace,Menlo,monospace;color:var(--fg2)}
+.mono{font-family:var(--fm)}
+/* frosted glass: the chrome */
+.glass{background:rgba(228,240,250,.62);-webkit-backdrop-filter:blur(18px) saturate(140%);backdrop-filter:blur(18px) saturate(140%);border:1px solid rgba(255,255,255,.62);border-radius:18px;box-shadow:inset 0 1px 0 rgba(255,255,255,.75),0 20px 40px -24px rgba(24,58,102,.5)}
+/* paper: the content */
+.paper{position:relative;background:var(--paper) url(/_blob/80f473ffb4fbe6b37da1c055afd9a865) center/700px auto;border-radius:4px;box-shadow:var(--sh);color:var(--ink);padding:24px 26px}
+.ch{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 16px;font:500 11.5px/1 var(--fm);letter-spacing:.14em;text-transform:uppercase;color:var(--amber)}
+.k{font:400 12.5px/1.4 var(--fm);color:var(--t3)}
+.paper .k{color:var(--ink3)}
+.big{font:600 64px/1 var(--fd);letter-spacing:-.045em;color:var(--t1)}
+.money{font-family:var(--ft);font-weight:700}
+/* sidebar */
+.side{flex:none;width:236px;margin:14px 0 14px 14px;padding:20px 12px 16px;display:flex;flex-direction:column;gap:2px}
+.ws{display:flex;align-items:center;gap:10px;padding:4px 12px 22px;font:600 20px/1 var(--fd);letter-spacing:-.025em}
+.mk{width:24px;height:24px;flex:none;background:var(--navy);-webkit-mask:url(/_blob/05d26856a6b51fdf3bde88bf8104603b) center/contain no-repeat;mask:url(/_blob/05d26856a6b51fdf3bde88bf8104603b) center/contain no-repeat}
+.ni{display:flex;align-items:center;gap:11px;min-height:40px;padding:0 12px;border-radius:11px;font-size:14px;color:var(--t2);text-decoration:none}
+.ni:hover{background:rgba(255,255,255,.45);color:var(--t1)}
+.ni.on{background:rgba(255,255,255,.85);color:var(--t1);box-shadow:0 1px 2px rgba(24,48,84,.14)}
+.ni svg{width:16px;height:16px;flex:none}
+.count{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:var(--navy);color:#eef5fb;font:500 11.5px/20px var(--fm);text-align:center}
+.sh{margin:24px 12px 8px;font:500 11px/1 var(--fm);letter-spacing:.14em;text-transform:uppercase;color:var(--amber)}
+.agent{display:flex;align-items:center;gap:10px;padding:6px 12px;font-size:14px;line-height:1.3}
+.agent small{display:block;color:var(--t3);font-size:12px}
+.pic{width:30px;height:30px;flex:none;border-radius:9px;display:grid;place-items:center;background:var(--navy);color:#eef5fb}
+.pic svg{width:15px;height:15px}
+.sfoot{margin-top:auto;padding:14px 12px 0;border-top:1px solid rgba(16,30,52,.12);font-size:12.5px;line-height:1.45;color:var(--t2)}
+.sfoot b{display:block;color:var(--t1);font-weight:600;margin-bottom:2px}
+/* page */
+.main{flex:1;min-width:0;padding:40px 44px 56px;display:flex;flex-direction:column;gap:26px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap}
+.crumb{margin:0 0 10px;font:400 12.5px var(--fm);color:var(--t3)}
+.crumb a{text-decoration:none}
+.t{margin:0;font:600 38px/1.06 var(--fd);letter-spacing:-.032em;max-width:26ch;text-wrap:balance}
+.sub{margin:10px 0 0;font-size:15.5px;color:var(--t2);max-width:64ch;text-wrap:pretty}
+.acts-top{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+/* controls */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:10px;border:1.5px solid var(--navy);background:transparent;color:var(--navy);font:500 14.5px/1 var(--fd);text-decoration:none;cursor:pointer;white-space:nowrap}
+.btn.pri{background:var(--navy);color:#eef5fb}
+.btn.pri:hover{background:#1f3658}
+.btn.sec:hover{background:rgba(16,30,52,.06)}
+.btn.sm{min-height:36px;padding:0 14px;font-size:13.5px}
+.btn.ghost{border-color:transparent}
+.btn.danger{border-color:var(--no);color:var(--no)}
+.chip{display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-radius:13px;background:rgba(16,30,52,.07);font:500 12.5px/1 var(--fd);color:var(--t2);white-space:nowrap}
+.chip i{width:7px;height:7px;border-radius:50%;background:currentColor}
+.chip.ok{color:var(--ok);background:rgba(46,118,80,.11)}
+.chip.no{color:var(--no);background:rgba(162,58,46,.1)}
+.chip.ask{color:var(--ask);background:rgba(143,99,18,.12)}
+.chip.glass{border-radius:13px;background:rgba(255,255,255,.62);color:var(--t1)}
+.top>.chip,.acts-top>.chip,.hd>.chip{box-shadow:inset 0 0 0 1px rgba(255,255,255,.7);background-color:rgba(255,255,255,.78)}
+.chip.live i{background:var(--ok);box-shadow:0 0 0 3px rgba(46,118,80,.18)}
+.track{height:6px;border-radius:3px;background:rgba(27,36,51,.1);overflow:hidden}
+.fill{height:100%;border-radius:3px;background:var(--navy)}
+.facts{list-style:none;margin:0;padding:0;border-top:1.5px solid currentColor}
+.facts li{padding:12px 0;border-bottom:1px solid rgba(16,30,52,.14);font-size:14.5px;color:var(--t2)}
+.paper .facts li{border-color:var(--rule);color:var(--ink2)}
+.dl{margin:0}
+.dl div{display:grid;grid-template-columns:150px minmax(0,1fr);gap:16px;padding:11px 0;border-bottom:1px solid var(--rule)}
+.dl div:last-child{border-bottom:0}
+.dl dt{font:400 12.5px/1.6 var(--fm);color:var(--ink3)}
+.dl dd{margin:0}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font:500 11px/1 var(--fm);letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);padding:0 12px 12px;border-bottom:1.5px solid var(--ink)}
+td{padding:13px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+td small{display:block;color:var(--ink3);font-size:12.5px;line-height:1.45;margin-top:2px}
+td a{text-decoration-color:rgba(27,36,51,.3);text-underline-offset:3px}
+th.n,td.n{text-align:right;white-space:nowrap}
+td.n{font:700 14px/1.5 var(--ft)}
+tr.tot td{border-bottom:0;border-top:1.5px solid var(--ink);font-weight:600}
+.x{text-decoration:line-through;color:var(--ink3)}
+.stamp{position:absolute;pointer-events:none;mix-blend-mode:multiply}
+
+.main{gap:20px}
+.figs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.fig{padding:20px 22px;border-radius:16px}
+.fig .v{margin:10px 0 4px;font:600 34px/1 var(--fd);letter-spacing:-.035em}
+.fig .d{font-size:13px;color:var(--t2)}
+.cheque{background:#f3efe6 url(/_blob/81ef59ebb9a3c3b336f26ccad028dbb7) center/900px auto;overflow:hidden;padding:20px 24px 10px}
+.paper{padding:20px 24px 10px}
+td{padding:10px 12px}
+.two{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,.7fr);gap:20px;align-items:start}
+.ref{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--rule)}
+.ref:last-child{border-bottom:0}
+.fine{margin:0;max-width:92ch;font-size:13px;color:var(--t2)}
+.fine code{font:400 12px var(--fm)}
 </style>
 </helmet>
 <div class="r">
-  <nav class="side" aria-label="Remit">
-    <div class="ws"><span class="av"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M10 4.5H4.5v23H10M22 4.5h5.5v23H22" fill="none" stroke="currentColor" stroke-width="3"></path><rect x="8" y="9.5" width="8.5" height="13" fill="currentColor"></rect></svg></span>Household</div>
-    <a class="ni" href="Main.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3" width="11" height="10.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.3"></rect><path d="M2.5 6.5h11M5.5 1.8v2.4M10.5 1.8v2.4" stroke="currentColor" stroke-width="1.3"></path></svg>This week</a>
-    <a class="ni" href="Topup.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.5h10v7H8.5L5.5 13v-2.5H3z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"></path></svg>Requests</a>
+  <nav class="side glass" aria-label="Remit">
+    <div class="ws"><span class="mk"></span>Remit</div>
+    <a class="ni" href="Main.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2.5" y="3" width="11" height="10.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"></rect><path d="M2.5 6.5h11M5.5 1.8v2.4M10.5 1.8v2.4" stroke="currentColor" stroke-width="1.3"></path></svg>This week</a>
+    <a class="ni" href="Topup.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3.5h10v7H8.5L5.5 13v-2.5H3z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"></path></svg>Requests<span class="count">1</span></a>
     <a class="ni" href="Ledger.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10M3 8h10M3 12h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"></path></svg>Ledger</a>
     <a class="ni on" href="Statement.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5h6l2.5 2.5v8.5H4z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"></path><path d="M6 8h4.5M6 10.5h3" stroke="currentColor" stroke-width="1.3"></path></svg>Statements</a>
     <a class="ni" href="Agents.dc.html"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="5.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.3"></circle><path d="M3 13.5c.6-2.4 2.6-3.8 5-3.8s4.4 1.4 5 3.8" fill="none" stroke="currentColor" stroke-width="1.3"></path></svg>Agents</a>
-    <div class="side-foot"><b>Week closed</b>Nov 9 – 15. $15.20 released to you.</div>
+    <div class="sh">Shopping for you</div>
+    <div class="agent"><span class="pic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5c.5 3.2 1.8 5 5 5.6v.4c-3.2.6-4.5 2.4-5 5.5h-.4c-.5-3.1-1.8-4.9-5-5.5v-.4c3.2-.6 4.5-2.4 5-5.6z" fill="currentColor"></path></svg></span><span>Desktop assistant<small>Connected over MCP</small></span></div>
+    <div class="agent"><span class="pic"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5c.5 3.2 1.8 5 5 5.6v.4c-3.2.6-4.5 2.4-5 5.5h-.4c-.5-3.1-1.8-4.9-5-5.5v-.4c3.2-.6 4.5-2.4 5-5.6z" fill="currentColor"></path></svg></span><span>Remit’s shopping agent<small>Plans each week</small></span></div>
+    <div class="sfoot"><b>Week closed</b>$15.20 of the top-up hold is released when its authorization expires.</div>
   </nav>
-
   <main class="main">
     <div class="top">
       <div>
@@ -82,53 +125,44 @@ tr.tot td{border-bottom:0;font-weight:560}
         <h1 class="t">Statement for Nov 9 – 15</h1>
         <p class="sub">Closed Sun, Nov 15 at 23:59. Two holds, five purchases, one refusal.</p>
       </div>
-      <div style="display:flex;gap:8px;align-items:center"><span class="chip"><i></i>Closed</span><button class="btn sec sm" type="button">Download PDF</button></div>
+      <div class="acts-top"><span class="chip glass"><i></i>Closed</span><button class="btn sec sm" type="button">Download PDF</button></div>
     </div>
-
     <div class="figs">
-      <div class="fig"><div class="k">Approved by you</div><div class="v">$281.00</div><div class="d">The plan, plus one top-up</div></div>
-      <div class="fig"><div class="k">Spent</div><div class="v">$265.80</div><div class="d">Five purchases, every one inside its line</div></div>
-      <div class="fig"><div class="k">Returned to you</div><div class="v">$15.20</div><div class="d">Never left your PayPal account</div></div>
+      <div class="fig glass"><div class="k">Approved by you</div><div class="v">$281.00</div><div class="d">The plan, plus one top-up</div></div>
+      <div class="fig glass"><div class="k">Spent</div><div class="v">$265.80</div><div class="d">Five purchases, every one inside its line</div></div>
+      <div class="fig glass"><div class="k">Returned to you</div><div class="v">$15.20</div><div class="d">Never left your PayPal account</div></div>
     </div>
-
-    <section>
-      <h2 class="h2">By line</h2>
-      <div class="card scroll">
+    <section class="paper cheque" aria-label="By line">
+      <img class="stamp" src="/_blob/c44fe921dded22014dcc55826d61d7fc" alt="" style="right:26px;top:12px;width:150px;transform:rotate(-6deg)">
+      <div class="ch">By line</div>
+      <table>
+        <thead><tr><th>Line</th><th class="n">Approved</th><th class="n">Spent</th><th class="n">Returned</th><th style="width:24%">Used</th></tr></thead>
+        <tbody>
+          <tr><td>Groceries<small>Two orders</small></td><td class="n">$88.00</td><td class="n">$86.80</td><td class="n">$1.20</td><td><div class="track"><div class="fill" style="width:98.6%"></div></div></td></tr>
+          <tr><td>Dog food<small>One 12 kg bag</small></td><td class="n">$32.50</td><td class="n">$32.50</td><td class="n">$0.00</td><td><div class="track"><div class="fill" style="width:100%"></div></div></td></tr>
+          <tr><td>Gift for Sam<small>$40.00 in the plan, $104.50 top-up</small></td><td class="n">$144.50</td><td class="n">$144.50</td><td class="n">$0.00</td><td><div class="track"><div class="fill" style="width:100%"></div></div></td></tr>
+          <tr><td>Shared buffer<small>One delivery fee</small></td><td class="n">$16.00</td><td class="n">$2.00</td><td class="n">$14.00</td><td><div class="track"><div class="fill" style="width:12.5%"></div></div></td></tr>
+          <tr class="tot"><td>Total</td><td class="n">$281.00</td><td class="n">$265.80</td><td class="n">$15.20</td><td></td></tr>
+        </tbody>
+      </table>
+    </section>
+    <div class="two">
+      <section class="paper" aria-label="Holds on PayPal">
+        <div class="ch">Holds on PayPal</div>
         <table>
-          <thead><tr><th>Line</th><th class="n">Approved</th><th class="n">Spent</th><th class="n">Returned</th><th style="width:22%">Used</th></tr></thead>
+          <thead><tr><th>Hold</th><th class="n">Authorized</th><th class="n">Captured</th><th class="n">Released</th></tr></thead>
           <tbody>
-            <tr><td>Groceries<small>Two orders</small></td><td class="n">$88.00</td><td class="n">$86.80</td><td class="n">$1.20</td><td><div class="bar"><span style="flex:86.8;background:var(--bar)"></span><span style="flex:1.2;background:var(--bg4)"></span></div></td></tr>
-            <tr><td>Dog food<small>One 12 kg bag</small></td><td class="n">$32.50</td><td class="n">$32.50</td><td class="n">$0.00</td><td><div class="bar"><span style="flex:1;background:var(--bar)"></span></div></td></tr>
-            <tr><td>Gift for Sam<small>$40.00 in the plan, $104.50 top-up</small></td><td class="n">$144.50</td><td class="n">$144.50</td><td class="n">$0.00</td><td><div class="bar"><span style="flex:1;background:var(--bar)"></span></div></td></tr>
-            <tr><td>Shared buffer<small>One delivery fee</small></td><td class="n">$16.00</td><td class="n">$2.00</td><td class="n">$14.00</td><td><div class="bar"><span style="flex:2;background:var(--bar)"></span><span style="flex:14;background:var(--bg4)"></span></div></td></tr>
-            <tr class="tot"><td>Total</td><td class="n">$281.00</td><td class="n">$265.80</td><td class="n">$15.20</td><td></td></tr>
+            <tr><td>The plan<small>Sun, Nov 8, 21:14</small></td><td class="n">$176.50</td><td class="n">$176.50</td><td class="n">$0.00</td></tr>
+            <tr><td>Top-up for Sam’s gift<small>Thu, Nov 12, 19:05</small></td><td class="n">$104.50</td><td class="n">$89.30</td><td class="n">$15.20</td></tr>
           </tbody>
         </table>
-      </div>
-    </section>
-
-    <div class="two">
-      <section>
-        <h2 class="h2">Holds on PayPal</h2>
-        <div class="card scroll">
-          <table>
-            <thead><tr><th>Hold</th><th class="n">Authorized</th><th class="n">Captured</th><th class="n">Released</th></tr></thead>
-            <tbody>
-              <tr><td>The plan<small>Sun, Nov 8, 21:14</small></td><td class="n">$176.50</td><td class="n">$176.50</td><td class="n">$0.00</td></tr>
-              <tr><td>Top-up for Sam’s gift<small>Thu, Nov 12, 19:05</small></td><td class="n">$104.50</td><td class="n">$89.30</td><td class="n">$15.20</td></tr>
-            </tbody>
-          </table>
-        </div>
       </section>
-      <section>
-        <h2 class="h2">Refused and declined</h2>
-        <div class="card ref">
-          <div><a href="Purchase.dc.html">Phone case, from Groceries</a><span>$18.99</span></div>
-          <div><span style="color:var(--fg3)">Declined requests</span><span>None</span></div>
-        </div>
+      <section class="paper" aria-label="Refused and declined">
+        <div class="ch">Refused and declined</div>
+        <div class="ref"><a href="Purchase.dc.html">Phone case, from Groceries</a><span class="money x">$18.99</span></div>
+        <div class="ref"><span style="color:var(--ink3)">Declined requests</span><span>None</span></div>
       </section>
     </div>
-
     <p class="fine">Purchases take from the oldest hold first, so the gift used the last $55.20 of the plan’s hold and $89.30 of the top-up. PayPal won’t void a hold after a partial capture (<code>PREVIOUSLY_CAPTURED</code>), so the top-up’s last $15.20 is released when its authorization expires.</p>
   </main>
 </div>
