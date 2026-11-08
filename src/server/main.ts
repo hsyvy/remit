@@ -34,6 +34,7 @@ const modes = {
   agent: claude ? "on" : "off",
   reviewer: reviewer ? "on" : "off",
   model: config.anthropic.model,
+  mcp: config.agentToken ? "on" : "off",
 };
 
 const app = createApp({

@@ -15,7 +15,7 @@ export interface AppDeps {
   wallet: Wallet;
   agent: ShoppingAgent;
   simulated?: SimulatedPayPal;
-  modes: { paypal: string; search: string; agent: string; reviewer: string; model: string };
+  modes: { paypal: string; search: string; agent: string; reviewer: string; model: string; mcp?: string };
   /** Rupees per dollar for the approximate ₹ figure in the web app; 0 for dollars only. */
   inrRate?: number;
   agentToken?: string;
@@ -173,6 +173,8 @@ function simHead(title: string) {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)}</title>
+<link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@6..144,400..700&family=Google+Sans+Code:wght@400;500&family=Courier+Prime:wght@400;700&display=swap">
 <link rel="stylesheet" href="/styles.css">
 </head><body>`;
 }
