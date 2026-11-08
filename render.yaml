@@ -28,3 +28,10 @@ services:
         sync: false
       - key: REMIT_AGENT_TOKEN
         generateValue: true
+      # Notifications: set NTFY_TOPIC (ntfy push) or NOTIFY_WEBHOOK_URL, or leave both empty to only log.
+      - key: NTFY_TOPIC
+        sync: false
+      - key: NOTIFY_WEBHOOK_URL
+        sync: false
+      - key: REMIT_LINK_SECRET
+        generateValue: true

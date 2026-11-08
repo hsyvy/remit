@@ -8,6 +8,8 @@ import type { ShoppingAgent } from "../demo/agent.ts";
 import { fmt } from "../money.ts";
 import { PayPalError } from "../paypal/gateway.ts";
 import { isWaiting, type SimOrder, type SimulatedPayPal } from "../paypal/simulated.ts";
+import type { LinkSigner } from "../notify/links.ts";
+import { mountLinkRoutes } from "../notify/routes.ts";
 import { runWalletTool, walletToolDefs, type WalletToolName } from "../wallet/tools.ts";
 import { errorText, WalletError, type Wallet } from "../wallet/wallet.ts";
 
@@ -20,6 +22,8 @@ export interface AppDeps {
   inrRate?: number;
   agentToken?: string;
   ownerPassword?: string;
+  /** One-tap links from notifications. Signed links work without the owner password. */
+  links?: { signer: LinkSigner; appUrl: string };
 }
 
 export function createApp(deps: AppDeps) {
@@ -51,6 +55,10 @@ export function createApp(deps: AppDeps) {
       return c.json(await runWalletTool(wallet, name as WalletToolName, body, "mcp"));
     });
   }
+
+  // ------------------------------------------------------------ one-tap links (signed, so in front of the owner password)
+
+  if (deps.links) mountLinkRoutes(app, { wallet, links: deps.links.signer, appUrl: deps.links.appUrl, agent });
 
   // ------------------------------------------------------------ owner routes
 
