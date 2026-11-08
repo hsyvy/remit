@@ -116,6 +116,10 @@ export interface WalletEvent {
   type: string;
   message: string;
   at: string;
+  /** The record the event is about, when there is one: the purchase for spend_refused. */
+  ref?: string;
+  /** The refusal code for spend_refused, e.g. OVER_LINE, REVIEW_REJECTED, AGENT_PAUSED. */
+  code?: string;
 }
 
 export class Wallet {
@@ -456,8 +460,8 @@ export class Wallet {
       const blocked = this.agents.blocked(input.agent);
       if (blocked) {
         const current = this.currentPeriod();
-        if (current?.status === "open") this.recordRefusal(current.id, null, input, blocked.message);
-        else this.event(current?.id ?? null, "spend_refused", `Refused ${fmt(input.amountCents)} for "${input.title.slice(0, 80)}". ${blocked.message}`);
+        if (current?.status === "open") this.recordRefusal(current.id, null, input, blocked.message, blocked.code);
+        else this.event(current?.id ?? null, "spend_refused", `Refused ${fmt(input.amountCents)} for "${input.title.slice(0, 80)}". ${blocked.message}`, { code: blocked.code });
         throw new WalletError(blocked.code, blocked.message, 403);
       }
       const period = this.openPeriod();
@@ -474,7 +478,7 @@ export class Wallet {
       const mine = (l: { agentId: string | null }) => !l.agentId || l.agentId === input.agent;
       const owned = lines.find((l) => l.key === input.lineKey);
       const refuse = (envelopeId: string | null, code: string, message: string): never => {
-        this.recordRefusal(period.id, envelopeId, input, message);
+        this.recordRefusal(period.id, envelopeId, input, message, code);
         throw new WalletError(code, message, 409);
       };
       const yours = () => lines.filter(mine).map((l) => l.key).join(", ") || "none";
@@ -513,7 +517,7 @@ export class Wallet {
       if (review.verdict === "reject") {
         const message = `Purpose check refused this purchase: ${review.reason}`;
         this.db.prepare("UPDATE purchases SET status = 'refused', refusal = ? WHERE id = ?").run(message, purchaseId);
-        this.event(period.id, "spend_refused", `Refused ${fmt(input.amountCents)} for "${title}". ${message}`);
+        this.event(period.id, "spend_refused", `Refused ${fmt(input.amountCents)} for "${title}". ${message}`, { ref: purchaseId, code: "REVIEW_REJECTED" });
         throw new WalletError("REVIEW_REJECTED", message, 409);
       }
 
@@ -1077,6 +1081,7 @@ export class Wallet {
       status: r.status,
       reason: r.reason,
       createdAt: r.created_at,
+      askedBy: this.ownerFacingName(r.agent_id),
       period: { id: p.id, summary: p.summary, startsOn: p.starts_on, endsOn: p.ends_on, status: p.status },
       totalCents: lines.reduce((sum, l) => sum + (l.approved_cents ?? l.amount_cents), 0),
       lines: lines.map((l) => {
@@ -1089,6 +1094,37 @@ export class Wallet {
           current: now ? { limitCents: now.limitCents, leftCents: now.leftCents } : null,
         };
       }),
+    };
+  }
+
+  /** One purchase, for a refusal notice and the Pay anyway link page. */
+  purchaseDetail(purchaseId: string) {
+    const p = this.db.prepare("SELECT * FROM purchases WHERE id = ?").get(purchaseId) as unknown as PurchaseRow | undefined;
+    if (!p) throw new WalletError("NOT_FOUND", "No such purchase.", 404);
+    const review = p.review ? (JSON.parse(p.review) as ReviewResult) : null;
+    const override = p.owner_override ? (JSON.parse(p.owner_override) as PurchaseOverride) : null;
+    const period = this.currentPeriod();
+    const line = this.envelope(p.period_id, p.line_key);
+    return {
+      id: p.id,
+      periodId: p.period_id,
+      status: p.status,
+      amountCents: p.amount_cents,
+      title: p.title,
+      merchant: p.merchant,
+      url: p.url,
+      reasoning: p.reasoning,
+      lineKey: p.line_key,
+      lineLabel: line?.label ?? p.line_key,
+      refusal: p.refusal,
+      review,
+      override,
+      agent: p.agent,
+      agentName: this.ownerFacingName(p.agent),
+      createdAt: p.created_at,
+      // The same test as overridePurchase's first checks; the line and total rules run when it is used.
+      canOverride:
+        p.status === "refused" && review?.verdict === "reject" && !override && period?.status === "open" && period.id === p.period_id && !this.isPastEnd(period),
     };
   }
 
@@ -1210,15 +1246,16 @@ export class Wallet {
     ).n;
   }
 
-  private recordRefusal(periodId: string, envelopeId: string | null, input: SpendInput, message: string) {
+  private recordRefusal(periodId: string, envelopeId: string | null, input: SpendInput, message: string, code: string) {
+    const id = newId("pur");
     this.db
       .prepare(
         `INSERT INTO purchases (id, period_id, envelope_id, line_key, status, amount_cents, title, merchant, url, reasoning, agent, refusal, created_at)
          VALUES (?, ?, ?, ?, 'refused', ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(newId("pur"), periodId, envelopeId, input.lineKey, input.amountCents, input.title.slice(0, 200), input.merchant.slice(0, 100),
+      .run(id, periodId, envelopeId, input.lineKey, input.amountCents, input.title.slice(0, 200), input.merchant.slice(0, 100),
         input.url ?? null, input.reasoning.slice(0, 1000), input.agent, message, this.iso());
-    this.event(periodId, "spend_refused", `Refused ${fmt(input.amountCents)} for "${input.title.slice(0, 80)}". ${message}`);
+    this.event(periodId, "spend_refused", `Refused ${fmt(input.amountCents)} for "${input.title.slice(0, 80)}". ${message}`, { ref: id, code });
   }
 
   private insertRequest(id: string, periodId: string, kind: "budget" | "topup", reason: string, lines: PlanLineInput[], agentId?: string) {
@@ -1240,6 +1277,13 @@ export class Wallet {
     throw new WalletError(blocked.code, blocked.message, 403);
   }
 
+  /** How notices name an agent: its own name, or "Your agent" for the built-ins and requests from before agents. */
+  private ownerFacingName(agentId: string | null | undefined) {
+    if (!agentId) return "Your agent";
+    const agent = this.agents.get(normalizeAgentId(agentId));
+    return !agent || agent.builtin ? "Your agent" : agent.name;
+  }
+
   /** Who asked, for the activity feed. The built-in agent stays "Agent", as before. */
   private asker(agentId: string | undefined) {
     return !agentId || normalizeAgentId(agentId) === BUILTIN_AGENT_ID ? "Agent" : this.agents.label(agentId);
@@ -1256,7 +1300,7 @@ export class Wallet {
     }
   }
 
-  private event(periodId: string | null, type: string, message: string) {
+  private event(periodId: string | null, type: string, message: string, about: { ref?: string; code?: string } = {}) {
     const at = this.iso();
     this.db.prepare("INSERT INTO events (period_id, type, message, created_at) VALUES (?, ?, ?, ?)").run(periodId, type, message, at);
     const onEvent = this.opts.onEvent;
@@ -1264,7 +1308,7 @@ export class Wallet {
     if (onEvent) {
       queueMicrotask(() => {
         try {
-          onEvent({ periodId, type, message, at });
+          onEvent({ periodId, type, message, at, ...about });
         } catch (err) {
           console.error("onEvent:", err);
         }

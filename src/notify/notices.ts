@@ -6,6 +6,8 @@ import type { Notice, Notifier } from "./notifier.ts";
 /** The plan link in a recap stays good a little longer: a recap is often read later. */
 const PLAN_LINK_TTL_MS = 3 * 24 * 60 * 60 * 1000;
 const MAX_BODY_LINES = 6;
+/** Refusals caused by the owner's own pause or revoke: no notice for these. */
+const OWNER_BLOCKED = new Set(["AGENT_PAUSED", "AGENT_REVOKED"]);
 
 export interface NotificationOptions {
   appUrl: string;
@@ -90,12 +92,12 @@ export class Notifications {
     const body: string[] = [];
     if (r.kind === "budget") {
       title = `Approve ${fmt(r.totalCents)} for ${dateRange(r.period.startsOn, r.period.endsOn)}?`;
-      body.push(`Your agent asks for a budget: ${r.reason}`);
+      body.push(`${r.askedBy} asks for a budget: ${r.reason}`);
       body.push(...capped(r.lines.map((l) => `${l.label}: ${fmt(l.amountCents)}. ${l.reason}`)));
     } else {
       const line = r.lines[0]!;
       title = `Approve ${fmt(r.totalCents)} more for ${line.label}?`;
-      body.push(line.reason);
+      body.push(`${r.askedBy} asks: ${line.reason}`);
       const now = line.current?.limitCents ?? 0;
       body.push(`${line.label} has ${fmt(now)} now, ${fmt(now + line.amountCents)} after.`);
     }
@@ -116,6 +118,7 @@ export class Notifications {
         event: kind === "budget" ? "budget_requested" : "topup_requested",
         requestId: r.id,
         kind: r.kind,
+        askedBy: r.askedBy,
         totalCents: r.totalCents,
         reason: r.reason,
         period: r.period,
@@ -125,18 +128,36 @@ export class Notifications {
     };
   }
 
-  private refusalNotice(event: WalletEvent): Notice {
-    const refusal = this.wallet.periodRecap(event.periodId!).refusals.at(-1);
+  private refusalNotice(event: WalletEvent): Notice | null {
+    // The owner paused or revoked this agent themselves, so its refusals are expected. They stay in the ledger.
+    if (event.code && OWNER_BLOCKED.has(event.code)) return null;
     const ledger = `${this.opts.appUrl}/#ledger`;
+    const actions = [{ label: "Open ledger", url: ledger }];
+    const p = event.ref ? this.wallet.purchaseDetail(event.ref) : null;
+    if (!p) {
+      return { kind: "refusal", title: "A purchase was refused", body: event.message, url: ledger, actions, priority: "default", data: { event: "spend_refused", periodId: event.periodId, code: event.code ?? null, message: event.message } };
+    }
+    // Only the purpose check can be overruled; the line and total rules can't.
+    const payAnyway = event.code === "REVIEW_REJECTED" && p.canOverride ? this.linkUrl(this.links.sign("override", p.id)) : null;
+    if (payAnyway) actions.unshift({ label: `Pay ${fmt(p.amountCents)} anyway`, url: payAnyway });
+    const verdict = p.review?.verdict === "reject" ? firstSentence(p.review.reason) : null;
+    const reason = verdict ? (/^purpose check/i.test(verdict) ? verdict : `Purpose check: ${verdict}`) : firstSentence(p.refusal ?? event.message);
     return {
       kind: "refusal",
-      title: refusal ? `Refused ${fmt(refusal.amountCents)} for "${clip(refusal.title, 60)}"` : "A purchase was refused",
+      title: `Refused ${fmt(p.amountCents)} for "${clip(p.title, 60)}"`,
       // The refusal text goes on to coach the agent; the owner needs only its first sentence.
-      body: refusal ? `${firstSentence(refusal.reason)}\nMerchant: ${refusal.merchant}. Line: ${refusal.lineKey}.` : event.message,
-      url: ledger,
-      actions: [{ label: "Open ledger", url: ledger }],
+      body: `${reason}\n${p.agentName} · ${p.merchant} · ${p.lineLabel}`,
+      url: payAnyway ?? ledger,
+      actions,
       priority: "default",
-      data: { event: "spend_refused", periodId: event.periodId, message: event.message, refusal: refusal ?? null },
+      data: {
+        event: "spend_refused",
+        periodId: event.periodId,
+        code: event.code ?? null,
+        message: event.message,
+        purchase: { id: p.id, title: p.title, merchant: p.merchant, amountCents: p.amountCents, lineKey: p.lineKey, agent: p.agent, agentName: p.agentName },
+        links: { payAnyway },
+      },
     };
   }
 

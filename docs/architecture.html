@@ -516,7 +516,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <dt>Role</dt><dd>Brings decisions to the owner's phone: a request waiting, a refused purchase, and the weekly recap.</dd>
         <dt>Inputs</dt><dd>Wallet events through <code>onEvent</code>.</dd>
         <dt>Outputs</dt><dd>A notice (<code>kind</code>, <code>title</code>, <code>body</code>, <code>url</code>, <code>actions</code>) to ntfy (<code>NTFY_TOPIC</code>) or a JSON webhook (<code>NOTIFY_WEBHOOK_URL</code>), or the log when neither is set.</dd>
-        <dt>How it works</dt><dd>Request notices carry one-tap Approve and Decline links of the form <code>action.ref.expiry.HMAC</code>, signed with <code>REMIT_LINK_SECRET</code>. Each link is signed for one action, so an approve link can't be turned into a decline. <code>GET /link/:code</code> shows a confirm page; <code>POST</code> acts (approve goes on to PayPal), and <code>/back</code> and <code>/cancel</code> are PayPal's return addresses for links.</dd>
+        <dt>How it works</dt><dd>Request notices carry one-tap Approve and Decline links of the form <code>action.ref.expiry.HMAC</code>, signed with <code>REMIT_LINK_SECRET</code>. A refusal from the purpose check carries a Pay anyway link (<code>override.pur_…</code>) that runs <code>overridePurchase</code>. Each link is signed for one action on one record, so an approve link can't be turned into a decline. Notices name the agent that asked; refusals caused by the owner pausing or revoking an agent send nothing. <code>GET /link/:code</code> shows a confirm page; <code>POST</code> acts (approve goes on to PayPal), and <code>/back</code> and <code>/cancel</code> are PayPal's return addresses for links.</dd>
       </dl>
     </article>
   </section>
@@ -653,7 +653,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
           <tr><td><code>POST /api/chat</code>, <code>/api/chat/reset</code></td><td>Owner (demo)</td><td>Send a message to the demo agent (runs in the background) or start over</td></tr>
           <tr><td><code>GET /paypal/return</code>, <code>/paypal/cancel</code></td><td>PayPal redirect</td><td>Authorize and create the hold, or ask PayPal what happened and note it on the card</td></tr>
           <tr><td><code>POST /paypal/webhook</code></td><td>PayPal</td><td>Verified events: approvals, declines, voids, capture news</td></tr>
-          <tr><td><code>GET</code>, <code>POST /link/:code</code>, <code>/link/:code/back</code>, <code>/cancel</code></td><td>Owner, from a notice</td><td>Confirm page and action for a signed one-tap link; PayPal return for link approvals</td></tr>
+          <tr><td><code>GET</code>, <code>POST /link/:code</code>, <code>/link/:code/back</code>, <code>/cancel</code></td><td>Owner, from a notice</td><td>Confirm page and action for a signed one-tap link (approve, decline, plan, Pay anyway); PayPal return for link approvals</td></tr>
           <tr><td><code>POST /agent/v1/tools/:name</code></td><td>Agents (token)</td><td>Run one wallet tool as the token's agent</td></tr>
           <tr><td><code>POST /mcp</code></td><td>Agents (token)</td><td>Remote MCP over Streamable HTTP, stateless</td></tr>
         </tbody>

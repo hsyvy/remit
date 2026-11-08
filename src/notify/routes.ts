@@ -4,7 +4,7 @@ import { fmt } from "../money.ts";
 import { errorText, type Wallet } from "../wallet/wallet.ts";
 import type { LinkCheck, LinkSigner } from "./links.ts";
 import { dateRange } from "./notices.ts";
-import { approvePage, declinePage, messagePage, planPage } from "./pages.ts";
+import { approvePage, declinePage, messagePage, overridePage, planPage, type PurchaseDetail } from "./pages.ts";
 
 /** What the plan link needs from the agent. The demo ShoppingAgent fits. */
 export interface Planner {
@@ -59,6 +59,11 @@ export function mountLinkRoutes<E extends Env>(app: Hono<E>, deps: LinkRouteDeps
         const p = wallet.periodRecap(ref).period;
         return c.html(planPage(`/link/${code}`, appUrl, dateRange(p.startsOn, p.endsOn), expiresAt));
       }
+      if (action === "override") {
+        const p = wallet.purchaseDetail(ref);
+        if (!p.canOverride) return c.html(overrideDonePage(p, appUrl));
+        return c.html(overridePage(p, `/link/${code}`, appUrl, expiresAt));
+      }
       const r = wallet.requestDetail(ref);
       if (r.status !== "pending" && r.status !== "checkout") return c.html(decidedPage(r.status, appUrl));
       return c.html(action === "approve" ? approvePage(r, `/link/${code}`, appUrl, expiresAt) : declinePage(r, `/link/${code}`, appUrl, expiresAt));
@@ -77,6 +82,19 @@ export function mountLinkRoutes<E extends Env>(app: Hono<E>, deps: LinkRouteDeps
         // The same checkout as the app's Approve button, with PayPal sending the owner back to this link.
         const { approveUrl } = await wallet.checkout(ref, [], { returnUrl: `${self(code)}/back`, cancelUrl: `${self(code)}/cancel` });
         return c.redirect(approveUrl, 303);
+      }
+      if (action === "override") {
+        const p = wallet.purchaseDetail(ref);
+        if (!p.canOverride) return c.html(overrideDonePage(p, appUrl), 409);
+        const paid = await wallet.overridePurchase(ref);
+        return c.html(
+          messagePage({
+            title: "Paid anyway",
+            text: `${fmt(paid.amountCents)} for “${p.title}” was taken from your PayPal hold on your override. ${fmt(paid.lineLeftCents)} is left on ${p.lineLabel}.`,
+            chip: ["ok", "Paid"],
+            appUrl,
+          }),
+        );
       }
       if (action === "decline") {
         wallet.decline(ref);
@@ -160,6 +178,17 @@ function decidedPage(status: string, appUrl: string) {
         ? "You already declined this request."
         : "This request is no longer waiting: its period closed.";
   return messagePage({ title: "Already decided", text, chip: [status === "approved" ? "ok" : "", capitalize(status)], appUrl });
+}
+
+/** A Pay anyway link for a purchase that can't be paid anyway any more. */
+function overrideDonePage(p: PurchaseDetail, appUrl: string) {
+  if (p.override && !p.override.error) {
+    return messagePage({ title: "Already paid", text: `You already chose to pay for “${p.title}” anyway.`, chip: ["ok", "Paid anyway"], appUrl });
+  }
+  const text = p.override?.error
+    ? `You chose to pay anyway, but the payment didn't go through: ${p.override.error}`
+    : "This purchase can't be paid anyway now: its budget period is over, or it wasn't refused by the purpose check.";
+  return messagePage({ title: "Can't pay this now", text, chip: ["no", "Not done"], appUrl });
 }
 
 function failedPage(err: unknown, appUrl: string) {

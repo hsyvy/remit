@@ -5,6 +5,7 @@ import { dateRange } from "./notices.ts";
 /** Server-rendered phone pages for the one-tap links. Styled like the app (web/styles.css) plus web/link.css. */
 
 export type RequestDetail = ReturnType<Wallet["requestDetail"]>;
+export type PurchaseDetail = ReturnType<Wallet["purchaseDetail"]>;
 
 const MARK = `<span class="mk" aria-hidden="true"></span>Remit`;
 
@@ -34,7 +35,7 @@ function heading(r: RequestDetail, verb: "Approve" | "Decline") {
 }
 
 function requestPaper(r: RequestDetail) {
-  const asked = `<span>Your agent, ${esc(dateRange(r.createdAt.slice(0, 10), r.createdAt.slice(0, 10)))}</span>`;
+  const asked = `<span>${esc(r.askedBy)}, ${esc(dateRange(r.createdAt.slice(0, 10), r.createdAt.slice(0, 10)))}</span>`;
   if (r.kind === "topup") {
     const line = r.lines[0]!;
     const now = line.current?.limitCents ?? 0;
@@ -63,8 +64,8 @@ function until(at: Date) {
   return `${dateRange(iso.slice(0, 10), iso.slice(0, 10))}, ${iso.slice(11, 16)} UTC`;
 }
 
-function expiry(expiresAt: Date) {
-  return `<p class="k fine">This link is only for this request, and works until ${esc(until(expiresAt))}.</p>`;
+function expiry(expiresAt: Date, what = "request") {
+  return `<p class="k fine">This link is only for this ${what}, and works until ${esc(until(expiresAt))}.</p>`;
 }
 
 export function approvePage(r: RequestDetail, action: string, appUrl: string, expiresAt: Date) {
@@ -72,7 +73,7 @@ export function approvePage(r: RequestDetail, action: string, appUrl: string, ex
   const note =
     r.kind === "topup"
       ? `A new hold on PayPal, for this line only. ${release}`
-      : `One hold on PayPal for the total. Your agent can spend only within each line. ${release}`;
+      : `One hold on PayPal for the total. ${r.askedBy} can spend only within each line. ${release}`;
   return page(
     "Approve on PayPal",
     chip("ask", r.status === "checkout" ? "Sent to PayPal" : "Waiting for you"),
@@ -99,6 +100,26 @@ ${requestPaper(r)}
 ${expiry(expiresAt)}`,
     `<form method="post" action="${esc(action)}"><button class="btn danger">Decline</button></form>
 <a class="btn" href="${esc(`${appUrl}/#${r.id}`)}">Open Remit instead</a>`,
+  );
+}
+
+/** Pay anyway, from a refusal notice: what was refused, why, and what paying does. */
+export function overridePage(p: PurchaseDetail, action: string, appUrl: string, expiresAt: Date) {
+  const asked = `<span>${esc(p.agentName)}, ${esc(dateRange(p.createdAt.slice(0, 10), p.createdAt.slice(0, 10)))}</span>`;
+  return page(
+    "Pay anyway",
+    chip("no", "Refused"),
+    `<h1 class="t">Pay ${esc(fmt(p.amountCents))} anyway?</h1>
+<section class="paper" aria-label="The purchase">
+  <p class="why first">“${esc(p.reasoning)}”${asked}</p>
+  <ul class="lines"><li><div><b>${esc(p.title)}</b><small>${esc(p.merchant)} · ${esc(p.lineLabel)}</small></div><span class="money">${fmt(p.amountCents)}</span></li></ul>
+  <div class="sum"><div><span>Purpose check</span><span>Refused</span></div></div>
+  <p class="why">${esc(p.review?.reason ?? p.refusal ?? "")}</p>
+</section>
+<p class="note">Remit checks the line and the total again, but not the purpose check, then takes ${esc(fmt(p.amountCents))} from your PayPal hold. The ledger marks it as paid by your override, and the purpose check's refusal stays on record. You can refund it later.</p>
+${expiry(expiresAt, "purchase")}`,
+    `<form method="post" action="${esc(action)}"><button class="btn pri">Pay ${esc(fmt(p.amountCents))} anyway</button></form>
+<a class="btn" href="${esc(appUrl)}/#ledger">Keep it refused</a>`,
   );
 }
 

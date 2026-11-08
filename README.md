@@ -36,7 +36,7 @@ Every key in `.env` is optional. Without a key, that part runs in a stand-in mod
 
 ### Notifications
 
-Remit can tell your phone when a budget or top-up request is waiting for you, when a purchase is refused, and when a period closes (the weekly recap). Set one of these, or both:
+Remit can tell your phone when a budget or top-up request is waiting for you (with Approve and Decline links), when a purchase is refused (with a Pay anyway link if the purpose check refused it), and when a period closes (the weekly recap). Notices name the agent that asked. An agent you paused or revoked doesn't trigger refusal notices. Set one of these, or both:
 
 | Key | What |
 |---|---|

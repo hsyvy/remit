@@ -7,14 +7,14 @@ import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
  * Format: <action>.<ref>.<expires, unix seconds>.<HMAC-SHA256, base64url>
  */
 
-export type LinkAction = "approve" | "decline" | "plan";
+export type LinkAction = "approve" | "decline" | "plan" | "override";
 
-export const LINK_ACTIONS: readonly LinkAction[] = ["approve", "decline", "plan"];
+export const LINK_ACTIONS: readonly LinkAction[] = ["approve", "decline", "plan", "override"];
 export const LINK_TTL_MS = 24 * 60 * 60 * 1000;
 
 export interface LinkClaim {
   action: LinkAction;
-  /** A request id for approve and decline; a period id for plan. */
+  /** A request id for approve and decline; a period id for plan; a purchase id for override (Pay anyway). */
   ref: string;
   expiresAt: Date;
 }
