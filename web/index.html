@@ -28,6 +28,10 @@
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10M3 8h10M3 12h6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
           Ledger
         </a>
+        <a class="ni" href="#agents" data-nav="agents">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="5.5" r="2.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M3 13.5c.6-2.4 2.6-3.8 5-3.8s4.4 1.4 5 3.8" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
+          Agents
+        </a>
         <a class="ni only-narrow" href="#agent" data-nav="agent">
           <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5c.5 3.2 1.8 5 5 5.6v.4c-3.2.6-4.5 2.4-5 5.5h-.4c-.5-3.1-1.8-4.9-5-5.5v-.4c3.2-.6 4.5-2.4 5-5.6z" fill="currentColor"/></svg>
           Your agent
@@ -89,7 +93,7 @@
         <div class="top">
           <div>
             <h1 class="t" id="ledger-title">Ledger</h1>
-            <p class="sub">Every purchase and refusal this period, with your agent’s reason and the purpose check’s verdict. Nothing is removed from it.</p>
+            <p class="sub">Every purchase, refusal and move between lines this period, with your agent’s reason and the purpose check’s verdict. Nothing is removed from it.</p>
           </div>
         </div>
         <div class="bar">
@@ -99,6 +103,36 @@
           <div class="tablewrap" id="purchases"></div>
         </section>
         <div class="totals glass" id="totals"></div>
+      </section>
+
+      <section class="view" id="view-agents" aria-labelledby="agents-title" hidden>
+        <div class="top">
+          <div>
+            <h1 class="t" id="agents-title">Agents</h1>
+            <p class="sub">The agents that can spend from your plans. They never see your PayPal account, and none of them can approve money.</p>
+          </div>
+        </div>
+        <section class="paper ag-list" aria-label="Connected agents" id="agent-list"></section>
+        <div class="ag-grid">
+          <form class="glass ag-new" id="agent-form">
+            <div class="ch">Connect another agent</div>
+            <label class="k" for="agent-name">Name it so you can tell it apart</label>
+            <div class="tokrow">
+              <input id="agent-name" type="text" maxlength="60" placeholder="Desktop assistant" autocomplete="off" required>
+              <button class="btn pri" type="submit">Create token</button>
+            </div>
+            <div class="tok-once" id="agent-token" hidden></div>
+            <p class="note">Each agent gets its own token for the MCP server. Pause an agent to stop it spending; revoke it to stop the token for good.</p>
+          </form>
+          <section class="paper" aria-label="How lines work with more than one agent">
+            <div class="ch">Rules no agent can change</div>
+            <ul class="rules">
+              <li><b>Only you approve money</b>Plans and top-ups open only after you approve them on PayPal.</li>
+              <li><b>Each agent has its own lines</b>An agent spends from the lines it asked for, then the shared buffer. Never another agent’s line.</li>
+              <li><b>Paused means paused</b>A paused agent can read its balance and history. It can’t spend or ask for money.</li>
+            </ul>
+          </section>
+        </div>
       </section>
     </main>
 

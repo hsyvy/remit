@@ -96,6 +96,30 @@ CREATE TABLE IF NOT EXISTS captures (
   amount_cents INTEGER NOT NULL,
   final INTEGER NOT NULL,
   refund_id TEXT,
+  from_line_cents INTEGER,         -- how much of this capture paid the purchase's line; NULL before funding was tracked
+  from_buffer_cents INTEGER,       -- and how much paid the buffer part
+  created_at TEXT NOT NULL
+);
+
+-- How much of a line's limit each hold funded. The budget hold funds the plan's lines and buffer,
+-- a top-up hold funds its line, and a move between lines moves funding with the limit.
+-- Lines with less funding here than their limit (rows from before this table) count the rest as the budget hold's.
+CREATE TABLE IF NOT EXISTS line_funding (
+  period_id TEXT NOT NULL REFERENCES periods(id),
+  envelope_id TEXT NOT NULL REFERENCES envelopes(id),
+  hold_id TEXT NOT NULL REFERENCES holds(id),
+  cents INTEGER NOT NULL,
+  PRIMARY KEY (envelope_id, hold_id)
+);
+
+-- The owner moving unspent money from one line to another. Total and holds don't change.
+CREATE TABLE IF NOT EXISTS line_moves (
+  id TEXT PRIMARY KEY,
+  period_id TEXT NOT NULL REFERENCES periods(id),
+  from_line_key TEXT NOT NULL,
+  to_line_key TEXT NOT NULL,
+  cents INTEGER NOT NULL,
+  who TEXT NOT NULL,               -- owner
   created_at TEXT NOT NULL
 );
 
@@ -116,11 +140,32 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   created_at TEXT NOT NULL
 );
 
+-- Agents that can call the wallet. Only a hash of each token is kept; the owner sees the token once.
+-- "default" (the shared REMIT_AGENT_TOKEN) and "remit" (the built-in shopping agent) are built in and have no stored token.
+CREATE TABLE IF NOT EXISTS agents (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  token_hash TEXT UNIQUE,          -- sha256 hex; NULL for built-ins and revoked agents
+  status TEXT NOT NULL,            -- active | paused | revoked
+  builtin INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  last_used_at TEXT
+);
+
 -- State for the simulated PayPal used when no sandbox credentials are set.
 CREATE TABLE IF NOT EXISTS sim_paypal (
   id TEXT PRIMARY KEY,
   kind TEXT NOT NULL,              -- order | authorization | capture
   data TEXT NOT NULL
+);
+
+-- Every verified PayPal webhook, by PayPal's event id, so a redelivery is handled once.
+CREATE TABLE IF NOT EXISTS paypal_events (
+  id TEXT PRIMARY KEY,
+  type TEXT NOT NULL,              -- e.g. CHECKOUT.ORDER.APPROVED
+  resource_id TEXT,                -- order, authorization or capture id
+  received_at TEXT NOT NULL,
+  action TEXT NOT NULL             -- what the wallet did
 );
 `;
 
@@ -131,6 +176,13 @@ export function openDb(path: string): Db {
   db.exec(SCHEMA);
   // Columns added after the first release. CREATE TABLE IF NOT EXISTS doesn't add them to an existing database.
   addColumn(db, "requests", "approval_check", "TEXT");
+  // Which agent asked, and which agent a line belongs to. NULL: from before agents, usable by any agent.
+  addColumn(db, "requests", "agent_id", "TEXT");
+  addColumn(db, "envelopes", "agent_id", "TEXT");
+  addColumn(db, "captures", "from_line_cents", "INTEGER");
+  addColumn(db, "captures", "from_buffer_cents", "INTEGER");
+  // JSON, set when the owner paid for a purchase the purpose check refused: { by: "owner", at, error? }.
+  addColumn(db, "purchases", "owner_override", "TEXT");
   return db;
 }
 

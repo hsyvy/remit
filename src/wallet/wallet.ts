@@ -1,6 +1,7 @@
 import { newId, tx, type Db } from "../db.ts";
 import { fmt } from "../money.ts";
 import { HONOR_PERIOD_MS, PayPalError, type PayPalGateway } from "../paypal/gateway.ts";
+import { AgentRegistry, BUILTIN_AGENT_ID, normalizeAgentId } from "./agents.ts";
 
 /**
  * The wallet owns every money rule. The agent (in-process or over MCP) can only call
@@ -33,6 +34,14 @@ export interface ReviewResult {
   reason: string;
 }
 
+/** Set when the owner paid for a purchase the purpose check refused. The original review is kept as it was. */
+export interface PurchaseOverride {
+  by: "owner";
+  at: string;
+  /** Set when the capture after the override failed. */
+  error?: string;
+}
+
 export interface PlanLineInput {
   key: string;
   label: string;
@@ -46,6 +55,8 @@ export interface BudgetRequestInput {
   endsOn: string;
   lines: PlanLineInput[];
   buffer?: { amountCents: number; reason: string };
+  /** Which agent asked. The lines it gets are its own. Omitted: lines any agent can use. */
+  agentId?: string;
 }
 
 export interface TopupInput {
@@ -53,6 +64,8 @@ export interface TopupInput {
   label?: string;
   amountCents: number;
   reason: string;
+  /** Which agent asked. A new line becomes its own; it can't top up another agent's line. */
+  agentId?: string;
 }
 
 export interface SpendInput {
@@ -62,7 +75,8 @@ export interface SpendInput {
   merchant: string;
   url?: string;
   reasoning: string;
-  agent: "remit" | "mcp";
+  /** The agent's ID from the registry, e.g. "remit" for the built-in agent or "default" for the shared token. */
+  agent: string;
 }
 
 /** What PayPal last said about an order the owner went to approve but didn't finish. */
@@ -92,20 +106,38 @@ export interface WalletOptions {
   maxRequestCents: number;
   reviewer?: Reviewer;
   now?: () => Date;
+  /** Called after each ledger event is written, once the change is committed. For notifications; errors are logged, never thrown. */
+  onEvent?: (event: WalletEvent) => void;
+}
+
+/** A ledger event as passed to WalletOptions.onEvent. */
+export interface WalletEvent {
+  periodId: string | null;
+  type: string;
+  message: string;
+  at: string;
+  /** The record the event is about, when there is one: the purchase for spend_refused. */
+  ref?: string;
+  /** The refusal code for spend_refused, e.g. OVER_LINE, REVIEW_REJECTED, AGENT_PAUSED. */
+  code?: string;
 }
 
 export class Wallet {
   private queue: Promise<unknown> = Promise.resolve();
+  readonly agents: AgentRegistry;
 
   constructor(
     private readonly db: Db,
     readonly paypal: PayPalGateway,
     private readonly opts: WalletOptions,
-  ) {}
+  ) {
+    this.agents = new AgentRegistry(db, () => this.now());
+  }
 
   // ---------------------------------------------------------------- agent: budget requests
 
   requestBudget(input: BudgetRequestInput) {
+    this.refuseIfBlocked(input.agentId, "budget request");
     const current = this.currentPeriod();
     if (current?.status === "open") {
       throw new WalletError("PERIOD_OPEN", `A budget is already open until ${current.ends_on}. Use request_topup for extra money.`);
@@ -139,13 +171,14 @@ export class Wallet {
       this.db
         .prepare("INSERT INTO periods (id, summary, starts_on, ends_on, status, created_at) VALUES (?, ?, ?, ?, 'pending', ?)")
         .run(periodId, summary, input.startsOn, input.endsOn, this.iso());
-      this.insertRequest(requestId, periodId, "budget", summary, lines);
-      this.event(periodId, "budget_requested", `Agent asked for ${fmt(total)} for ${input.startsOn} to ${input.endsOn}.`);
+      this.insertRequest(requestId, periodId, "budget", summary, lines, input.agentId);
+      this.event(periodId, "budget_requested", `${this.asker(input.agentId)} asked for ${fmt(total)} for ${input.startsOn} to ${input.endsOn}.`);
     });
     return { requestId, periodId, totalCents: total, status: "waiting_for_owner" as const, reviewUrl: `${this.opts.appUrl}/#${requestId}` };
   }
 
   requestTopup(input: TopupInput) {
+    this.refuseIfBlocked(input.agentId, "top-up");
     const period = this.openPeriod();
     const pending = this.db
       .prepare("SELECT id FROM requests WHERE period_id = ? AND kind = 'topup' AND status IN ('pending','checkout')")
@@ -153,6 +186,13 @@ export class Wallet {
     if (pending) throw new WalletError("REQUEST_PENDING", "A top-up is already waiting for the owner. Wait for their decision.");
 
     const existing = this.envelope(period.id, input.lineKey);
+    if (existing?.agent_id && input.agentId && existing.agent_id !== normalizeAgentId(input.agentId)) {
+      throw new WalletError(
+        "LINE_NOT_YOURS",
+        `"${existing.label}" is another agent's line. Ask for a new line of your own, with a different key and a label.`,
+        403,
+      );
+    }
     const label = existing?.label ?? input.label;
     if (!label) throw new WalletError("BAD_LINES", `There is no line "${input.lineKey}". Give a label to add it as a new line.`);
     const line = checkLine({ key: input.lineKey, label, amountCents: input.amountCents, reason: input.reason });
@@ -160,8 +200,8 @@ export class Wallet {
 
     const requestId = newId("req");
     tx(this.db, () => {
-      this.insertRequest(requestId, period.id, "topup", line.reason, [line]);
-      this.event(period.id, "topup_requested", `Agent asked for ${fmt(line.amountCents)} more for "${label}": ${line.reason}`);
+      this.insertRequest(requestId, period.id, "topup", line.reason, [line], input.agentId);
+      this.event(period.id, "topup_requested", `${this.asker(input.agentId)} asked for ${fmt(line.amountCents)} more for "${label}": ${line.reason}`);
     });
     return { requestId, totalCents: line.amountCents, status: "waiting_for_owner" as const, reviewUrl: `${this.opts.appUrl}/#${requestId}` };
   }
@@ -169,7 +209,12 @@ export class Wallet {
   // ---------------------------------------------------------------- owner: approval on PayPal
 
   /** The owner sends a request to PayPal, with any lines removed or resized. Returns PayPal's approval page. */
-  async checkout(requestId: string, edits: { lineId: string; amountCents: number }[] = []) {
+  async checkout(
+    requestId: string,
+    edits: { lineId: string; amountCents: number }[] = [],
+    /** Where PayPal sends the owner back; the one-tap link pages use their own. */
+    back?: { returnUrl: string; cancelUrl: string },
+  ) {
     const request = this.request(requestId);
     if (request.status !== "pending" && request.status !== "checkout") {
       throw new WalletError("NOT_PENDING", `This request is already ${request.status}.`);
@@ -194,10 +239,15 @@ export class Wallet {
       referenceId: requestId,
       description: request.kind === "budget" ? `Remit budget ${period.starts_on} to ${period.ends_on}` : `Remit top-up: ${request.reason}`,
       items: kept.map((l) => ({ name: l.label, description: l.reason, cents: l.approved_cents })),
-      returnUrl: `${this.opts.appUrl}/paypal/return?request=${requestId}`,
-      cancelUrl: `${this.opts.appUrl}/paypal/cancel?request=${requestId}`,
+      returnUrl: back?.returnUrl ?? `${this.opts.appUrl}/paypal/return?request=${requestId}`,
+      cancelUrl: back?.cancelUrl ?? `${this.opts.appUrl}/paypal/cancel?request=${requestId}`,
     });
     tx(this.db, () => {
+      // The request may have been declined or approved while PayPal created the order. Don't undo that.
+      const now = this.request(requestId);
+      if (now.status !== "pending" && now.status !== "checkout") {
+        throw new WalletError("NOT_PENDING", `This request is already ${now.status}.`);
+      }
       const update = this.db.prepare("UPDATE request_lines SET approved_cents = ? WHERE id = ?");
       for (const l of approved) update.run(l.approved_cents, l.id);
       // A new order starts with a clean slate: an earlier "PayPal didn't approve" was about the old one.
@@ -218,23 +268,35 @@ export class Wallet {
         throw new WalletError("NOT_IN_CHECKOUT", "This PayPal order doesn't match a request waiting for approval.");
       }
       const auth = await this.paypal.authorizeOrder(orderId);
+      // The owner may have declined, or sent the request to PayPal again, while PayPal authorized.
+      // decline() and checkout() don't wait for us, so check again: a hold nothing points to would stay on the owner's card.
+      const after = this.request(requestId);
+      if (after.status !== "checkout" || after.paypal_order_id !== orderId) {
+        await this.paypal.voidAuthorization(auth.authorizationId).catch(() => undefined);
+        this.event(request.period_id, "released", `PayPal approved an order for a request that was already ${after.status}. Its ${fmt(auth.cents)} hold was voided.`);
+        throw new WalletError("NOT_IN_CHECKOUT", `This request is ${after.status} now, so the ${fmt(auth.cents)} PayPal hold was voided.`);
+      }
       const lines = this.requestLines(requestId).filter((l) => (l.approved_cents ?? 0) > 0);
       const now = this.now();
       tx(this.db, () => {
+        const holdId = newId("hold");
         this.db
           .prepare(
             `INSERT INTO holds (id, period_id, request_id, authorization_id, amount_cents, status, authorized_at, honor_until, expires_at)
              VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
           )
-          .run(newId("hold"), request.period_id, requestId, auth.authorizationId, auth.cents, now.toISOString(),
+          .run(holdId, request.period_id, requestId, auth.authorizationId, auth.cents, now.toISOString(),
             new Date(now.getTime() + HONOR_PERIOD_MS).toISOString(), auth.expiresAt);
         for (const l of lines) {
           this.db
             .prepare(
-              `INSERT INTO envelopes (id, period_id, line_key, label, reason, limit_cents) VALUES (?, ?, ?, ?, ?, ?)
+              `INSERT INTO envelopes (id, period_id, line_key, label, reason, limit_cents, agent_id) VALUES (?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(period_id, line_key) DO UPDATE SET limit_cents = limit_cents + excluded.limit_cents`,
             )
-            .run(newId("env"), request.period_id, l.line_key, l.label, l.reason, l.approved_cents!);
+            // A new line belongs to the agent that asked for it; the buffer is always shared. A top-up keeps the line's owner.
+            .run(newId("env"), request.period_id, l.line_key, l.label, l.reason, l.approved_cents!, l.line_key === BUFFER_KEY ? null : request.agent_id);
+          // This hold funds what it added to the line.
+          this.fund(request.period_id, this.envelope(request.period_id, l.line_key)!.id, holdId, l.approved_cents!);
         }
         this.db.prepare("UPDATE requests SET status = 'approved', decided_at = ? WHERE id = ?").run(now.toISOString(), requestId);
         this.db.prepare("UPDATE periods SET status = 'open' WHERE id = ? AND status = 'pending'").run(request.period_id);
@@ -302,6 +364,12 @@ export class Wallet {
     // The request may have changed while PayPal answered (approved, declined, or sent to PayPal again).
     const current = this.request(row.id);
     if (current.status !== "checkout" || current.paypal_order_id !== orderId) return { outcome: "skipped", check: null };
+    this.noteApprovalCheck(row, check, last);
+    return { outcome: check.state, check };
+  }
+
+  /** Put what PayPal said on the request card, and log it when it changed. Used by the watcher and by webhooks. */
+  private noteApprovalCheck(row: RequestRow, check: ApprovalCheck, last: ApprovalCheck | null) {
     tx(this.db, () => {
       this.db.prepare("UPDATE requests SET approval_check = ? WHERE id = ?").run(JSON.stringify(check), row.id);
       if (last?.state !== check.state) {
@@ -314,7 +382,75 @@ export class Wallet {
         this.event(row.period_id, "approval_not_done", message);
       }
     });
-    return { outcome: check.state, check };
+  }
+
+  // ---------------------------------------------------------------- PayPal webhooks
+  // Called by src/wallet/webhooks.ts once an event is verified. Each returns a short note of what
+  // the wallet did, which is stored with the event.
+
+  /** CHECKOUT.ORDER.APPROVED: finish the approval exactly as the return redirect does. */
+  async approvedOnPayPal(orderId: string): Promise<string> {
+    const row = this.requestForOrder(orderId);
+    if (!row) return "No request uses this order.";
+    if (row.status === "approved") return `Request ${row.id} was already approved.`;
+    // completeApproval runs one at a time and re-reads the request, so a redirect racing this can't place a second hold.
+    const result = await this.completeApproval(row.id, orderId);
+    return result.holdCents !== undefined ? `Approved request ${row.id}. Hold of ${fmt(result.holdCents)} placed.` : `Request ${row.id} was already approved.`;
+  }
+
+  /** An order PayPal declined or dropped: the same "PayPal didn't approve this" note the watcher puts on the card. */
+  notApprovedOnPayPal(orderId: string, state: "not_approved" | "voided", paypalStatus: string, detail?: string): string {
+    const row = this.requestForOrder(orderId);
+    if (!row) return "No request uses this order.";
+    if (row.status !== "checkout") return `Request ${row.id} is ${row.status}. Nothing changed.`;
+    this.noteApprovalCheck(row, { state, paypalStatus, detail, checkedAt: this.iso() }, parseCheck(row.approval_check));
+    return `Request ${row.id} marked ${state === "voided" ? "voided" : "not approved"} by PayPal.`;
+  }
+
+  /** PAYMENT.AUTHORIZATION.VOIDED: PayPal voided a hold, either on request or because it expired. */
+  voidedOnPayPal(authorizationId: string): Promise<string> {
+    return this.serial(async () => {
+      const hold = this.db.prepare("SELECT * FROM holds WHERE authorization_id = ?").get(authorizationId) as unknown as HoldRow | undefined;
+      if (!hold) return "No hold uses this authorization.";
+      if (hold.status === "voided" || hold.status === "captured") return `Hold ${hold.id} was already ${hold.status}. Nothing changed.`;
+      const left = hold.amount_cents - hold.captured_cents;
+      const lapsed = hold.status === "lapsing";
+      const note = lapsed ? `PayPal's hold expired. ${fmt(left)} released.` : `Voided by PayPal, ${fmt(left)} released.`;
+      const message = lapsed
+        ? `PayPal's hold ${authorizationId} expired. The last ${fmt(left)} is released back to you.`
+        : `PayPal voided hold ${authorizationId}. ${fmt(left)} is released back to you and can't be spent.`;
+      tx(this.db, () => {
+        this.db.prepare("UPDATE holds SET status = 'voided', release_note = ? WHERE id = ?").run(note, hold.id);
+        this.event(hold.period_id, "released", message);
+      });
+      return `Hold ${hold.id} ${lapsed ? "expired" : "voided"}. ${fmt(left)} released.`;
+    });
+  }
+
+  /** PAYMENT.CAPTURE.REFUNDED, REVERSED, DECLINED or DENIED: put it on the ledger. Totals don't change here. */
+  captureNewsFromPayPal(eventType: string, captureId: string, cents: number | null): string {
+    const row = this.db
+      .prepare("SELECT c.refund_id, c.amount_cents, p.period_id, p.title FROM captures c JOIN purchases p ON p.id = c.purchase_id WHERE c.capture_id = ?")
+      .get(captureId) as { refund_id: string | null; amount_cents: number; period_id: string; title: string } | undefined;
+    if (!row) return "No purchase uses this capture.";
+    const amount = fmt(cents ?? row.amount_cents);
+    let message: string;
+    if (eventType === "PAYMENT.CAPTURE.REFUNDED") {
+      if (row.refund_id) return `Refund for "${row.title}" was already recorded.`;
+      message = `PayPal reports a ${amount} refund for "${row.title}" that wasn't made in Remit.`;
+    } else if (eventType === "PAYMENT.CAPTURE.REVERSED") {
+      message = `PayPal reversed the ${amount} payment for "${row.title}".`;
+    } else {
+      message = `PayPal declined the ${amount} payment for "${row.title}".`;
+    }
+    this.event(row.period_id, "paypal_notice", message);
+    return `Logged: ${message}`;
+  }
+
+  private requestForOrder(orderId: string) {
+    return this.db.prepare("SELECT * FROM requests WHERE paypal_order_id = ? ORDER BY created_at DESC LIMIT 1").get(orderId) as unknown as
+      | RequestRow
+      | undefined;
   }
 
   decline(requestId: string, why = "You declined") {
@@ -333,6 +469,14 @@ export class Wallet {
 
   spend(input: SpendInput) {
     return this.serial(async () => {
+      input = { ...input, agent: normalizeAgentId(input.agent) };
+      const blocked = this.agents.blocked(input.agent);
+      if (blocked) {
+        const current = this.currentPeriod();
+        if (current?.status === "open") this.recordRefusal(current.id, null, input, blocked.message, blocked.code);
+        else this.event(current?.id ?? null, "spend_refused", `Refused ${fmt(input.amountCents)} for "${input.title.slice(0, 80)}". ${blocked.message}`, { code: blocked.code });
+        throw new WalletError(blocked.code, blocked.message, 403);
+      }
       const period = this.openPeriod();
       if (this.isPastEnd(period)) throw new WalletError("PERIOD_ENDED", `The budget period ended on ${period.ends_on}.`);
       if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) throw new WalletError("BAD_AMOUNT", "Amount must be positive.");
@@ -340,34 +484,31 @@ export class Wallet {
       const merchant = requireText(input.merchant, "merchant", 100);
       const reasoning = requireText(input.reasoning, "reasoning", 1000);
 
+      // Per-agent lines: a line belongs to the agent whose request created it (envelopes.agent_id).
+      // An agent can spend from its own lines, from the shared buffer, and from lines with no owner
+      // (made before agents existed, or asked for without an agent). Another agent's line is refused.
       const lines = this.lines(period.id);
-      const line = lines.find((l) => l.key === input.lineKey);
-      const refuse = (code: string, message: string): never => {
-        this.recordRefusal(period.id, line?.envelopeId ?? null, input, message);
+      const mine = (l: { agentId: string | null }) => !l.agentId || l.agentId === input.agent;
+      const owned = lines.find((l) => l.key === input.lineKey);
+      const refuse = (envelopeId: string | null, code: string, message: string): never => {
+        this.recordRefusal(period.id, envelopeId, input, message, code);
         throw new WalletError(code, message, 409);
       };
-      if (!line) {
-        refuse("NO_SUCH_LINE", `There is no approved line "${input.lineKey}". Approved lines: ${lines.map((l) => l.key).join(", ")}.`);
-        throw new Error("unreachable");
-      }
-
-      // Envelope rule: spend from the line first, then the shared buffer. Never from another line.
-      const buffer = lines.find((l) => l.key === BUFFER_KEY);
-      const fromLine = Math.min(input.amountCents, line.leftCents);
-      const fromBuffer = line.key === BUFFER_KEY ? 0 : input.amountCents - fromLine;
-      const bufferLeft = buffer && line.key !== BUFFER_KEY ? buffer.leftCents : 0;
-      if (input.amountCents - fromLine - fromBuffer > 0 || fromBuffer > bufferLeft) {
-        const bufferNote = line.key === BUFFER_KEY ? "" : ` plus ${fmt(bufferLeft)} left in the buffer`;
-        refuse(
-          "OVER_LINE",
-          `${fmt(input.amountCents)} is more than "${line.label}" allows: ${fmt(line.leftCents)} left on the line${bufferNote}. ` +
-            "Don't charge it to another line. If it's still worth buying, tell the owner: they can move unspent money " +
-            "from another line in the Remit app (no new PayPal approval), or you can ask for more with request_topup.",
+      const yours = () => lines.filter(mine).map((l) => l.key).join(", ") || "none";
+      if (!owned) return refuse(null, "NO_SUCH_LINE", `There is no approved line "${input.lineKey}". Your lines: ${yours()}.`);
+      if (!mine(owned)) {
+        return refuse(
+          owned.envelopeId,
+          "LINE_NOT_YOURS",
+          `"${owned.label}" is another agent's line, so you can't spend from it. Your lines: ${yours()}. ` +
+            "If this purchase is still needed, ask for a line of your own with request_topup.",
         );
       }
-      // Total rule: never more than what is still held. (Envelopes and holds are created together, so this is a backstop.)
-      const heldLeft = this.heldLeft(period.id);
-      if (input.amountCents > heldLeft) refuse("OVER_BALANCE", `Only ${fmt(heldLeft)} is still held for this period.`);
+
+      // Envelope and total rules, shared with the owner's "pay anyway".
+      const check = this.checkLimits(period.id, input.lineKey, input.amountCents);
+      if (!check.ok) return refuse(check.envelopeId, check.code, check.message);
+      const { line, fromLine, fromBuffer, bufferEnvelopeId } = check;
 
       const purchaseId = newId("pur");
       this.db
@@ -389,11 +530,12 @@ export class Wallet {
       if (review.verdict === "reject") {
         const message = `Purpose check refused this purchase: ${review.reason}`;
         this.db.prepare("UPDATE purchases SET status = 'refused', refusal = ? WHERE id = ?").run(message, purchaseId);
-        this.event(period.id, "spend_refused", `Refused ${fmt(input.amountCents)} for "${title}". ${message}`);
+        this.event(period.id, "spend_refused", `Refused ${fmt(input.amountCents)} for "${title}". ${message}`, { ref: purchaseId, code: "REVIEW_REJECTED" });
         throw new WalletError("REVIEW_REJECTED", message, 409);
       }
 
-      const captures = await this.captureFromHolds(period.id, purchaseId, input.amountCents, title).catch((err) => {
+      const parts = { lineEnvelopeId: line.envelopeId, lineCents: fromLine, bufferEnvelopeId, bufferCents: fromBuffer };
+      const captures = await this.captureFromHolds(period.id, purchaseId, parts, title).catch((err) => {
         const message = `PayPal capture failed: ${errorText(err)}`;
         this.db.prepare("UPDATE purchases SET status = 'failed', refusal = ? WHERE id = ?").run(message, purchaseId);
         this.event(period.id, "spend_failed", `${fmt(input.amountCents)} for "${title}" failed. ${message}`);
@@ -401,7 +543,7 @@ export class Wallet {
       });
 
       this.db.prepare("UPDATE purchases SET status = 'captured' WHERE id = ?").run(purchaseId);
-      const via = input.agent === "mcp" ? " (via MCP)" : "";
+      const via = input.agent === BUILTIN_AGENT_ID ? "" : ` (by ${this.agents.label(input.agent)})`;
       this.event(period.id, "spent", `Spent ${fmt(input.amountCents)} on "${title}" from ${merchant}, line "${line.label}"${via}.`);
       const after = this.lines(period.id).find((l) => l.key === line.key)!;
       return {
@@ -417,39 +559,82 @@ export class Wallet {
     });
   }
 
-  /** Partial captures from the oldest hold first. A capture that empties a hold is marked final. */
-  private async captureFromHolds(periodId: string, purchaseId: string, cents: number, title: string) {
-    const holds = this.db
-      .prepare("SELECT * FROM holds WHERE period_id = ? AND status = 'active' ORDER BY authorized_at")
-      .all(periodId) as unknown as HoldRow[];
-    const done: { holdId: string; captureId: string; cents: number }[] = [];
-    let need = cents;
-    try {
+  /**
+   * Partial captures, one per hold. The line part comes from the holds that fund the line and the
+   * buffer part from the holds that fund the buffer, oldest first (the oldest expires first).
+   * A capture that empties a hold is marked final.
+   */
+  private async captureFromHolds(
+    periodId: string,
+    purchaseId: string,
+    parts: { lineEnvelopeId: string; lineCents: number; bufferEnvelopeId: string | null; bufferCents: number },
+    title: string,
+  ) {
+    const holds = (
+      this.db.prepare("SELECT * FROM holds WHERE period_id = ? AND status = 'active' ORDER BY authorized_at").all(periodId) as unknown as HoldRow[]
+    ).filter((h) => h.amount_cents - h.captured_cents > 0 && Date.parse(h.expires_at) >= this.now().getTime());
+    const room = new Map(holds.map((h) => [h.id, h.amount_cents - h.captured_cents]));
+    const funded = this.fundingLeft(periodId);
+    // Per hold, in the order first used: how much pays the line and how much the buffer.
+    const plan = new Map<string, { hold: HoldRow; line: number; buffer: number }>();
+    const wants = [
+      { envelopeId: parts.lineEnvelopeId, part: "line" as const, need: parts.lineCents },
+      { envelopeId: parts.bufferEnvelopeId, part: "buffer" as const, need: parts.bufferCents },
+    ];
+    const take = (hold: HoldRow, want: (typeof wants)[number], cents: number) => {
+      if (cents <= 0) return;
+      const entry = plan.get(hold.id) ?? { hold, line: 0, buffer: 0 };
+      entry[want.part] += cents;
+      plan.set(hold.id, entry);
+      room.set(hold.id, room.get(hold.id)! - cents);
+      want.need -= cents;
+    };
+    for (const want of wants) {
       for (const hold of holds) {
-        if (need === 0) break;
+        if (want.need === 0 || !want.envelopeId) break;
+        take(hold, want, Math.min(want.need, funded.get(fundKey(want.envelopeId, hold.id)) ?? 0, room.get(hold.id)!));
+      }
+    }
+    // Fallback: the funding holds don't have enough left. That happens when a hold has less than
+    // its lines say: purchases made before funding was tracked took from the oldest hold whatever
+    // their line, a capture that failed and was refunded still used up the hold, or a funding hold
+    // expired or came back smaller from reauthorization. The period's total is still held (checked
+    // before this), so take the rest from any active hold, oldest first.
+    for (const want of wants) {
+      for (const hold of holds) {
+        if (want.need === 0) break;
+        take(hold, want, Math.min(want.need, room.get(hold.id)!));
+      }
+    }
+    const short = wants.reduce((sum, w) => sum + w.need, 0);
+    if (short > 0) throw new WalletError("OVER_BALANCE", `The holds ran out ${fmt(short)} short.`);
+
+    const done: { holdId: string; captureId: string; cents: number }[] = [];
+    try {
+      for (const { hold, line, buffer } of plan.values()) {
         const left = hold.amount_cents - hold.captured_cents;
-        if (left <= 0 || Date.parse(hold.expires_at) < this.now().getTime()) continue;
         const authorizationId = await this.maybeReauthorize(hold, left);
-        const take = Math.min(left, need);
-        const final = take === left;
+        const cents = line + buffer;
+        const final = cents === left;
         const { captureId } = await this.paypal.capture(authorizationId, {
-          cents: take,
+          cents,
           finalCapture: final,
           note: `Remit: ${title}`,
           idempotencyKey: `${purchaseId}-${hold.id}`,
         });
         tx(this.db, () => {
           this.db
-            .prepare("INSERT INTO captures (id, purchase_id, hold_id, capture_id, amount_cents, final, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-            .run(newId("cap"), purchaseId, hold.id, captureId, take, final ? 1 : 0, this.iso());
+            .prepare(
+              `INSERT INTO captures (id, purchase_id, hold_id, capture_id, amount_cents, final, from_line_cents, from_buffer_cents, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            )
+            .run(newId("cap"), purchaseId, hold.id, captureId, cents, final ? 1 : 0, line, buffer, this.iso());
           this.db
             .prepare(`UPDATE holds SET captured_cents = captured_cents + ?, status = CASE WHEN ? THEN 'captured' ELSE status END WHERE id = ?`)
-            .run(take, final ? 1 : 0, hold.id);
+            .run(cents, final ? 1 : 0, hold.id);
         });
-        done.push({ holdId: hold.id, captureId, cents: take });
-        need -= take;
+        done.push({ holdId: hold.id, captureId, cents });
       }
-      if (need > 0) throw new WalletError("OVER_BALANCE", `The holds ran out ${fmt(need)} short.`);
       return done;
     } catch (err) {
       // Don't leave a purchase half paid: give back any piece already taken.
@@ -550,13 +735,78 @@ export class Wallet {
     });
   }
 
+  // ---------------------------------------------------------------- owner: paying anyway after the purpose check refused
+
+  /**
+   * Owner only; never part of the agent tool contract. Pays for a purchase the purpose check refused.
+   * The line and total rules run again (the purpose check doesn't), then it captures the normal way.
+   * A purchase can be overridden once.
+   */
+  overridePurchase(purchaseId: string) {
+    return this.serial(async () => {
+      const purchase = this.db.prepare("SELECT * FROM purchases WHERE id = ?").get(purchaseId) as unknown as PurchaseRow | undefined;
+      if (!purchase) throw new WalletError("NOT_FOUND", "No such purchase.", 404);
+      if (purchase.owner_override) throw new WalletError("ALREADY_OVERRIDDEN", "You already chose to pay for this purchase anyway.", 409);
+      const review = purchase.review ? (JSON.parse(purchase.review) as ReviewResult) : null;
+      if (purchase.status !== "refused" || review?.verdict !== "reject") {
+        throw new WalletError("NOT_OVERRIDABLE", "Only a purchase the purpose check refused can be paid anyway.", 409);
+      }
+      const period = this.openPeriod();
+      if (purchase.period_id !== period.id) throw new WalletError("NOT_OVERRIDABLE", "This purchase is from an earlier budget period.", 409);
+      if (this.isPastEnd(period)) throw new WalletError("PERIOD_ENDED", `The budget period ended on ${period.ends_on}.`);
+
+      const cents = purchase.amount_cents;
+      const check = this.checkLimits(period.id, purchase.line_key, cents);
+      if (!check.ok) {
+        this.event(period.id, "override_refused", `Couldn't pay ${fmt(cents)} for "${purchase.title}" anyway. ${check.message}`);
+        throw new WalletError(check.code, check.message, 409);
+      }
+      const { line, fromLine, fromBuffer, bufferEnvelopeId } = check;
+      const override: PurchaseOverride = { by: "owner", at: this.iso() };
+      this.db
+        .prepare("UPDATE purchases SET status = 'pending', envelope_id = ?, from_line_cents = ?, from_buffer_cents = ?, owner_override = ? WHERE id = ?")
+        .run(line.envelopeId, fromLine, fromBuffer, JSON.stringify(override), purchaseId);
+
+      const parts = { lineEnvelopeId: line.envelopeId, lineCents: fromLine, bufferEnvelopeId, bufferCents: fromBuffer };
+      const captures = await this.captureFromHolds(period.id, purchaseId, parts, purchase.title).catch((err) => {
+        // Not retried: a second capture with the same idempotency keys would replay this one.
+        const message = `PayPal capture failed: ${errorText(err)}`;
+        tx(this.db, () => {
+          this.db.prepare("UPDATE purchases SET status = 'failed', owner_override = ? WHERE id = ?").run(JSON.stringify({ ...override, error: message }), purchaseId);
+          this.event(period.id, "spend_failed", `Paying ${fmt(cents)} for "${purchase.title}" anyway failed. ${message}`);
+        });
+        throw new WalletError("CAPTURE_FAILED", message, 502);
+      });
+
+      tx(this.db, () => {
+        this.db.prepare("UPDATE purchases SET status = 'captured' WHERE id = ?").run(purchaseId);
+        this.event(
+          period.id,
+          "overridden",
+          `You paid ${fmt(cents)} for "${purchase.title}" anyway, over the purpose check's refusal. Line "${line.label}".`,
+        );
+      });
+      const after = this.lines(period.id).find((l) => l.key === line.key)!;
+      return {
+        purchaseId,
+        amountCents: cents,
+        fromLineCents: fromLine,
+        fromBufferCents: fromBuffer,
+        lineLeftCents: after.leftCents,
+        totalLeftCents: this.heldLeft(period.id),
+        captureIds: captures.map((c) => c.captureId),
+        override,
+      };
+    });
+  }
+
   // ---------------------------------------------------------------- owner: moving money between lines
 
   /**
    * Owner only; never part of the agent tool contract. Moves unspent money from one line to
    * another inside what is already held, so the total and the PayPal holds don't change.
    */
-  moveBetweenLines(fromKey: string, toKey: string, cents: number) {
+  moveBetweenLines(fromKey: string, toKey: string, cents: number, who = "owner") {
     return this.serial(async () => {
       const period = this.openPeriod();
       if (!Number.isInteger(cents) || cents <= 0) throw new WalletError("BAD_AMOUNT", "Amount must be positive.");
@@ -571,9 +821,14 @@ export class Wallet {
         if (cents > from.leftCents) {
           throw new WalletError("OVER_UNSPENT", `"${from.label}" has only ${fmt(Math.max(0, from.leftCents))} unspent.`);
         }
+        // Funding first: it reads the limits as they were.
+        this.moveFunding(period.id, from.envelopeId, to.envelopeId, cents);
         const update = this.db.prepare("UPDATE envelopes SET limit_cents = limit_cents + ? WHERE id = ?");
         update.run(-cents, from.envelopeId);
         update.run(cents, to.envelopeId);
+        this.db
+          .prepare("INSERT INTO line_moves (id, period_id, from_line_key, to_line_key, cents, who, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+          .run(newId("move"), period.id, from.key, to.key, cents, who, this.iso());
         this.event(period.id, "moved", `You moved ${fmt(cents)} from ${from.label} to ${to.label}.`);
         const after = this.lines(period.id);
         return {
@@ -592,6 +847,103 @@ export class Wallet {
       .prepare("INSERT INTO envelopes (id, period_id, line_key, label, reason, limit_cents) VALUES (?, ?, ?, 'Buffer', ?, 0)")
       .run(id, periodId, BUFFER_KEY, "Money you moved here from other lines.");
     return { envelopeId: id, key: BUFFER_KEY, label: "Buffer" };
+  }
+
+  // ---------------------------------------------------------------- funding: which hold pays for which line
+
+  /**
+   * How much of each line's limit each hold funded, keyed by fundKey(envelope, hold).
+   * Lines with less recorded than their limit (rows from before funding was tracked) count the
+   * rest as funded by the period's budget hold.
+   */
+  private funding(periodId: string) {
+    // unrecorded: the part of cents that comes from the budget-hold fallback, not from a line_funding row.
+    const funded = new Map<string, { envelopeId: string; holdId: string; cents: number; unrecorded: number }>();
+    const recorded = new Map<string, number>();
+    const rows = this.db.prepare("SELECT envelope_id, hold_id, cents FROM line_funding WHERE period_id = ?").all(periodId) as unknown as {
+      envelope_id: string;
+      hold_id: string;
+      cents: number;
+    }[];
+    for (const r of rows) {
+      funded.set(fundKey(r.envelope_id, r.hold_id), { envelopeId: r.envelope_id, holdId: r.hold_id, cents: r.cents, unrecorded: 0 });
+      recorded.set(r.envelope_id, (recorded.get(r.envelope_id) ?? 0) + r.cents);
+    }
+    const budgetHold = this.db
+      .prepare(
+        `SELECT h.id FROM holds h JOIN requests r ON r.id = h.request_id WHERE h.period_id = ?
+         ORDER BY r.kind = 'budget' DESC, h.authorized_at LIMIT 1`,
+      )
+      .get(periodId) as { id: string } | undefined;
+    if (!budgetHold) return funded;
+    const envelopes = this.db.prepare("SELECT id, limit_cents FROM envelopes WHERE period_id = ?").all(periodId) as unknown as { id: string; limit_cents: number }[];
+    for (const e of envelopes) {
+      const rest = e.limit_cents - (recorded.get(e.id) ?? 0);
+      if (rest <= 0) continue;
+      const key = fundKey(e.id, budgetHold.id);
+      const row = funded.get(key) ?? { envelopeId: e.id, holdId: budgetHold.id, cents: 0, unrecorded: 0 };
+      funded.set(key, { ...row, cents: row.cents + rest, unrecorded: rest });
+    }
+    return funded;
+  }
+
+  /** Funding not yet drawn by purchases, keyed by fundKey(envelope, hold). Captures from before funding was tracked aren't counted. */
+  private fundingLeft(periodId: string) {
+    const left = new Map<string, number>();
+    for (const [key, f] of this.funding(periodId)) left.set(key, f.cents);
+    const bufferId = this.envelope(periodId, BUFFER_KEY)?.id;
+    const drawn = this.db
+      .prepare(
+        `SELECT c.hold_id, p.envelope_id, SUM(c.from_line_cents) AS line, SUM(c.from_buffer_cents) AS buffer
+         FROM captures c JOIN purchases p ON p.id = c.purchase_id
+         WHERE p.period_id = ? AND p.status IN ${LIVE} AND c.from_line_cents IS NOT NULL
+         GROUP BY c.hold_id, p.envelope_id`,
+      )
+      .all(periodId) as unknown as { hold_id: string; envelope_id: string; line: number; buffer: number }[];
+    const draw = (envelopeId: string | undefined, holdId: string, cents: number) => {
+      if (!envelopeId || !cents) return;
+      const key = fundKey(envelopeId, holdId);
+      left.set(key, (left.get(key) ?? 0) - cents);
+    };
+    for (const d of drawn) {
+      draw(d.envelope_id, d.hold_id, d.line);
+      draw(bufferId, d.hold_id, d.buffer);
+    }
+    // A fallback capture can draw more than a hold funded for a line; that pair has nothing left, not less than nothing.
+    for (const [key, cents] of left) if (cents < 0) left.set(key, 0);
+    return left;
+  }
+
+  /**
+   * Funding moves with the limit: the from line's unspent funding goes to the other line, oldest
+   * hold first. Call inside a transaction, before the limits change.
+   */
+  private moveFunding(periodId: string, fromEnvelopeId: string, toEnvelopeId: string, cents: number) {
+    // Write down what rows from before funding was tracked leave to the budget hold, so the move can subtract from it.
+    for (const f of this.funding(periodId).values()) {
+      if (f.unrecorded > 0) this.fund(periodId, f.envelopeId, f.holdId, f.unrecorded);
+    }
+    const left = this.fundingLeft(periodId);
+    const holds = this.db.prepare("SELECT id FROM holds WHERE period_id = ? ORDER BY authorized_at").all(periodId) as unknown as { id: string }[];
+    let need = cents;
+    for (const hold of holds) {
+      const n = Math.min(need, left.get(fundKey(fromEnvelopeId, hold.id)) ?? 0);
+      if (n <= 0) continue;
+      this.fund(periodId, fromEnvelopeId, hold.id, -n);
+      this.fund(periodId, toEnvelopeId, hold.id, n);
+      need -= n;
+    }
+    // need is 0 here unless captures weren't attributed. If not, the to line's unrecorded rest
+    // counts as the budget hold's, and spending falls back to any hold that has the money.
+  }
+
+  private fund(periodId: string, envelopeId: string, holdId: string, cents: number) {
+    this.db
+      .prepare(
+        `INSERT INTO line_funding (period_id, envelope_id, hold_id, cents) VALUES (?, ?, ?, ?)
+         ON CONFLICT(envelope_id, hold_id) DO UPDATE SET cents = cents + excluded.cents`,
+      )
+      .run(periodId, envelopeId, holdId, cents);
   }
 
   // ---------------------------------------------------------------- reads
@@ -634,6 +986,9 @@ export class Wallet {
   state() {
     const period = this.currentPeriod() ?? this.lastPeriod();
     const periodId = period?.id;
+    const funding = periodId ? [...this.funding(periodId).values()] : [];
+    const fundingLeft = periodId ? this.fundingLeft(periodId) : new Map<string, number>();
+    const lineKeys = new Map((periodId ? this.lines(periodId) : []).map((l) => [l.envelopeId, l.key]));
     return {
       balance: this.balance(),
       period: period ? { id: period.id, summary: period.summary, startsOn: period.starts_on, endsOn: period.ends_on, status: period.status } : null,
@@ -649,6 +1004,31 @@ export class Wallet {
             expiresAt: h.expires_at,
             honorUntil: h.honor_until,
             releaseNote: h.release_note,
+            // Which lines this hold pays for, and how much of that is still unspent.
+            funding: funding
+              .filter((f) => f.holdId === h.id && f.cents > 0)
+              .map((f) => ({ lineKey: lineKeys.get(f.envelopeId) ?? "", fundedCents: f.cents, leftCents: fundingLeft.get(fundKey(f.envelopeId, h.id)) ?? 0 })),
+          }))
+        : [],
+      moves: periodId
+        ? (
+            this.db
+              .prepare(
+                `SELECT m.*, ef.label AS from_label, et.label AS to_label FROM line_moves m
+                 LEFT JOIN envelopes ef ON ef.period_id = m.period_id AND ef.line_key = m.from_line_key
+                 LEFT JOIN envelopes et ON et.period_id = m.period_id AND et.line_key = m.to_line_key
+                 WHERE m.period_id = ? ORDER BY m.created_at DESC, m.rowid DESC`,
+              )
+              .all(periodId) as unknown as LineMoveRow[]
+          ).map((m) => ({
+            id: m.id,
+            fromKey: m.from_line_key,
+            fromLabel: m.from_label ?? m.from_line_key,
+            toKey: m.to_line_key,
+            toLabel: m.to_label ?? m.to_line_key,
+            cents: m.cents,
+            who: m.who,
+            createdAt: m.created_at,
           }))
         : [],
       totals: periodId
@@ -668,6 +1048,7 @@ export class Wallet {
             agent: p.agent,
             refusal: p.refusal,
             review: p.review ? (JSON.parse(p.review) as ReviewResult) : null,
+            override: p.owner_override ? (JSON.parse(p.owner_override) as PurchaseOverride) : null,
             createdAt: p.created_at,
           }))
         : [],
@@ -693,6 +1074,7 @@ export class Wallet {
         status: r.status,
         reason: r.reason,
         createdAt: r.created_at,
+        agentId: r.agent_id,
         totalCents: lines.reduce((sum, l) => sum + (l.approved_cents ?? l.amount_cents), 0),
         approval: r.status === "checkout" ? parseCheck(r.approval_check) : null,
         lines: lines.map((l) => ({ id: l.id, key: l.line_key, label: l.label, reason: l.reason, amountCents: l.amount_cents, approvedCents: l.approved_cents })),
@@ -700,16 +1082,139 @@ export class Wallet {
     });
   }
 
+  /** One request in any state, with its lines and, for a line that already exists, what it has now. For the one-tap approve page. */
+  requestDetail(requestId: string) {
+    const r = this.request(requestId);
+    const p = this.period(r.period_id);
+    const current = p.status === "open" ? this.lines(p.id) : [];
+    const lines = this.requestLines(r.id);
+    return {
+      id: r.id,
+      kind: r.kind,
+      status: r.status,
+      reason: r.reason,
+      createdAt: r.created_at,
+      askedBy: this.ownerFacingName(r.agent_id),
+      period: { id: p.id, summary: p.summary, startsOn: p.starts_on, endsOn: p.ends_on, status: p.status },
+      totalCents: lines.reduce((sum, l) => sum + (l.approved_cents ?? l.amount_cents), 0),
+      lines: lines.map((l) => {
+        const now = current.find((c) => c.key === l.line_key);
+        return {
+          key: l.line_key,
+          label: l.label,
+          reason: l.reason,
+          amountCents: l.approved_cents ?? l.amount_cents,
+          current: now ? { limitCents: now.limitCents, leftCents: now.leftCents } : null,
+        };
+      }),
+    };
+  }
+
+  /** One purchase, for a refusal notice and the Pay anyway link page. */
+  purchaseDetail(purchaseId: string) {
+    const p = this.db.prepare("SELECT * FROM purchases WHERE id = ?").get(purchaseId) as unknown as PurchaseRow | undefined;
+    if (!p) throw new WalletError("NOT_FOUND", "No such purchase.", 404);
+    const review = p.review ? (JSON.parse(p.review) as ReviewResult) : null;
+    const override = p.owner_override ? (JSON.parse(p.owner_override) as PurchaseOverride) : null;
+    const period = this.currentPeriod();
+    const line = this.envelope(p.period_id, p.line_key);
+    return {
+      id: p.id,
+      periodId: p.period_id,
+      status: p.status,
+      amountCents: p.amount_cents,
+      title: p.title,
+      merchant: p.merchant,
+      url: p.url,
+      reasoning: p.reasoning,
+      lineKey: p.line_key,
+      lineLabel: line?.label ?? p.line_key,
+      refusal: p.refusal,
+      review,
+      override,
+      agent: p.agent,
+      agentName: this.ownerFacingName(p.agent),
+      createdAt: p.created_at,
+      // The same test as overridePurchase's first checks; the line and total rules run when it is used.
+      canOverride:
+        p.status === "refused" && review?.verdict === "reject" && !override && period?.status === "open" && period.id === p.period_id && !this.isPastEnd(period),
+    };
+  }
+
+  /** What happened in a period, for the weekly recap: each line's approved and spent amounts, refusals, and what was released. */
+  periodRecap(periodId: string) {
+    const p = this.db.prepare("SELECT * FROM periods WHERE id = ?").get(periodId) as unknown as PeriodRow | undefined;
+    if (!p) throw new WalletError("NOT_FOUND", "No such period.", 404);
+    const holds = this.db.prepare("SELECT * FROM holds WHERE period_id = ? ORDER BY authorized_at").all(periodId) as unknown as HoldRow[];
+    const left = (h: HoldRow) => h.amount_cents - h.captured_cents;
+    const lapsing = holds.filter((h) => h.status === "lapsing");
+    const refusals = this.db
+      .prepare("SELECT title, merchant, amount_cents, line_key, refusal, created_at FROM purchases WHERE period_id = ? AND status = 'refused' ORDER BY created_at")
+      .all(periodId) as unknown as { title: string; merchant: string; amount_cents: number; line_key: string; refusal: string | null; created_at: string }[];
+    return {
+      period: { id: p.id, summary: p.summary, startsOn: p.starts_on, endsOn: p.ends_on, status: p.status },
+      lines: this.lines(periodId).map((l) => ({ key: l.key, label: l.label, approvedCents: l.limitCents, spentCents: l.usedCents })),
+      approvedCents: this.approvedCents(periodId),
+      spentCents: this.spentCents(periodId),
+      refundedCents: this.refundedCents(periodId),
+      refusals: refusals.map((r) => ({
+        title: r.title,
+        merchant: r.merchant,
+        amountCents: r.amount_cents,
+        lineKey: r.line_key,
+        reason: r.refusal ?? "",
+        at: r.created_at,
+      })),
+      releasedCents: holds.filter((h) => h.status === "voided").reduce((sum, h) => sum + left(h), 0),
+      lapsingCents: lapsing.reduce((sum, h) => sum + left(h), 0),
+      lapsesOn: lapsing.length ? lapsing.map((h) => h.expires_at.slice(0, 10)).sort().at(-1)! : null,
+    };
+  }
+
   // ---------------------------------------------------------------- internals
+
+  /** The line and total rules for one purchase. On success, says how much comes from the line and how much from the buffer. */
+  private checkLimits(periodId: string, lineKey: string, amountCents: number) {
+    const lines = this.lines(periodId);
+    const line = lines.find((l) => l.key === lineKey);
+    if (!line) {
+      return {
+        ok: false as const,
+        envelopeId: null,
+        code: "NO_SUCH_LINE",
+        message: `There is no approved line "${lineKey}". Approved lines: ${lines.map((l) => l.key).join(", ")}.`,
+      };
+    }
+    const refusal = (code: string, message: string) => ({ ok: false as const, envelopeId: line.envelopeId, code, message });
+
+    // Envelope rule: spend from the line first, then the shared buffer. Never from another line.
+    const buffer = lines.find((l) => l.key === BUFFER_KEY);
+    const fromLine = Math.min(amountCents, line.leftCents);
+    const fromBuffer = line.key === BUFFER_KEY ? 0 : amountCents - fromLine;
+    const bufferLeft = buffer && line.key !== BUFFER_KEY ? buffer.leftCents : 0;
+    if (amountCents - fromLine - fromBuffer > 0 || fromBuffer > bufferLeft) {
+      const bufferNote = line.key === BUFFER_KEY ? "" : ` plus ${fmt(bufferLeft)} left in the buffer`;
+      return refusal(
+        "OVER_LINE",
+        `${fmt(amountCents)} is more than "${line.label}" allows: ${fmt(line.leftCents)} left on the line${bufferNote}. ` +
+          "Don't charge it to another line. If it's still worth buying, tell the owner: they can move unspent money " +
+          "from another line in the Remit app (no new PayPal approval), or you can ask for more with request_topup.",
+      );
+    }
+    // Total rule: never more than what is still held. (Envelopes and holds are created together, so this is a backstop.)
+    const heldLeft = this.heldLeft(periodId);
+    if (amountCents > heldLeft) return refusal("OVER_BALANCE", `Only ${fmt(heldLeft)} is still held for this period.`);
+    return { ok: true as const, line, fromLine, fromBuffer, bufferEnvelopeId: buffer?.envelopeId ?? null };
+  }
 
   private lines(periodId: string) {
     const rows = this.db
       .prepare(
-        `SELECT e.id, e.line_key, e.label, e.reason, e.limit_cents,
+        `SELECT e.id, e.line_key, e.label, e.reason, e.limit_cents, e.agent_id,
            COALESCE((SELECT SUM(p.from_line_cents) FROM purchases p WHERE p.envelope_id = e.id AND p.status IN ${LIVE}), 0) AS line_used
          FROM envelopes e WHERE e.period_id = ? ORDER BY e.rowid`,
       )
-      .all(periodId) as unknown as { id: string; line_key: string; label: string; reason: string; limit_cents: number; line_used: number }[];
+      .all(periodId) as unknown as { id: string; line_key: string; label: string; reason: string; limit_cents: number; agent_id: string | null; line_used: number }[];
     const bufferDraw = (
       this.db.prepare(`SELECT COALESCE(SUM(from_buffer_cents), 0) AS n FROM purchases WHERE period_id = ? AND status IN ${LIVE}`).get(periodId) as {
         n: number;
@@ -717,7 +1222,10 @@ export class Wallet {
     ).n;
     return rows.map((r) => {
       const used = r.line_used + (r.line_key === BUFFER_KEY ? bufferDraw : 0);
-      return { envelopeId: r.id, key: r.line_key, label: r.label, reason: r.reason, limitCents: r.limit_cents, usedCents: used, leftCents: r.limit_cents - used };
+      return {
+        envelopeId: r.id, key: r.line_key, label: r.label, reason: r.reason, limitCents: r.limit_cents, usedCents: used, leftCents: r.limit_cents - used,
+        agentId: r.agent_id,
+      };
     });
   }
 
@@ -751,25 +1259,52 @@ export class Wallet {
     ).n;
   }
 
-  private recordRefusal(periodId: string, envelopeId: string | null, input: SpendInput, message: string) {
+  private recordRefusal(periodId: string, envelopeId: string | null, input: SpendInput, message: string, code: string) {
+    const id = newId("pur");
     this.db
       .prepare(
         `INSERT INTO purchases (id, period_id, envelope_id, line_key, status, amount_cents, title, merchant, url, reasoning, agent, refusal, created_at)
          VALUES (?, ?, ?, ?, 'refused', ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
-      .run(newId("pur"), periodId, envelopeId, input.lineKey, input.amountCents, input.title.slice(0, 200), input.merchant.slice(0, 100),
+      .run(id, periodId, envelopeId, input.lineKey, input.amountCents, input.title.slice(0, 200), input.merchant.slice(0, 100),
         input.url ?? null, input.reasoning.slice(0, 1000), input.agent, message, this.iso());
-    this.event(periodId, "spend_refused", `Refused ${fmt(input.amountCents)} for "${input.title.slice(0, 80)}". ${message}`);
+    this.event(periodId, "spend_refused", `Refused ${fmt(input.amountCents)} for "${input.title.slice(0, 80)}". ${message}`, { ref: id, code });
   }
 
-  private insertRequest(id: string, periodId: string, kind: "budget" | "topup", reason: string, lines: PlanLineInput[]) {
+  private insertRequest(id: string, periodId: string, kind: "budget" | "topup", reason: string, lines: PlanLineInput[], agentId?: string) {
     this.db
-      .prepare("INSERT INTO requests (id, period_id, kind, status, reason, created_at) VALUES (?, ?, ?, 'pending', ?, ?)")
-      .run(id, periodId, kind, reason, this.iso());
+      .prepare("INSERT INTO requests (id, period_id, kind, status, reason, created_at, agent_id) VALUES (?, ?, ?, 'pending', ?, ?, ?)")
+      .run(id, periodId, kind, reason, this.iso(), agentId ? normalizeAgentId(agentId) : null);
     const insert = this.db.prepare(
       "INSERT INTO request_lines (id, request_id, line_key, label, reason, amount_cents, position) VALUES (?, ?, ?, ?, ?, ?, ?)",
     );
     lines.forEach((l, i) => insert.run(newId("line"), id, l.key, l.label, l.reason, l.amountCents, i));
+  }
+
+  /** A paused or revoked agent can't ask for money. The refusal goes in the activity feed. */
+  private refuseIfBlocked(agentId: string | undefined, what: string) {
+    if (!agentId) return;
+    const blocked = this.agents.blocked(agentId);
+    if (!blocked) return;
+    this.event(this.currentPeriod()?.id ?? null, "request_refused", `Refused a ${what} from ${this.agents.label(agentId)}. ${blocked.message}`);
+    throw new WalletError(blocked.code, blocked.message, 403);
+  }
+
+  /** How notices name an agent: its own name, or "Your agent" for the built-ins and requests from before agents. */
+  private ownerFacingName(agentId: string | null | undefined) {
+    if (!agentId) return "Your agent";
+    const agent = this.agents.get(normalizeAgentId(agentId));
+    return !agent || agent.builtin ? "Your agent" : agent.name;
+  }
+
+  /** Who asked, for the activity feed. The built-in agent stays "Agent", as before. */
+  private asker(agentId: string | undefined) {
+    return !agentId || normalizeAgentId(agentId) === BUILTIN_AGENT_ID ? "Agent" : this.agents.label(agentId);
+  }
+
+  /** Registered agents with what each spent this period, for the owner's Agents view. */
+  agentSummaries() {
+    return this.agents.list((this.currentPeriod() ?? this.lastPeriod())?.id);
   }
 
   private checkRequestSize(cents: number) {
@@ -778,8 +1313,20 @@ export class Wallet {
     }
   }
 
-  private event(periodId: string | null, type: string, message: string) {
-    this.db.prepare("INSERT INTO events (period_id, type, message, created_at) VALUES (?, ?, ?, ?)").run(periodId, type, message, this.iso());
+  private event(periodId: string | null, type: string, message: string, about: { ref?: string; code?: string } = {}) {
+    const at = this.iso();
+    this.db.prepare("INSERT INTO events (period_id, type, message, created_at) VALUES (?, ?, ?, ?)").run(periodId, type, message, at);
+    const onEvent = this.opts.onEvent;
+    // Events are often written inside a transaction. A microtask runs after the synchronous commit.
+    if (onEvent) {
+      queueMicrotask(() => {
+        try {
+          onEvent({ periodId, type, message, at, ...about });
+        } catch (err) {
+          console.error("onEvent:", err);
+        }
+      });
+    }
   }
 
   private currentPeriod() {
@@ -820,7 +1367,7 @@ export class Wallet {
 
   private envelope(periodId: string, key: string) {
     return this.db.prepare("SELECT * FROM envelopes WHERE period_id = ? AND line_key = ?").get(periodId, key) as unknown as
-      | { id: string; label: string }
+      | { id: string; label: string; agent_id: string | null }
       | undefined;
   }
 
@@ -881,6 +1428,10 @@ function addDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+function fundKey(envelopeId: string, holdId: string) {
+  return `${envelopeId}:${holdId}`;
+}
+
 function parseCheck(json: string | null): ApprovalCheck | null {
   return json ? (JSON.parse(json) as ApprovalCheck) : null;
 }
@@ -906,6 +1457,7 @@ interface RequestRow {
   paypal_order_id: string | null;
   approval_check: string | null;
   created_at: string;
+  agent_id: string | null;
 }
 
 interface RequestLineRow {
@@ -944,5 +1496,17 @@ interface PurchaseRow {
   agent: string;
   refusal: string | null;
   review: string | null;
+  owner_override: string | null;
   created_at: string;
+}
+
+interface LineMoveRow {
+  id: string;
+  from_line_key: string;
+  to_line_key: string;
+  cents: number;
+  who: string;
+  created_at: string;
+  from_label: string | null;
+  to_label: string | null;
 }

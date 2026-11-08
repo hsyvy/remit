@@ -244,6 +244,25 @@ describe("approvals that don't go through", () => {
     rmSync(dir, { recursive: true });
     assert.ok(columns.includes("approval_check"));
   });
+
+  it("adds the funding columns and tables to a database made before them", () => {
+    const dir = mkdtempSync(join(tmpdir(), "remit-"));
+    const path = join(dir, "old.db");
+    const old = new DatabaseSync(path);
+    old.exec("CREATE TABLE captures (id TEXT PRIMARY KEY, purchase_id TEXT NOT NULL, hold_id TEXT NOT NULL, capture_id TEXT NOT NULL, amount_cents INTEGER NOT NULL, final INTEGER NOT NULL, refund_id TEXT, created_at TEXT NOT NULL)");
+    old.exec("INSERT INTO captures VALUES ('cap_1', 'pur_1', 'hold_1', 'C1', 500, 0, NULL, '2026-11-01T00:00:00Z')");
+    old.close();
+    const migrated = openDb(path);
+    const columns = (migrated.prepare("PRAGMA table_info(captures)").all() as { name: string }[]).map((c) => c.name);
+    const tables = (migrated.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all() as { name: string }[]).map((t) => t.name);
+    const row = migrated.prepare("SELECT from_line_cents, from_buffer_cents FROM captures").get() as { from_line_cents: number | null; from_buffer_cents: number | null };
+    migrated.close();
+    rmSync(dir, { recursive: true });
+    assert.ok(columns.includes("from_line_cents") && columns.includes("from_buffer_cents"));
+    assert.ok(tables.includes("line_funding") && tables.includes("line_moves"));
+    // Old captures stay unattributed.
+    assert.deepEqual({ ...row }, { from_line_cents: null, from_buffer_cents: null });
+  });
 });
 
 describe("spending", () => {
@@ -290,7 +309,7 @@ describe("spending", () => {
     assert.equal(wallet.pendingRequests().length, 0);
   });
 
-  it("top-ups are a new approval and a new hold, spent oldest first", async () => {
+  it("top-ups are a new approval and a new hold, spent from the holds that fund the line", async () => {
     await assert.rejects(buy("gift-sam", 9500), WalletError);
     const topup = wallet.requestTopup({ lineKey: "gift-sam", amountCents: 4000, reason: "Sam asked for headphones" });
     assert.throws(() => wallet.requestTopup({ lineKey: "gift-sam", amountCents: 100, reason: "again" }), (e: WalletError) => e.code === "REQUEST_PENDING");
@@ -298,13 +317,14 @@ describe("spending", () => {
 
     await buy("groceries", 8800);
     await buy("dog-food", 3250);
-    // Line has 8000 + buffer 1600. First hold has 17650 - 12050 = 5600 left, so this spans both holds.
+    // The gift line is 4000 from the budget hold and 4000 from the top-up; the buffer's 1500 is the budget hold's.
     const result = await buy("gift-sam", 9500, "Headphones");
     assert.equal(result.captureIds.length, 2);
     const holds = wallet.state().holds;
-    assert.equal(holds[0].capturedCents, 17650);
-    assert.equal(holds[0].status, "captured");
-    assert.equal(holds[1].capturedCents, 3900);
+    assert.equal(holds[0].capturedCents, 12050 + 4000 + 1500);
+    assert.equal(holds[0].status, "active");
+    assert.equal(holds[1].capturedCents, 4000);
+    assert.equal(holds[1].status, "captured");
   });
 
   it("asks the reviewer and refuses when it says no", async () => {
@@ -368,7 +388,9 @@ describe("moving money between lines", () => {
     const after = wallet.state();
     assert.equal(after.totals.approvedCents, before.totals.approvedCents);
     assert.equal(after.totals.heldCents, before.totals.heldCents);
-    assert.deepEqual(after.holds, before.holds);
+    // Funding moves with the limit; the PayPal holds themselves don't change.
+    const paypalSide = (holds: typeof before.holds) => holds.map(({ funding: _, ...h }) => h);
+    assert.deepEqual(paypalSide(after.holds), paypalSide(before.holds));
     assert.deepEqual(db.prepare("SELECT COUNT(*) AS n FROM sim_paypal").get(), ordersBefore);
     assert.equal(line("buffer").leftCents, 0);
     assert.equal(line("groceries").limitCents, 10650);
@@ -415,6 +437,187 @@ describe("moving money between lines", () => {
 
   it("is not something an agent can call", () => {
     assert.ok(!Object.keys(walletToolDefs).some((name) => /move/i.test(name)));
+  });
+});
+
+describe("which hold pays", () => {
+  beforeEach(async () => {
+    await approve(requestWeek().requestId);
+  });
+  const hold = (i: number) => wallet.state().holds[i];
+  const funding = (i: number) => Object.fromEntries(hold(i).funding.map((f) => [f.lineKey, f.fundedCents]));
+  const capturesOf = (purchaseId: string) =>
+    db.prepare("SELECT hold_id, amount_cents, from_line_cents, from_buffer_cents FROM captures WHERE purchase_id = ? ORDER BY rowid").all(purchaseId) as {
+      hold_id: string;
+      amount_cents: number;
+      from_line_cents: number | null;
+      from_buffer_cents: number | null;
+    }[];
+  async function topup(lineKey: string, amountCents: number, label?: string) {
+    await approve(wallet.requestTopup({ lineKey, label, amountCents, reason: "Sam asked for over-ear headphones." }).requestId);
+  }
+
+  it("records what each hold funds", async () => {
+    await topup("headphones", 3000, "Headphones for Sam");
+    assert.deepEqual(funding(0), { groceries: 8800, "dog-food": 3250, "gift-sam": 4000, buffer: 1600 });
+    assert.deepEqual(funding(1), { headphones: 3000 });
+  });
+
+  it("pays a top-up's purchase from the top-up hold", async () => {
+    await topup("headphones", 3000, "Headphones for Sam");
+    const { purchaseId } = await buy("headphones", 2500, "Headphones");
+    assert.equal(hold(0).capturedCents, 0);
+    assert.equal(hold(1).capturedCents, 2500);
+    assert.deepEqual(capturesOf(purchaseId).map((c) => [c.hold_id, c.amount_cents, c.from_line_cents, c.from_buffer_cents]), [[hold(1).id, 2500, 2500, 0]]);
+
+    // Close-out: the untouched budget hold is voided, the partly captured top-up lapses.
+    const closed = await wallet.closePeriod();
+    assert.equal(closed.releasedCents, 17650);
+    assert.equal(closed.lapsingCents, 500);
+    assert.deepEqual(wallet.state().holds.map((h) => h.status), ["voided", "lapsing"]);
+  });
+
+  it("pays the line part and the buffer part from the holds that fund each", async () => {
+    await topup("headphones", 3000, "Headphones for Sam");
+    await topup("buffer", 2000);
+    // Use up the budget hold's share of the buffer, so the rest of the buffer is the third hold's.
+    await buy("groceries", 8800 + 1600);
+    assert.equal(hold(0).capturedCents, 10400);
+
+    const result = await buy("headphones", 4000, "Headphones");
+    assert.equal(result.fromLineCents, 3000);
+    assert.equal(result.fromBufferCents, 1000);
+    const [h0, h1, h2] = wallet.state().holds;
+    assert.equal(h0.capturedCents, 10400);
+    assert.equal(h1.capturedCents, 3000);
+    assert.equal(h1.status, "captured");
+    assert.equal(h2.capturedCents, 1000);
+    assert.deepEqual(
+      capturesOf(result.purchaseId).map((c) => [c.hold_id, c.amount_cents, c.from_line_cents, c.from_buffer_cents]),
+      [[h1.id, 3000, 3000, 0], [h2.id, 1000, 0, 1000]],
+    );
+  });
+
+  it("takes one capture per hold when it pays both the line and the buffer", async () => {
+    const result = await buy("gift-sam", 4500);
+    assert.deepEqual(capturesOf(result.purchaseId).map((c) => [c.amount_cents, c.from_line_cents, c.from_buffer_cents]), [[4500, 4000, 500]]);
+  });
+
+  it("moves funding along with the limit", async () => {
+    await topup("headphones", 3000, "Headphones for Sam");
+    await wallet.moveBetweenLines("headphones", "groceries", 1000);
+    assert.deepEqual(funding(1), { headphones: 2000, groceries: 1000 });
+    assert.equal(funding(0).groceries, 8800);
+
+    // Groceries is now 8800 on the budget hold and 1000 on the top-up hold.
+    await buy("groceries", 9800);
+    assert.equal(hold(0).capturedCents, 8800);
+    assert.equal(hold(1).capturedCents, 1000);
+
+    // Only unspent funding moves: dog food is all budget hold, so the gift gets budget-hold money.
+    await wallet.moveBetweenLines("dog-food", "gift-sam", 250);
+    assert.deepEqual(funding(0)["gift-sam"], 4250);
+    assert.deepEqual(funding(0)["dog-food"], 3000);
+    // Totals per hold never change.
+    const sum = (i: number) => hold(i).funding.reduce((s, f) => s + f.fundedCents, 0);
+    assert.equal(sum(0), 17650);
+    assert.equal(sum(1), 3000);
+  });
+
+  it("moves the unspent part of a line funded by two holds", async () => {
+    await topup("groceries", 1000);
+    await buy("groceries", 8000); // all from the budget hold, which funds 8800 of the line
+    await wallet.moveBetweenLines("groceries", "dog-food", 1500);
+    assert.deepEqual(funding(0).groceries, 8000);
+    assert.deepEqual(funding(1).groceries, 300);
+    assert.deepEqual(funding(0)["dog-food"], 3250 + 800);
+    assert.deepEqual(funding(1)["dog-food"], 700);
+  });
+
+  it("falls back to the budget hold, then any hold, for rows from before funding was tracked", async () => {
+    await topup("headphones", 3000, "Headphones for Sam");
+    // An older database: no funding rows and no line split on captures.
+    db.exec("DELETE FROM line_funding");
+    // Everything unattributed is the budget hold's, the top-up's line included.
+    assert.deepEqual(funding(0), { groceries: 8800, "dog-food": 3250, "gift-sam": 4000, buffer: 1600, headphones: 3000 });
+    assert.deepEqual(funding(1), {});
+
+    await buy("headphones", 3000);
+    assert.equal(hold(0).capturedCents, 3000);
+    db.exec("UPDATE captures SET from_line_cents = NULL, from_buffer_cents = NULL");
+
+    await buy("groceries", 8800);
+    await buy("dog-food", 3250);
+    // The budget hold has 2600 left but funds 4000 of the gift: the rest comes from the top-up hold.
+    const result = await buy("gift-sam", 4000);
+    assert.equal(result.captureIds.length, 2);
+    assert.equal(hold(0).capturedCents, 17650);
+    assert.equal(hold(0).status, "captured");
+    assert.equal(hold(1).capturedCents, 1400);
+    assert.equal(wallet.balance().leftCents, 1600);
+
+    // A move on old rows writes the budget hold's share down first, then moves it.
+    await wallet.moveBetweenLines("buffer", "groceries", 600);
+    assert.equal(funding(0).buffer, 1000);
+    assert.equal(funding(0).groceries, 9400);
+
+    const closed = await wallet.closePeriod();
+    assert.equal(closed.lapsingCents, 1600);
+    assert.deepEqual(wallet.state().holds.map((h) => h.status), ["captured", "lapsing"]);
+  });
+
+  it("undoes earlier captures when a later one fails", async () => {
+    await topup("gift-sam", 4000);
+    const capture = paypal.capture.bind(paypal);
+    let calls = 0;
+    paypal.capture = async (id, opts) => {
+      if (++calls === 2) throw new PayPalError("Declined", 422, "INSTRUMENT_DECLINED");
+      return capture(id, opts);
+    };
+    await assert.rejects(buy("gift-sam", 6000), (e: WalletError) => e.code === "CAPTURE_FAILED");
+    const undone = db.prepare("SELECT refund_id FROM captures").all() as { refund_id: string }[];
+    assert.deepEqual(undone.map((c) => c.refund_id), ["undo"]);
+    assert.equal(wallet.state().purchases[0].status, "failed");
+    assert.equal(wallet.balance().lines.find((l) => l.key === "gift-sam")!.leftCents, 8000);
+  });
+});
+
+describe("line moves", () => {
+  beforeEach(async () => {
+    await approve(requestWeek().requestId);
+  });
+
+  it("writes each move as its own record and returns it in the state", async () => {
+    await wallet.moveBetweenLines("groceries", "gift-sam", 1000);
+    await assert.rejects(wallet.moveBetweenLines("dog-food", "gift-sam", 9999), (e: WalletError) => e.code === "OVER_UNSPENT");
+    await wallet.moveBetweenLines("dog-food", "buffer", 250);
+
+    const rows = db.prepare("SELECT * FROM line_moves ORDER BY rowid").all() as { period_id: string; from_line_key: string; to_line_key: string; cents: number; who: string }[];
+    assert.equal(rows.length, 2);
+    assert.deepEqual(
+      rows.map((r) => [r.from_line_key, r.to_line_key, r.cents, r.who]),
+      [["groceries", "gift-sam", 1000, "owner"], ["dog-food", "buffer", 250, "owner"]],
+    );
+    const state = wallet.state();
+    assert.equal(rows[0].period_id, state.period!.id);
+    assert.deepEqual(
+      state.moves.map((m) => [m.fromKey, m.fromLabel, m.toKey, m.toLabel, m.cents, m.who]),
+      [
+        ["dog-food", "Dog food, 12 kg bag", "buffer", "Buffer", 250, "owner"],
+        ["groceries", "Groceries, 2 orders", "gift-sam", "Birthday gift for Sam", 1000, "owner"],
+      ],
+    );
+    assert.ok(state.moves.every((m) => typeof m.id === "string" && !Number.isNaN(Date.parse(m.createdAt))));
+    // The activity feed still gets its moved events.
+    assert.equal(state.events.filter((e) => e.type === "moved").length, 2);
+  });
+
+  it("only shows the current period's moves", async () => {
+    await wallet.moveBetweenLines("groceries", "gift-sam", 1000);
+    await wallet.closePeriod();
+    assert.equal(wallet.state().moves.length, 1);
+    await approve(requestWeek().requestId);
+    assert.deepEqual(wallet.state().moves, []);
   });
 });
 
@@ -491,9 +694,9 @@ describe("tool layer", () => {
       buffer: { amount: 8.8, reason: "Price changes and shipping." },
     }, "remit");
     await approve(wallet.pendingRequests()[0].id);
-    const paid = await runWalletTool(wallet, "spend", { line: "groceries", amount: 41.85, title: "Weekly order", merchant: "FreshCart", reasoning: "Staples" }, "mcp");
+    const paid = await runWalletTool(wallet, "spend", { line: "groceries", amount: 41.85, title: "Weekly order", merchant: "FreshCart", reasoning: "Staples" }, "remit");
     assert.equal((paid as { line_left: string }).line_left, "$46.15");
-    const balance = (await runWalletTool(wallet, "get_balance", {}, "mcp")) as { left: string };
+    const balance = (await runWalletTool(wallet, "get_balance", {}, "remit")) as { left: string };
     assert.equal(balance.left, "$54.95");
   });
 });

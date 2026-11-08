@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { fmt, toCents } from "../money.ts";
+import { normalizeAgentId } from "./agents.ts";
 import type { Wallet } from "./wallet.ts";
 
 /**
@@ -83,7 +84,8 @@ export const walletToolDefs = {
 
 export type WalletToolName = keyof typeof walletToolDefs;
 
-export async function runWalletTool(wallet: Wallet, name: WalletToolName, raw: unknown, agent: "remit" | "mcp") {
+/** `agent` is the calling agent's registry ID ("remit" for the built-in agent). Every money call carries it into the wallet. */
+export async function runWalletTool(wallet: Wallet, name: WalletToolName, raw: unknown, agent: string) {
   switch (name) {
     case "get_history": {
       const history = wallet.history();
@@ -110,7 +112,10 @@ export async function runWalletTool(wallet: Wallet, name: WalletToolName, raw: u
         approved: fmt(b.approvedCents),
         spent: fmt(b.spentCents),
         left: fmt(b.leftCents),
-        lines: b.lines.map((l) => ({ line: l.key, label: l.label, approved: fmt(l.limitCents), left: fmt(l.leftCents) })),
+        // Only the lines this agent can spend from: its own, the shared buffer, and lines with no owner.
+        lines: b.lines
+          .filter((l) => !l.agentId || l.agentId === normalizeAgentId(agent))
+          .map((l) => ({ line: l.key, label: l.label, approved: fmt(l.limitCents), left: fmt(l.leftCents) })),
         waiting_for_owner: b.pending.map((p) => ({ kind: p.kind, amount: fmt(p.totalCents) })),
       };
     }
@@ -122,12 +127,13 @@ export async function runWalletTool(wallet: Wallet, name: WalletToolName, raw: u
         endsOn: input.ends_on,
         lines: input.lines.map((l) => ({ key: l.key, label: l.label, amountCents: toCents(l.amount), reason: l.reason })),
         buffer: input.buffer ? { amountCents: toCents(input.buffer.amount), reason: input.buffer.reason } : undefined,
+        agentId: agent,
       });
       return { status: "sent to the owner for approval on PayPal", total: fmt(result.totalCents), review_link: result.reviewUrl };
     }
     case "request_topup": {
       const input = walletToolDefs.request_topup.input.parse(raw);
-      const result = wallet.requestTopup({ lineKey: input.line, label: input.label, amountCents: toCents(input.amount), reason: input.reason });
+      const result = wallet.requestTopup({ lineKey: input.line, label: input.label, amountCents: toCents(input.amount), reason: input.reason, agentId: agent });
       return { status: "sent to the owner for approval on PayPal", amount: fmt(result.totalCents), review_link: result.reviewUrl };
     }
     case "spend": {

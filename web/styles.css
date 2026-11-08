@@ -273,6 +273,36 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .totals { display: flex; flex-wrap: wrap; gap: 10px 34px; padding: 14px 22px; font-size: 13.5px; color: var(--t2); border-radius: 14px; }
 .totals b { margin-left: 6px; color: var(--t1); }
 
+/* ------------------------------------------------------------ agents */
+.paper.ag-list { padding: 6px 26px; }
+.ag { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 16px 0; border-top: 1px solid var(--rule); }
+.ag:first-child { border-top: 0; }
+.ag .pic { width: 40px; height: 40px; border-radius: 12px; }
+.ag.off .pic { opacity: .5; }
+.ag h2 { margin: 0; font: 600 16px/1.3 var(--fd); }
+.ag p { margin: 2px 0 0; font-size: 13.5px; color: var(--ink3); }
+.ag .facts-line { font: 400 12.5px/1.5 var(--fm); }
+.ag .acts { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.ag-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 22px; align-items: start; }
+.ag-new { padding: 24px 26px; display: flex; flex-direction: column; gap: 8px; }
+.ag-new .ch { margin-bottom: 8px; }
+.tokrow { display: flex; gap: 8px; }
+.tokrow input { flex: 1; min-width: 0; min-height: 44px; padding: 0 12px; border-radius: 10px; border: 1.5px solid rgba(16, 30, 52, .22); background: rgba(255, 255, 255, .8); font: 14px var(--fm); color: var(--t1); outline: none; }
+.tokrow input:focus { border-color: var(--navy); }
+.tok-once { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding: 14px; border-radius: 12px; border-left: 3px solid var(--ask); background: rgba(255, 255, 255, .7); }
+.tok-once .k { color: var(--t1); }
+.tok-once .btn.ghost { align-self: flex-start; padding: 0 4px; }
+.ag-new .note { margin: 6px 0 0; font-size: 13px; color: var(--t2); }
+.ag-new .note code { font: 12.5px var(--fm); }
+.rules { list-style: none; margin: 0; padding: 0; }
+.rules li { padding: 12px 0; border-top: 1.5px solid var(--ink); color: var(--ink2); font-size: 13.5px; }
+.rules li b { display: block; color: var(--ink); font-weight: 600; font-size: 14.5px; }
+@container main (max-width: 760px) {
+  .ag-grid { grid-template-columns: minmax(0, 1fr); }
+  .ag { grid-template-columns: 40px minmax(0, 1fr); }
+  .ag .acts { grid-column: 2; justify-content: flex-start; }
+}
+
 /* ------------------------------------------------------------ chat */
 .chat {
   position: sticky; top: 14px; align-self: start;
@@ -357,3 +387,18 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .sim-items small { display: block; color: var(--ink3); font-size: 12.5px; }
 .sim .btns { display: flex; flex-wrap: wrap; gap: 10px; }
 .sim form { margin: 0; }
+
+/* ------------------------------------------------------------ pay anyway (owner override) */
+.chip.over { color: var(--ask); background: rgba(143, 99, 18, .12); }
+.entry .what p.override { padding-left: 12px; border-left: 2px solid var(--ask); color: var(--ink); }
+dialog.decide { width: min(460px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; border: 0; }
+dialog.decide::backdrop { background: rgba(13, 26, 45, .4); }
+dialog.decide .ch { margin-bottom: 10px; }
+dialog.decide h2 { margin: 0; font: 600 20px/1.25 var(--fd); letter-spacing: -.02em; overflow-wrap: anywhere; }
+dialog.decide .meta { margin-top: 2px; font-size: 13px; color: var(--ink3); }
+dialog.decide .amt { margin-top: 12px; font-size: 22px; }
+dialog.decide p { margin: 14px 0 0; font-size: 13.5px; line-height: 1.55; color: var(--ink2); text-wrap: pretty; }
+dialog.decide p span { display: block; margin-bottom: 2px; font: 500 10.5px/1.4 var(--fm); letter-spacing: .1em; text-transform: uppercase; color: var(--ink3); }
+dialog.decide p.pc { padding-left: 12px; border-left: 2px solid var(--no); }
+dialog.decide p.next { padding-left: 12px; border-left: 2px solid var(--ask); color: var(--ink); }
+dialog.decide .btns { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 20px; }

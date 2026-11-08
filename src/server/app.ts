@@ -1,30 +1,51 @@
-import { Hono, type Context } from "hono";
+import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { basicAuth } from "hono/basic-auth";
-import { bearerAuth } from "hono/bearer-auth";
 import { HTTPException } from "hono/http-exception";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { z } from "zod";
 import type { ShoppingAgent } from "../demo/agent.ts";
+import { handleMcpRequest } from "../mcp/http.ts";
 import { fmt } from "../money.ts";
 import { PayPalError } from "../paypal/gateway.ts";
 import { isWaiting, type SimOrder, type SimulatedPayPal } from "../paypal/simulated.ts";
+import { agentFromAuthHeader, type AgentRecord } from "../wallet/agents.ts";
+import type { LinkSigner } from "../notify/links.ts";
+import { mountLinkRoutes } from "../notify/routes.ts";
 import { runWalletTool, walletToolDefs, type WalletToolName } from "../wallet/tools.ts";
 import { errorText, WalletError, type Wallet } from "../wallet/wallet.ts";
+import type { PayPalWebhooks } from "../wallet/webhooks.ts";
 
 export interface AppDeps {
   wallet: Wallet;
   agent: ShoppingAgent;
   simulated?: SimulatedPayPal;
+  /** Set when PayPal webhooks are on: always with the simulator, and with PAYPAL_WEBHOOK_ID in sandbox mode. */
+  webhooks?: PayPalWebhooks;
   modes: { paypal: string; search: string; agent: string; reviewer: string; model: string; mcp?: string };
   /** Rupees per dollar for the approximate ₹ figure in the web app; 0 for dollars only. */
   inrRate?: number;
   agentToken?: string;
   ownerPassword?: string;
+  /** One-tap links from notifications. Signed links work without the owner password. */
+  links?: { signer: LinkSigner; appUrl: string };
+}
+
+/** The one check for agent requests, on /agent/v1/* and /mcp: finds the agent the token belongs to. */
+export function agentAuth(deps: AppDeps): MiddlewareHandler<{ Variables: { agent: AgentRecord } }> {
+  return async (c, next) => {
+    const found = agentFromAuthHeader(deps.wallet.agents, c.req.header("Authorization"), deps.agentToken);
+    if (!found) {
+      c.header("WWW-Authenticate", 'Bearer realm="remit"');
+      return c.json({ error: "UNAUTHORIZED", message: "Unknown or revoked agent token. Add an agent in the Remit app to get one." }, 401);
+    }
+    c.set("agent", found);
+    await next();
+  };
 }
 
 export function createApp(deps: AppDeps) {
   const { wallet, agent } = deps;
-  const app = new Hono();
+  const app = new Hono<{ Variables: { agent: AgentRecord } }>();
   let agentError: string | null = null;
 
   app.onError((err, c) => {
@@ -39,24 +60,42 @@ export function createApp(deps: AppDeps) {
   // For the host's health check, so it sits in front of the owner password.
   app.get("/healthz", (c) => c.json({ ok: true }));
 
-  // ------------------------------------------------------------ agent API (used by the MCP server)
+  // PayPal can't send the owner password, so this also sits in front of it. Every event is verified instead.
+  app.post("/paypal/webhook", async (c) => {
+    if (!deps.webhooks) return c.json({ error: "NOT_FOUND", message: "PayPal webhooks are off. Set PAYPAL_WEBHOOK_ID." }, 404);
+    const result = await deps.webhooks.receive({ headers: c.req.header(), body: await c.req.text() });
+    return c.json(result, result.status);
+  });
 
-  if (deps.agentToken) {
-    app.use("/agent/v1/*", bearerAuth({ token: deps.agentToken }));
-    app.get("/agent/v1/tools", (c) => c.json(Object.keys(walletToolDefs)));
-    app.post("/agent/v1/tools/:name", async (c) => {
-      const name = c.req.param("name");
-      if (!(name in walletToolDefs)) return c.json({ error: "NOT_FOUND", message: `No tool ${name}` }, 404);
-      const body = await c.req.json().catch(() => ({}));
-      return c.json(await runWalletTool(wallet, name as WalletToolName, body, "mcp"));
-    });
-  }
+  // ------------------------------------------------------------ agent API (used by the MCP servers)
+
+  // Each agent has its own token from the Agents page; the shared REMIT_AGENT_TOKEN is the built-in "default" agent.
+  const requireAgent = agentAuth(deps);
+  app.use("/agent/v1/*", requireAgent);
+  app.use("/mcp", requireAgent);
+  app.get("/agent/v1/tools", (c) => c.json(Object.keys(walletToolDefs)));
+  app.post("/agent/v1/tools/:name", async (c) => {
+    const name = c.req.param("name");
+    if (!(name in walletToolDefs)) return c.json({ error: "NOT_FOUND", message: `No tool ${name}` }, 404);
+    const body = await c.req.json().catch(() => ({}));
+    return c.json(await runWalletTool(wallet, name as WalletToolName, body, c.get("agent").id));
+  });
+
+  // Remote MCP over Streamable HTTP, for hosted agents. Stateless, so there is no stream to GET or session to DELETE.
+  app.post("/mcp", (c) => handleMcpRequest(wallet, c.req.raw, c.get("agent").id));
+  app.on(["GET", "DELETE"], "/mcp", (c) =>
+    c.json({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed." }, id: null }, 405),
+  );
+
+  // ------------------------------------------------------------ one-tap links (signed, so in front of the owner password)
+
+  if (deps.links) mountLinkRoutes(app, { wallet, links: deps.links.signer, appUrl: deps.links.appUrl, agent });
 
   // ------------------------------------------------------------ owner routes
 
   if (deps.ownerPassword) {
     const owner = basicAuth({ username: "owner", password: deps.ownerPassword });
-    app.use("*", async (c, next) => (c.req.path.startsWith("/agent/v1/") ? next() : owner(c, next)));
+    app.use("*", async (c, next) => (c.req.path.startsWith("/agent/v1/") || c.req.path === "/mcp" ? next() : owner(c, next)));
   }
 
   app.get("/api/state", (c) =>
@@ -64,6 +103,7 @@ export function createApp(deps: AppDeps) {
       modes: deps.modes,
       inrRate: deps.inrRate ?? 0,
       ...wallet.state(),
+      agents: wallet.agentSummaries(),
       chat: agent.transcript(),
       agentBusy: agent.isBusy,
       agentError,
@@ -89,6 +129,9 @@ export function createApp(deps: AppDeps) {
 
   app.post("/api/purchases/:id/refund", async (c) => c.json(await wallet.refund(c.req.param("id"))));
 
+  // Owner only: pay for a purchase the purpose check refused. The agent API has no route to this.
+  app.post("/api/purchases/:id/override", async (c) => c.json(await wallet.overridePurchase(c.req.param("id"))));
+
   // Owner only: the agent API above has no route to this.
   app.post("/api/lines/move", async (c) => {
     const body = z
@@ -96,6 +139,20 @@ export function createApp(deps: AppDeps) {
       .parse(await c.req.json().catch(() => ({})));
     return c.json(await wallet.moveBetweenLines(body.from, body.to, body.amountCents));
   });
+
+  // ------------------------------------------------------------ owner: agents
+
+  app.get("/api/agents", (c) => c.json({ agents: wallet.agentSummaries(), sharedToken: !!deps.agentToken }));
+
+  // The token is in this response only. Remit keeps just its hash.
+  app.post("/api/agents", async (c) => {
+    const { name } = z.object({ name: z.string() }).parse(await c.req.json().catch(() => ({})));
+    return c.json(wallet.agents.create(name), 201);
+  });
+
+  app.post("/api/agents/:id/pause", (c) => c.json({ agent: wallet.agents.setStatus(c.req.param("id"), "paused") }));
+  app.post("/api/agents/:id/resume", (c) => c.json({ agent: wallet.agents.setStatus(c.req.param("id"), "active") }));
+  app.post("/api/agents/:id/revoke", (c) => c.json({ agent: wallet.agents.revoke(c.req.param("id")) }));
 
   app.post("/api/chat", async (c) => {
     const { message } = z.object({ message: z.string().trim().min(1).max(4000) }).parse(await c.req.json());
@@ -209,7 +266,7 @@ function simDeclinedPage(order: SimOrder) {
 <main class="sim">
   ${SIM_BANNER}
   <h1>This payment method was declined</h1>
-  <p class="muted">Simulated: PayPal couldn't use the buyer's funding for a hold of <span class="num">${fmt(order.totalCents)}</span>. The order stays open, waiting for the buyer, and Remit isn't told.</p>
+  <p class="muted">Simulated: PayPal couldn't use the buyer's funding for a hold of <span class="num">${fmt(order.totalCents)}</span>. The order stays open, waiting for the buyer. The simulator also sends Remit a declined-order webhook.</p>
   <div class="btns">
     <a class="btn primary" href="/sim-paypal/checkout/${esc(order.id)}">Pick a different payment method</a>
     <a class="btn" href="${esc(withToken(order.cancelUrl, order.id))}">Cancel and return to Remit</a>
