@@ -1,6 +1,5 @@
 import { Hono, type Context } from "hono";
 import { basicAuth } from "hono/basic-auth";
-import { bearerAuth } from "hono/bearer-auth";
 import { HTTPException } from "hono/http-exception";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { z } from "zod";
@@ -8,6 +7,7 @@ import type { ShoppingAgent } from "../demo/agent.ts";
 import { fmt } from "../money.ts";
 import { PayPalError } from "../paypal/gateway.ts";
 import { isWaiting, type SimOrder, type SimulatedPayPal } from "../paypal/simulated.ts";
+import { agentFromAuthHeader, type AgentRecord } from "../wallet/agents.ts";
 import { runWalletTool, walletToolDefs, type WalletToolName } from "../wallet/tools.ts";
 import { errorText, WalletError, type Wallet } from "../wallet/wallet.ts";
 
@@ -24,7 +24,7 @@ export interface AppDeps {
 
 export function createApp(deps: AppDeps) {
   const { wallet, agent } = deps;
-  const app = new Hono();
+  const app = new Hono<{ Variables: { agent: AgentRecord } }>();
   let agentError: string | null = null;
 
   app.onError((err, c) => {
@@ -41,16 +41,23 @@ export function createApp(deps: AppDeps) {
 
   // ------------------------------------------------------------ agent API (used by the MCP server)
 
-  if (deps.agentToken) {
-    app.use("/agent/v1/*", bearerAuth({ token: deps.agentToken }));
-    app.get("/agent/v1/tools", (c) => c.json(Object.keys(walletToolDefs)));
-    app.post("/agent/v1/tools/:name", async (c) => {
-      const name = c.req.param("name");
-      if (!(name in walletToolDefs)) return c.json({ error: "NOT_FOUND", message: `No tool ${name}` }, 404);
-      const body = await c.req.json().catch(() => ({}));
-      return c.json(await runWalletTool(wallet, name as WalletToolName, body, "mcp"));
-    });
-  }
+  // Each agent has its own token from the Agents page; the shared REMIT_AGENT_TOKEN is the built-in "default" agent.
+  app.use("/agent/v1/*", async (c, next) => {
+    const found = agentFromAuthHeader(wallet.agents, c.req.header("Authorization"), deps.agentToken);
+    if (!found) {
+      c.header("WWW-Authenticate", 'Bearer realm="remit"');
+      return c.json({ error: "UNAUTHORIZED", message: "Unknown or revoked agent token. Add an agent in the Remit app to get one." }, 401);
+    }
+    c.set("agent", found);
+    await next();
+  });
+  app.get("/agent/v1/tools", (c) => c.json(Object.keys(walletToolDefs)));
+  app.post("/agent/v1/tools/:name", async (c) => {
+    const name = c.req.param("name");
+    if (!(name in walletToolDefs)) return c.json({ error: "NOT_FOUND", message: `No tool ${name}` }, 404);
+    const body = await c.req.json().catch(() => ({}));
+    return c.json(await runWalletTool(wallet, name as WalletToolName, body, c.get("agent").id));
+  });
 
   // ------------------------------------------------------------ owner routes
 
@@ -64,6 +71,7 @@ export function createApp(deps: AppDeps) {
       modes: deps.modes,
       inrRate: deps.inrRate ?? 0,
       ...wallet.state(),
+      agents: wallet.agentSummaries(),
       chat: agent.transcript(),
       agentBusy: agent.isBusy,
       agentError,
@@ -96,6 +104,20 @@ export function createApp(deps: AppDeps) {
       .parse(await c.req.json().catch(() => ({})));
     return c.json(await wallet.moveBetweenLines(body.from, body.to, body.amountCents));
   });
+
+  // ------------------------------------------------------------ owner: agents
+
+  app.get("/api/agents", (c) => c.json({ agents: wallet.agentSummaries(), sharedToken: !!deps.agentToken }));
+
+  // The token is in this response only. Remit keeps just its hash.
+  app.post("/api/agents", async (c) => {
+    const { name } = z.object({ name: z.string() }).parse(await c.req.json().catch(() => ({})));
+    return c.json(wallet.agents.create(name), 201);
+  });
+
+  app.post("/api/agents/:id/pause", (c) => c.json({ agent: wallet.agents.setStatus(c.req.param("id"), "paused") }));
+  app.post("/api/agents/:id/resume", (c) => c.json({ agent: wallet.agents.setStatus(c.req.param("id"), "active") }));
+  app.post("/api/agents/:id/revoke", (c) => c.json({ agent: wallet.agents.revoke(c.req.param("id")) }));
 
   app.post("/api/chat", async (c) => {
     const { message } = z.object({ message: z.string().trim().min(1).max(4000) }).parse(await c.req.json());

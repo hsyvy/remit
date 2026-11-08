@@ -491,9 +491,9 @@ describe("tool layer", () => {
       buffer: { amount: 8.8, reason: "Price changes and shipping." },
     }, "remit");
     await approve(wallet.pendingRequests()[0].id);
-    const paid = await runWalletTool(wallet, "spend", { line: "groceries", amount: 41.85, title: "Weekly order", merchant: "FreshCart", reasoning: "Staples" }, "mcp");
+    const paid = await runWalletTool(wallet, "spend", { line: "groceries", amount: 41.85, title: "Weekly order", merchant: "FreshCart", reasoning: "Staples" }, "remit");
     assert.equal((paid as { line_left: string }).line_left, "$46.15");
-    const balance = (await runWalletTool(wallet, "get_balance", {}, "mcp")) as { left: string };
+    const balance = (await runWalletTool(wallet, "get_balance", {}, "remit")) as { left: string };
     assert.equal(balance.left, "$54.95");
   });
 });

@@ -45,7 +45,9 @@ const PLUG = `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 2v3M10 2v3
 let state = null;
 let pollTimer = null;
 let ledgerFilter = "all";
-const rendered = { requests: "", chat: "", move: "", ledger: "" };
+const rendered = { requests: "", chat: "", move: "", ledger: "", agents: "" };
+/** An agent's name from the registry, by ID. */
+const agentName = (id) => state?.agents?.find((a) => a.id === id)?.name ?? id;
 
 async function api(path, body) {
   const res = await fetch(path, {
@@ -78,7 +80,7 @@ function flash(text, isError = false) {
 
 // ------------------------------------------------------------ routing
 
-const VIEWS = ["week", "requests", "ledger", "agent"];
+const VIEWS = ["week", "requests", "ledger", "agents", "agent"];
 
 /** The view for the current hash. A request id (from an agent's review link) opens Requests. */
 function currentView() {
@@ -93,7 +95,7 @@ function showView() {
   $("app").dataset.view = view;
   // On wide screens the chat is always beside the page, so #agent shows this week behind it.
   const page = view === "agent" ? "week" : view;
-  for (const v of ["week", "requests", "ledger"]) $(`view-${v}`).hidden = v !== page;
+  for (const v of ["week", "requests", "ledger", "agents"]) $(`view-${v}`).hidden = v !== page;
   document.querySelectorAll("[data-nav]").forEach((a) => {
     if (a.dataset.nav === view) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
@@ -128,6 +130,7 @@ function render() {
   renderWeek();
   renderRequests();
   renderLedger();
+  renderAgents();
   renderChat();
   showView();
 }
@@ -138,7 +141,10 @@ function renderSide() {
     `<div class="agent${on ? "" : " off"}"><span class="pic">${icon}</span><span>${esc(title)}<small>${esc(note)}</small></span></div>`;
   $("agents").innerHTML = [
     agent(m.agent === "on", "Remit’s shopping agent", m.agent === "on" ? "Built in. Plans and shops here." : "Off. Needs ANTHROPIC_API_KEY.", SPARK),
-    agent(m.mcp === "on", "Your own agents", m.mcp === "on" ? "Connect over MCP with a token." : "Off. Needs REMIT_AGENT_TOKEN.", PLUG),
+    (() => {
+      const own = (state.agents ?? []).filter((a) => !a.builtin).length + (m.mcp === "on" ? 1 : 0);
+      return agent(own > 0, "Your own agents", own ? `${plural(own, "token")} for MCP. See Agents.` : "Add one under Agents.", PLUG);
+    })(),
   ].join("");
 
   const chip = (text, live) => `<span class="chip sm plate ${live ? "live" : "stand-in"}"><i></i>${esc(text)}</span>`;
@@ -281,13 +287,16 @@ function envelopeFor(line, index, lines) {
 
 function renderLines() {
   const lines = state.lines;
+  // Name each line's agent only when more than one agent has lines this period.
+  const owners = new Set(lines.map((l) => l.agentId).filter(Boolean));
+  const owner = (l) => (owners.size > 1 && l.agentId ? ` · ${agentName(l.agentId)}` : "");
   $("lines").innerHTML = lines.length
     ? lines
         .map(
           (l, i) => `
       <div class="ln">
         <img src="${envelopeFor(l, i, lines)}" alt="">
-        <b>${esc(l.label)}<span class="key">${esc(l.key)}</span></b>
+        <b>${esc(l.label)}<span class="key">${esc(l.key)}${esc(owner(l))}</span></b>
         <span class="amt"><b class="money">${money(l.leftCents)}</b> left of ${both(l.limitCents)}</span>
         <small>${esc(l.reason)}</small>
         <div class="track" role="img" aria-label="${money(l.usedCents)} used of ${money(l.limitCents)}"><div class="fill" style="width:${pct(l.usedCents, l.limitCents)}%"></div></div>
@@ -371,6 +380,7 @@ $("move-form").addEventListener("submit", async (e) => {
 const EVENT_STAMP = {
   spent: ["paid", "Paid"],
   spend_refused: ["refused", "Refused"],
+  request_refused: ["refused", "Refused"],
   spend_failed: ["refused", "Failed"],
   budget_requested: ["ask", "Asked you"],
   topup_requested: ["ask", "Asked you"],
@@ -458,7 +468,7 @@ function requestCard(r) {
         ${r.reason && (budget || r.reason !== r.lines[0]?.reason) ? `<p class="note">${esc(r.reason)}</p>` : ""}
         ${lines}
         <div class="lrow tot"><b>Total</b><span class="dots"></span><b data-total>${money(r.totalCents)}</b></div>
-        <div class="hand">Prepared by your agent, ${esc(when(r.createdAt))}</div>
+        <div class="hand">Prepared by ${r.agentId && r.agentId !== "remit" ? esc(agentName(r.agentId)) : "your agent"}, ${esc(when(r.createdAt))}</div>
       </div>
       <aside class="approve glass" aria-label="Approve">
         <div><div class="k">You’re approving</div><div class="big" data-total>${money(r.totalCents)}</div>${state.inrRate ? `<div class="k" data-total-inr>${inr(r.totalCents)}</div>` : ""}</div>
@@ -581,7 +591,7 @@ function renderLedger() {
             esc(lineLabel(p.lineKey)),
             p.fromBufferCents ? `${money(p.fromBufferCents)} from the buffer` : "",
             esc(p.merchant),
-            p.agent === "mcp" ? "via MCP" : "",
+            p.agent && p.agent !== "remit" ? `by ${esc(agentName(p.agent))}` : "",
           ].filter(Boolean);
           return `<li class="entry">
             <div class="w">${esc(when(p.createdAt))}</div>
@@ -635,6 +645,107 @@ function renderLedger() {
       refresh();
     }),
   );
+}
+
+// ------------------------------------------------------------ agents
+
+function agentNote(a) {
+  if (a.id === "remit") return state.modes.agent === "on" ? "Built in. Plans and shops here." : "Built in. Off until ANTHROPIC_API_KEY is set.";
+  if (a.id === "default") return state.modes.mcp === "on" ? "The shared REMIT_AGENT_TOKEN from .env." : "Not set. Add REMIT_AGENT_TOKEN to .env to use it.";
+  return `Own token over MCP. Added ${monthDay(a.createdAt.slice(0, 10))}.`;
+}
+
+function renderAgents() {
+  const agents = state.agents ?? [];
+  const sig = JSON.stringify([agents, state.modes.agent, state.modes.mcp]);
+  if (sig === rendered.agents) return;
+  rendered.agents = sig;
+  $("agent-list").innerHTML = agents
+    .map((a) => {
+      const paused = a.status === "paused";
+      const off = (a.id === "default" && state.modes.mcp !== "on") || (a.id === "remit" && state.modes.agent !== "on");
+      const facts = [
+        `${money(a.spentCents)} spent this period`,
+        a.lineCount ? plural(a.lineCount, "line") : "",
+        a.refusedCount ? `${a.refusedCount} refused` : "",
+        a.lastUsedAt && a.id !== "remit" ? `last call ${when(a.lastUsedAt)}` : "",
+      ].filter(Boolean);
+      const chip = paused ? `<span class="chip ask"><i></i>Paused</span>` : off ? `<span class="chip"><i></i>Off</span>` : `<span class="chip ok"><i></i>Active</span>`;
+      return `
+      <div class="ag${off ? " off" : ""}">
+        <span class="pic">${a.id === "remit" ? SPARK : PLUG}</span>
+        <div>
+          <h2>${esc(a.name)}</h2>
+          <p>${esc(agentNote(a))}</p>
+          <p class="facts-line">${facts.map(esc).join(" · ")}</p>
+        </div>
+        <div class="acts">
+          ${chip}
+          <button class="btn sm" type="button" data-agent="${esc(a.id)}" data-act="${paused ? "resume" : "pause"}">${paused ? "Resume" : "Pause"}</button>
+          ${a.builtin ? "" : `<button class="btn danger sm" type="button" data-agent="${esc(a.id)}" data-act="revoke">Revoke</button>`}
+        </div>
+      </div>`;
+    })
+    .join("");
+  $("agent-list").querySelectorAll("[data-act]").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      const a = agents.find((x) => x.id === btn.dataset.agent);
+      const act = btn.dataset.act;
+      if (act === "revoke" && !confirm(`Revoke ${a.name}? Its token stops working for good. Its past purchases stay in the ledger.`)) return;
+      btn.disabled = true;
+      try {
+        await api(`/api/agents/${encodeURIComponent(a.id)}/${act}`, {});
+        flash(act === "pause" ? `${a.name} is paused. It can read, but it can’t spend or ask for money.` : act === "resume" ? `${a.name} can spend again.` : `${a.name} is revoked.`);
+      } catch (err) {
+        flash(err.message, true);
+        btn.disabled = false;
+      }
+      refresh();
+    }),
+  );
+}
+
+$("agent-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const button = e.target.querySelector("button[type=submit]");
+  button.disabled = true;
+  try {
+    const { agent, token } = await api("/api/agents", { name: $("agent-name").value });
+    $("agent-name").value = "";
+    showToken(agent, token);
+    refresh();
+  } catch (err) {
+    flash(err.message, true);
+  }
+  button.disabled = false;
+});
+
+/** The token, shown once. Remit keeps only its hash. */
+function showToken(agent, token) {
+  const box = $("agent-token");
+  box.hidden = false;
+  box.innerHTML = `
+    <label class="k" for="agent-token-value">Token for ${esc(agent.name)}. Copy it now: Remit keeps only a hash, so it can’t show it again.</label>
+    <div class="tokrow">
+      <input id="agent-token-value" type="text" readonly value="${esc(token)}">
+      <button class="btn" type="button" id="agent-token-copy">Copy</button>
+    </div>
+    <p class="note">Set it as <code>REMIT_AGENT_TOKEN</code> in that agent’s MCP config.</p>
+    <button class="btn ghost sm" type="button" id="agent-token-done">Done, hide it</button>`;
+  $("agent-token-value").select();
+  $("agent-token-copy").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(token);
+      flash("Token copied.");
+    } catch {
+      $("agent-token-value").select();
+      flash("Couldn’t copy. Select the token and copy it yourself.", true);
+    }
+  });
+  $("agent-token-done").addEventListener("click", () => {
+    box.hidden = true;
+    box.innerHTML = "";
+  });
 }
 
 // ------------------------------------------------------------ chat
