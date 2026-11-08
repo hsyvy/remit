@@ -1,10 +1,11 @@
-import { Hono, type Context } from "hono";
+import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { basicAuth } from "hono/basic-auth";
 import { bearerAuth } from "hono/bearer-auth";
 import { HTTPException } from "hono/http-exception";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { z } from "zod";
 import type { ShoppingAgent } from "../demo/agent.ts";
+import { handleMcpRequest } from "../mcp/http.ts";
 import { fmt } from "../money.ts";
 import { PayPalError } from "../paypal/gateway.ts";
 import { isWaiting, type SimOrder, type SimulatedPayPal } from "../paypal/simulated.ts";
@@ -20,6 +21,12 @@ export interface AppDeps {
   inrRate?: number;
   agentToken?: string;
   ownerPassword?: string;
+}
+
+/** The one check for agent requests, on /agent/v1/* and /mcp. Per-agent tokens go here. */
+export function agentAuth(deps: AppDeps): MiddlewareHandler {
+  if (!deps.agentToken) throw new Error("The agent API needs REMIT_AGENT_TOKEN.");
+  return bearerAuth({ token: deps.agentToken });
 }
 
 export function createApp(deps: AppDeps) {
@@ -39,10 +46,12 @@ export function createApp(deps: AppDeps) {
   // For the host's health check, so it sits in front of the owner password.
   app.get("/healthz", (c) => c.json({ ok: true }));
 
-  // ------------------------------------------------------------ agent API (used by the MCP server)
+  // ------------------------------------------------------------ agent API (used by the MCP servers)
 
   if (deps.agentToken) {
-    app.use("/agent/v1/*", bearerAuth({ token: deps.agentToken }));
+    const requireAgent = agentAuth(deps);
+    app.use("/agent/v1/*", requireAgent);
+    app.use("/mcp", requireAgent);
     app.get("/agent/v1/tools", (c) => c.json(Object.keys(walletToolDefs)));
     app.post("/agent/v1/tools/:name", async (c) => {
       const name = c.req.param("name");
@@ -50,13 +59,19 @@ export function createApp(deps: AppDeps) {
       const body = await c.req.json().catch(() => ({}));
       return c.json(await runWalletTool(wallet, name as WalletToolName, body, "mcp"));
     });
+
+    // Remote MCP over Streamable HTTP, for hosted agents. Stateless, so there is no stream to GET or session to DELETE.
+    app.post("/mcp", (c) => handleMcpRequest(wallet, c.req.raw));
+    app.on(["GET", "DELETE"], "/mcp", (c) =>
+      c.json({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed." }, id: null }, 405),
+    );
   }
 
   // ------------------------------------------------------------ owner routes
 
   if (deps.ownerPassword) {
     const owner = basicAuth({ username: "owner", password: deps.ownerPassword });
-    app.use("*", async (c, next) => (c.req.path.startsWith("/agent/v1/") ? next() : owner(c, next)));
+    app.use("*", async (c, next) => (c.req.path.startsWith("/agent/v1/") || c.req.path === "/mcp" ? next() : owner(c, next)));
   }
 
   app.get("/api/state", (c) =>

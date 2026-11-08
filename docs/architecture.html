@@ -468,13 +468,12 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
     </article>
 
     <article class="spec">
-      <div class="spec-head"><h3>MCP server</h3><span class="chip product">product</span><span class="path">src/mcp/main.ts</span></div>
+      <div class="spec-head"><h3>MCP server</h3><span class="chip product">product</span><span class="path">src/mcp/</span></div>
       <dl>
         <dt>Role</dt><dd>Lets any agent the person already uses, such as Claude Desktop, use the wallet. This is how Remit becomes the wallet for your agent.</dd>
-        <dt>Inputs</dt><dd>MCP tool calls over stdio: <code>get_history</code>, <code>get_balance</code>, <code>request_budget</code>, <code>request_topup</code>, <code>spend</code>. Configured with <code>REMIT_URL</code> and <code>REMIT_AGENT_TOKEN</code>.</dd>
+        <dt>Inputs</dt><dd>MCP tool calls: <code>get_history</code>, <code>get_balance</code>, <code>request_budget</code>, <code>request_topup</code>, <code>spend</code>. Remote: Streamable HTTP at <code>/mcp</code> on the API server with <code>Authorization: Bearer REMIT_AGENT_TOKEN</code>. Local: stdio, configured with <code>REMIT_URL</code> and <code>REMIT_AGENT_TOKEN</code>.</dd>
         <dt>Outputs</dt><dd>The tool's JSON result as text, or an error result.</dd>
-        <dt>How it works</dt><dd>It registers the same schemas as the tool contract and forwards each call to <code>POST /agent/v1/tools/:name</code>. It holds no PayPal keys and no database, so a compromised agent machine can't reach money directly.</dd>
-        <dt>Next</dt><dd class="next">A remote (HTTP) MCP transport so hosted agents can connect.</dd>
+        <dt>How it works</dt><dd>Both transports register the tools in one place (<code>src/mcp/server.ts</code>) from the tool contract's schemas. The remote endpoint is stateless and calls the wallet in process, behind the same token check as the agent API. The stdio server forwards each call to <code>POST /agent/v1/tools/:name</code>; it holds no PayPal keys and no database, so a compromised agent machine can't reach money directly.</dd>
       </dl>
     </article>
 

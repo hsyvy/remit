@@ -29,7 +29,7 @@ Every key in `.env` is optional. Without a key, that part runs in a stand-in mod
 | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | Real PayPal sandbox: you approve on PayPal's page | A local page, clearly labelled "Simulated checkout", stands in for PayPal and enforces the same limits |
 | `ANTHROPIC_API_KEY` | The Claude agent chats, plans and shops; a second Claude call reviews each purchase | Chat is off. The wallet, approvals and MCP still work |
 | `CHANNEL3_API_KEY` | Live products and prices from Channel3 | A small built-in demo catalog |
-| `REMIT_AGENT_TOKEN` | The agent API (and so the MCP server) is on | Agent API off |
+| `REMIT_AGENT_TOKEN` | The agent API and the remote MCP endpoint at `/mcp` are on, and the stdio MCP server can connect | Agent API and MCP off |
 | `REMIT_INR_RATE` (default 88) | Next to each dollar amount, the app and agent also show approximately what it is in rupees. PayPal doesn't accept INR (`CURRENCY_NOT_SUPPORTED`), so holds and captures stay in USD | Set it to 0 to show dollars only |
 | `REMIT_OWNER_PASSWORD` | The web app asks for a password (user `owner`) | Open. Allowed only when `APP_URL` is localhost: with a public `APP_URL` the server refuses to start |
 
@@ -54,7 +54,7 @@ It stays on PayPal's **sandbox**: no real money moves. With PayPal keys set, own
 
 Check it: `https://<name>.onrender.com/healthz` returns `{"ok":true}` without a password. Render uses the same route as its health check.
 
-To point the MCP server at the hosted wallet, set `REMIT_URL` to the public address and `REMIT_AGENT_TOKEN` to the value under the service's **Environment** tab.
+Hosted agents connect to `https://<name>.onrender.com/mcp` with `REMIT_AGENT_TOKEN` (the value under the service's **Environment** tab) as a bearer token; see [MCP](#use-the-wallet-from-another-agent-mcp) below. To point the stdio MCP server at the hosted wallet instead, set `REMIT_URL` to the public address and `REMIT_AGENT_TOKEN` to the same value.
 
 To run the same container yourself:
 
@@ -82,9 +82,34 @@ Store checkout is simulated: a purchase takes the money from your PayPal hold, b
 
 ## Use the wallet from another agent (MCP)
 
-The MCP server exposes `get_history`, `get_balance`, `request_budget`, `request_topup` and `spend`. The tool descriptions carry the planning rules: read the history first, cite evidence in every line's reason, add about a 10% buffer, default to a 7-day period, and ask with `request_topup` after a refusal. It holds no PayPal keys; it calls the running wallet with `REMIT_AGENT_TOKEN`.
+Remit exposes `get_history`, `get_balance`, `request_budget`, `request_topup` and `spend` over MCP. The tool descriptions carry the planning rules: read the history first, cite evidence in every line's reason, add about a 10% buffer, default to a 7-day period, and ask with `request_topup` after a refusal. Both ways in need `REMIT_AGENT_TOKEN` set on the wallet service, and both end in the same wallet code with the same limits.
 
-For Claude Desktop, add to `claude_desktop_config.json` (use your own absolute path and token):
+### Remote (hosted agents)
+
+The wallet service serves MCP over Streamable HTTP at `${APP_URL}/mcp`, e.g. `http://localhost:3000/mcp` or `https://<name>.onrender.com/mcp`. Send the agent token as a bearer token:
+
+```
+Authorization: Bearer <REMIT_AGENT_TOKEN>
+```
+
+Without the token it answers 401. It is stateless (no session id, plain JSON responses), so it works behind any proxy. Point any MCP client that supports Streamable HTTP and custom headers at that URL, for example Claude Code:
+
+```bash
+claude mcp add --transport http remit http://localhost:3000/mcp --header "Authorization: Bearer $REMIT_AGENT_TOKEN"
+```
+
+To try it by hand against a local wallet:
+
+```bash
+curl -s http://localhost:3000/mcp \
+  -H "Authorization: Bearer $REMIT_AGENT_TOKEN" \
+  -H "Content-Type: application/json" -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_balance","arguments":{}}}'
+```
+
+### Local (stdio)
+
+For clients that start MCP servers as a local process, `src/mcp/main.ts` speaks MCP over stdio. It holds no PayPal keys; it forwards each call to the running wallet's agent API with `REMIT_AGENT_TOKEN`. For Claude Desktop, add to `claude_desktop_config.json` (use your own absolute path and token):
 
 ```json
 {
@@ -113,10 +138,10 @@ npm run sandbox-check
 | `src/wallet/` | Money rules, the five agent tools, the purpose check |
 | `src/paypal/` | Orders and Payments REST client, and the local simulator |
 | `src/demo/` | Demo only: the built-in Claude shopping agent, and Channel3 search with the demo catalog |
-| `src/server/` | Web app API, PayPal return handling, agent API |
-| `src/mcp/` | The MCP server |
+| `src/server/` | Web app API, PayPal return handling, agent API, remote MCP at `/mcp` |
+| `src/mcp/` | The MCP tool registration shared by both transports, the remote handler, and the stdio server |
 | `web/` | The owner's web app (no build step) |
-| `test/` | Wallet tests against the simulated PayPal: `npm test` |
+| `test/` | Wallet, server route, MCP and PayPal REST client tests, all offline: `npm test` |
 
 ## License
 
