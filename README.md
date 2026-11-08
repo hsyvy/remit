@@ -75,7 +75,7 @@ It stays on PayPal's **sandbox**: no real money moves. With PayPal keys set, own
 
 Check it: `https://<name>.onrender.com/healthz` returns `{"ok":true}` without a password. Render uses the same route as its health check.
 
-Hosted agents connect to `https://<name>.onrender.com/mcp` with `REMIT_AGENT_TOKEN` (the value under the service's **Environment** tab) as a bearer token; see [MCP](#use-the-wallet-from-another-agent-mcp) below. To point the stdio MCP server at the hosted wallet instead, set `REMIT_URL` to the public address and `REMIT_AGENT_TOKEN` to the same value.
+Hosted agents connect to `https://<name>.onrender.com/mcp` with their own token from the Agents page, or with `REMIT_AGENT_TOKEN` (the value under the service's **Environment** tab), as a bearer token; see [MCP](#use-the-wallet-from-another-agent-mcp) below. To point the stdio MCP server at the hosted wallet instead, set `REMIT_URL` to the public address and `REMIT_AGENT_TOKEN` to the same value.
 
 ### PayPal webhooks
 

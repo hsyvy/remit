@@ -155,7 +155,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
             <!-- row 3 -->
             <rect x="20" y="232" width="700" height="56" rx="10" fill="var(--sheet)" stroke="currentColor" stroke-width="1.2"/>
             <text x="370" y="256" text-anchor="middle" font-size="14" font-weight="600">API server</text>
-            <text x="370" y="274" text-anchor="middle" font-size="11.5" fill="var(--ink-soft)">src/server · owner routes /api · PayPal return /paypal/return · agent API /agent/v1 (token)</text>
+            <text x="370" y="274" text-anchor="middle" font-size="11.5" fill="var(--ink-soft)">src/server · /api · /paypal/return · /paypal/webhook · /link · /agent/v1 and /mcp (agent token)</text>
 
             <!-- row 4 -->
             <rect x="260" y="328" width="200" height="56" rx="10" fill="var(--sheet)" stroke="var(--accent)" stroke-width="1.6"/>
@@ -227,9 +227,9 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
           <!-- arrow labels -->
           <g font-family="IBM Plex Sans, system-ui, sans-serif" font-size="11" fill="var(--ink-soft)">
             <text x="128" y="120">reviews, approves</text>
-            <text x="368" y="120">tool calls (stdio)</text>
+            <text x="368" y="120">stdio, or HTTP to /mcp</text>
             <text x="128" y="216">fetch /api/*</text>
-            <text x="368" y="216">HTTP + bearer token</text>
+            <text x="368" y="216">HTTP + agent token</text>
             <text x="500" y="14" text-anchor="middle">owner approves the hold on PayPal</text>
             <text x="888" y="180">redirects to</text>
             <text x="888" y="194">/paypal/return</text>
@@ -251,7 +251,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
           <text x="465" y="446" font-family="IBM Plex Sans, system-ui, sans-serif" font-size="10" fill="var(--ink-soft)">asks</text>
         </svg>
       </div>
-      <figcaption>Two doors lead into the money: the agent tool contract (for agents) and the owner routes (for the person). Every agent, whether yours over MCP or the built-in demo agent, goes through the same five tools, so the same rules apply to all of them. Only the owner's PayPal approval creates money an agent can spend.</figcaption>
+      <figcaption>Two doors lead into the money: the agent tool contract (for agents) and the owner routes (for the person). Every agent, whether yours over MCP or the built-in demo agent, goes through the same five tools, so the same rules apply to all of them. Only the owner's PayPal approval creates money an agent can spend. Not drawn: PayPal also posts webhooks to <code>/paypal/webhook</code>, and the notifier sends notices with signed <code>/link</code> URLs to the owner's phone.</figcaption>
     </figure>
   </section>
 
@@ -339,7 +339,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <li>The agent calls <code>request_budget</code> with dates, lines (key, label, amount, reason) and an optional buffer.</li>
         <li>The wallet checks the rules (1 to 12 lines, period of 28 days or less, under <code>REMIT_MAX_REQUEST</code>) and saves a <code>pending</code> request and a <code>pending</code> period. It returns a review link.</li>
         <li>The owner opens the request card, can change or remove lines, and clicks Approve. The wallet creates a PayPal order with intent AUTHORIZE and the request moves to <code>checkout</code>.</li>
-        <li>The owner approves on PayPal's page. PayPal redirects to <code>/paypal/return</code>.</li>
+        <li>The owner approves on PayPal's page, opened from the request card or from the Approve link in a phone notice. PayPal redirects to <code>/paypal/return</code> and, when webhooks are on, also sends <code>CHECKOUT.ORDER.APPROVED</code> to <code>/paypal/webhook</code>. Whichever arrives first finishes the approval; the other finds it already done.</li>
         <li>The wallet authorizes the order. Only a successful authorization counts as approval, so visiting the return link by hand does nothing. It then creates the hold and one envelope per approved line, and the period opens.</li>
         <li>If the owner comes back another way (PayPal refused the card, they cancelled, or they closed the tab), the wallet asks PayPal for the order status when they return or open the app. An approved order is finished as above. Otherwise the request stays in <code>checkout</code> and its card says PayPal didn't approve it; Approve sends a new order.</li>
       </ol>
@@ -347,7 +347,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
     <div class="layer">
       <h3>Spend</h3>
       <ol class="flow">
-        <li>The agent calls <code>spend</code> with line, amount, title, store and its reasoning.</li>
+        <li>The agent calls <code>spend</code> with line, amount, title, store and its reasoning. Its token says which agent it is: a paused or revoked agent is refused, and so is a line another agent asked for.</li>
         <li>The wallet takes the next turn in its one-at-a-time queue, so two purchases can't both pass the checks.</li>
         <li>Line rule: take from the line first, then the buffer, never from another line. Total rule: never more than what is still held. If either fails, a <code>refused</code> purchase is recorded and the agent gets the reason.</li>
         <li>The purchase is saved as <code>pending</code>, then the purpose check judges whether it fits the line's reason. A rejection, or a purpose check that can't be reached, refuses the purchase.</li>
@@ -379,7 +379,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <dt>Inputs</dt><dd><ul>
           <li>From agents, through the tool contract: <code>requestBudget</code>, <code>requestTopup</code>, <code>spend</code>, <code>balance</code>, <code>history</code></li>
           <li>From the owner, through the API: <code>checkout(requestId, edits)</code>, <code>decline</code>, <code>closePeriod</code>, <code>refund</code>, <code>moveBetweenLines(fromKey, toKey, cents)</code>, <code>overridePurchase(purchaseId)</code></li>
-          <li>From PayPal's redirect: <code>completeApproval(requestId, orderId)</code></li>
+          <li>From PayPal's redirect: <code>completeApproval(requestId, orderId)</code>. From verified webhooks: <code>approvedOnPayPal</code>, <code>notApprovedOnPayPal</code>, <code>voidedOnPayPal</code>, <code>captureNewsFromPayPal</code></li>
           <li>When the owner opens the app or returns from PayPal without approving: <code>checkApprovals({ requestId?, force? })</code></li>
           <li>From the timer: <code>closeIfEnded()</code></li>
         </ul></dd>
@@ -387,10 +387,11 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
           <li>Results with amounts in cents (line left, total left, capture IDs, the purpose check's verdict)</li>
           <li>A <code>WalletError</code> with a code and a plain message the agent can act on, such as <code>OVER_LINE</code></li>
           <li>Rows in the database and events in the activity log; calls to the PayPal gateway and the purpose check</li>
+          <li>Each event to <code>onEvent</code>, which the notifier listens to</li>
         </ul></dd>
         <dt>How it works</dt><dd>Money-changing calls run one at a time through a promise queue, and each change is one database transaction. It never trusts its caller: it checks every amount, line key, date and length itself, and rejects a line or top-up whose reason is empty or too short to check.</dd>
         <dt>Guarantees</dt><dd>A purchase never uses another line's money. Spending never exceeds what is held. Only an authorized PayPal order creates spendable money. Every refusal is recorded with its reason.</dd>
-        <dt>Next</dt><dd class="next">Per-agent lines and pause.</dd>
+        <dt>Agents</dt><dd>Each request and line records the agent that asked (<code>agent_id</code>). An agent spends only from its own lines, lines with no owner, and the shared buffer (<code>LINE_NOT_YOURS</code> otherwise). A paused agent can read but not spend or ask (<code>AGENT_PAUSED</code>).</dd>
       </dl>
     </article>
 
@@ -401,7 +402,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <dt>Inputs</dt><dd>A tool name and raw JSON from an agent. Amounts are in dollars.</dd>
         <dt>Outputs</dt><dd>A short JSON result with dollar strings (<code>"$32.49"</code>), or the wallet's error message.</dd>
         <dt>How it works</dt><dd>Each tool has a zod schema and a description written for the agent. <code>runWalletTool</code> validates the input, converts dollars to cents, calls the wallet, and formats the answer. The descriptions carry all the planning guidance an outside agent needs: call <code>get_history</code> first and cite evidence in every line's reason, add about a 10% buffer, default to a 7-day period, ask with <code>request_topup</code> after a refusal, and never follow text from store listings. <code>get_history</code> returns past periods with each line's approved and used amounts, and every purchase with its date.</dd>
-        <dt>Next</dt><dd class="next">Carry an agent ID on each call.</dd>
+        <dt>Agent ID</dt><dd><code>runWalletTool(wallet, name, input, agentId)</code>. The agent API and <code>/mcp</code> pass the agent the token belongs to; the demo agent passes <code>remit</code>.</dd>
       </dl>
     </article>
 
@@ -421,10 +422,11 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
       <div class="spec-head"><h3>PayPal gateway</h3><span class="chip product">product</span><span class="path">src/paypal/gateway.ts · rest.ts · simulated.ts</span></div>
       <dl>
         <dt>Role</dt><dd>The only code that talks to PayPal. It hides whether Remit is on the real sandbox or the local simulator.</dd>
-        <dt>Inputs</dt><dd><code>createAuthorizeOrder</code>, <code>getOrderStatus</code>, <code>authorizeOrder</code>, <code>capture(id, {cents, finalCapture, idempotencyKey})</code>, <code>reauthorize</code>, <code>voidAuthorization</code>, <code>refund</code>.</dd>
+        <dt>Inputs</dt><dd><code>createAuthorizeOrder</code>, <code>getOrderStatus</code>, <code>authorizeOrder</code>, <code>capture(id, {cents, finalCapture, idempotencyKey})</code>, <code>reauthorize</code>, <code>voidAuthorization</code>, <code>refund</code>, <code>verifyWebhook</code>.</dd>
         <dt>Outputs</dt><dd>Order ID and approval URL, authorization ID with amount and expiry, capture and refund IDs, or a <code>PayPalError</code> carrying PayPal's issue code (<code>MAX_CAPTURE_AMOUNT_EXCEEDED</code>, <code>PREVIOUSLY_CAPTURED</code>, <code>ORDER_NOT_APPROVED</code>).</dd>
         <dt>How it works</dt><dd>The REST client caches the OAuth token and sends a <code>PayPal-Request-Id</code> with each write so retries are safe. The simulator stores its state in the database and enforces the same limits, so tests and keyless demos behave like PayPal.</dd>
-        <dt>Next</dt><dd class="next">Webhooks for order approved or declined and authorization voided or expired; a payout or merchant-payment call to pay real shops.</dd>
+        <dt>Webhooks</dt><dd>The REST client verifies each event with <code>/v1/notifications/verify-webhook-signature</code> and <code>PAYPAL_WEBHOOK_ID</code>. The simulator signs its own events and delivers them to the route in process, so keyless demos take the same path.</dd>
+        <dt>Next</dt><dd class="next">A payout or merchant-payment call to pay real shops.</dd>
       </dl>
     </article>
 
@@ -435,7 +437,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <dt>Inputs</dt><dd>Writes from the wallet (and the simulator's own table).</dd>
         <dt>Outputs</dt><dd>Reads for balances, history, the owner's state view and the chat transcript.</dd>
         <dt>How it works</dt><dd>SQLite through <code>node:sqlite</code> in WAL mode. All money is integer cents. Multi-row changes use <code>BEGIN IMMEDIATE</code> transactions. The tables are listed under Data model below.</dd>
-        <dt>Next</dt><dd class="next">Agents table; move to Postgres when hosted for more than one owner.</dd>
+        <dt>Next</dt><dd class="next">Move to Postgres when hosted for more than one owner.</dd>
       </dl>
     </article>
 
@@ -445,7 +447,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <dt>Role</dt><dd>Closes a budget period once its end date passes, so leftover money is released without anyone clicking.</dd>
         <dt>Inputs</dt><dd>Time. It runs every 60 seconds.</dd>
         <dt>Outputs</dt><dd>A call to <code>wallet.closeIfEnded()</code>.</dd>
-        <dt>Next</dt><dd class="next">Also start next week's planning: send the owner the weekly recap with the proposed next budget.</dd>
+        <dt>Recap</dt><dd>Closing a period emits an event; the notifier turns it into the weekly recap (spent, refused, released) with a link to plan the next week.</dd>
       </dl>
     </article>
   </section>
@@ -461,18 +463,17 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
       <div class="spec-head"><h3>API server</h3><span class="chip product">product</span><span class="path">src/server/app.ts</span></div>
       <dl>
         <dt>Role</dt><dd>One HTTP server with three audiences: the owner's web app, PayPal's redirect, and agents.</dd>
-        <dt>Inputs</dt><dd>HTTP requests. Agent routes need <code>Authorization: Bearer REMIT_AGENT_TOKEN</code>. Owner routes need a password when <code>REMIT_OWNER_PASSWORD</code> is set.</dd>
+        <dt>Inputs</dt><dd>HTTP requests. Agent routes (<code>/agent/v1/*</code> and <code>/mcp</code>) need <code>Authorization: Bearer</code> with an agent's token from the Agents page, or the shared <code>REMIT_AGENT_TOKEN</code> (the built-in "Shared token" agent). Owner routes need a password when <code>REMIT_OWNER_PASSWORD</code> is set. <code>/paypal/webhook</code> and <code>/link/*</code> sit in front of the password: webhooks are verified with PayPal, and links are signed.</dd>
         <dt>Outputs</dt><dd>JSON. Errors are mapped to clear responses: wallet errors keep their code, PayPal errors become 502 with PayPal's issue, bad input becomes 400.</dd>
         <dt>How it works</dt><dd>Hono on Node. Routes are thin and call the wallet. The routes are listed under Contracts below.</dd>
-        <dt>Next</dt><dd class="next">A webhook route, so PayPal reports declines and approvals without the app asking; one token per agent.</dd>
-      </dl>
+              </dl>
     </article>
 
     <article class="spec">
       <div class="spec-head"><h3>MCP server</h3><span class="chip product">product</span><span class="path">src/mcp/</span></div>
       <dl>
         <dt>Role</dt><dd>Lets any agent the person already uses, such as Claude Desktop, use the wallet. This is how Remit becomes the wallet for your agent.</dd>
-        <dt>Inputs</dt><dd>MCP tool calls: <code>get_history</code>, <code>get_balance</code>, <code>request_budget</code>, <code>request_topup</code>, <code>spend</code>. Remote: Streamable HTTP at <code>/mcp</code> on the API server with <code>Authorization: Bearer REMIT_AGENT_TOKEN</code>. Local: stdio, configured with <code>REMIT_URL</code> and <code>REMIT_AGENT_TOKEN</code>.</dd>
+        <dt>Inputs</dt><dd>MCP tool calls: <code>get_history</code>, <code>get_balance</code>, <code>request_budget</code>, <code>request_topup</code>, <code>spend</code>. Remote: Streamable HTTP at <code>/mcp</code> on the API server with <code>Authorization: Bearer</code> and an agent token. Local: stdio, configured with <code>REMIT_URL</code> and <code>REMIT_AGENT_TOKEN</code> (an agent token or the shared one).</dd>
         <dt>Outputs</dt><dd>The tool's JSON result as text, or an error result.</dd>
         <dt>How it works</dt><dd>Both transports register the tools in one place (<code>src/mcp/server.ts</code>) from the tool contract's schemas. The remote endpoint is stateless and calls the wallet in process, behind the same token check as the agent API. The stdio server forwards each call to <code>POST /agent/v1/tools/:name</code>; it holds no PayPal keys and no database, so a compromised agent machine can't reach money directly.</dd>
       </dl>
@@ -485,7 +486,37 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <dt>Inputs</dt><dd><code>GET /api/state</code>, polled every 5 seconds (every 1.2 seconds while the agent works); the owner's clicks and edits.</dd>
         <dt>Outputs</dt><dd>Calls to the owner routes, including one <code>POST /api/paypal/check</code> when it opens (not on each poll); a redirect to PayPal's approval page.</dd>
         <dt>How it works</dt><dd>Plain JavaScript with no build step. Parts: mode chips, balance meter, request cards, plan lines, ledger with reasons, activity feed, and the demo chat. Shows an approximate rupee figure from <code>REMIT_INR_RATE</code>.</dd>
-        <dt>Next</dt><dd class="next">Approvals as phone notifications; a decision card with what happens if you say no; a pause button per agent.</dd>
+        <dt>Also</dt><dd>The Agents view: add an agent (its token is shown once), pause, resume, revoke, and each agent's spending this period. The ledger's Pay anyway card, and move rows with their own filter.</dd>
+      </dl>
+    </article>
+
+    <article class="spec">
+      <div class="spec-head"><h3>Agent registry</h3><span class="chip product">product</span><span class="path">src/wallet/agents.ts</span></div>
+      <dl>
+        <dt>Role</dt><dd>Knows which agent is calling, so each one has its own lines, its own pause switch and its own place in the ledger.</dd>
+        <dt>Inputs</dt><dd>The owner's create, pause, resume and revoke; a bearer token on each agent request.</dd>
+        <dt>Outputs</dt><dd>A new token (<code>remit_agt_…</code>, shown once); the agent a token belongs to, or none.</dd>
+        <dt>How it works</dt><dd>Only a sha256 hash of each token is stored. Two built-ins: <code>remit</code> (the demo agent) and <code>default</code> (the shared <code>REMIT_AGENT_TOKEN</code>; purchases recorded as <code>mcp</code> before the registry belong to it). Revoking clears the hash for good; built-ins can only be paused.</dd>
+      </dl>
+    </article>
+
+    <article class="spec">
+      <div class="spec-head"><h3>PayPal webhooks</h3><span class="chip product">product</span><span class="path">src/wallet/webhooks.ts</span></div>
+      <dl>
+        <dt>Role</dt><dd>Hears from PayPal directly, so approvals, declines and voids land even when the owner never comes back to the app.</dd>
+        <dt>Inputs</dt><dd><code>POST /paypal/webhook</code>: <code>CHECKOUT.ORDER.APPROVED</code>, <code>.DECLINED</code>, <code>.VOIDED</code>, <code>PAYMENT.AUTHORIZATION.VOIDED</code>, <code>PAYMENT.CAPTURE.DECLINED</code>, <code>.DENIED</code>, <code>.REFUNDED</code>, <code>.REVERSED</code>.</dd>
+        <dt>Outputs</dt><dd>A wallet update, and a row in <code>paypal_events</code> saying what was done. 400 for a signature that doesn't verify.</dd>
+        <dt>How it works</dt><dd>Each event is verified through the gateway, then recorded once by its ID, so PayPal's retries are ignored. Remit's own actions coming back (its void at close-out, its own captures) change nothing. Without <code>PAYPAL_WEBHOOK_ID</code> on the real sandbox the route answers 404 and the approval status watcher still covers approvals.</dd>
+      </dl>
+    </article>
+
+    <article class="spec">
+      <div class="spec-head"><h3>Notifier</h3><span class="chip product">product</span><span class="path">src/notify/</span></div>
+      <dl>
+        <dt>Role</dt><dd>Brings decisions to the owner's phone: a request waiting, a refused purchase, and the weekly recap.</dd>
+        <dt>Inputs</dt><dd>Wallet events through <code>onEvent</code>.</dd>
+        <dt>Outputs</dt><dd>A notice (<code>kind</code>, <code>title</code>, <code>body</code>, <code>url</code>, <code>actions</code>) to ntfy (<code>NTFY_TOPIC</code>) or a JSON webhook (<code>NOTIFY_WEBHOOK_URL</code>), or the log when neither is set.</dd>
+        <dt>How it works</dt><dd>Request notices carry one-tap Approve and Decline links of the form <code>action.ref.expiry.HMAC</code>, signed with <code>REMIT_LINK_SECRET</code>. Each link is signed for one action, so an approve link can't be turned into a decline. <code>GET /link/:code</code> shows a confirm page; <code>POST</code> acts (approve goes on to PayPal), and <code>/back</code> and <code>/cancel</code> are PayPal's return addresses for links.</dd>
       </dl>
     </article>
   </section>
@@ -534,6 +565,8 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <tbody>
           <tr><td>PayPal REST (sandbox)</td><td>PayPal gateway</td><td>Orders v2: create (AUTHORIZE), get, authorize. Payments v2: capture, reauthorize, void, refund</td><td>Local simulator with a "Simulated checkout" page that can also act out a declined card</td></tr>
           <tr><td>PayPal approval page</td><td>The owner, by redirect</td><td>Owner signs in as the buyer and approves; PayPal returns to <code>/paypal/return</code></td><td>Simulated approval page</td></tr>
+          <tr><td>PayPal webhooks</td><td>PayPal webhooks component</td><td>PayPal posts events; Remit verifies each with <code>verify-webhook-signature</code></td><td>The simulator sends its own, in process</td></tr>
+          <tr><td>ntfy or a webhook</td><td>Notifier</td><td>One POST per notice</td><td>Notices go to the log only</td></tr>
           <tr><td>Claude API</td><td>Purpose check; demo agent</td><td><code>messages.parse</code> with a structured verdict; <code>beta.messages.create</code> tool loop</td><td>Chat off; purpose check skipped</td></tr>
           <tr><td>Channel3</td><td>Product search (demo)</td><td><code>POST /v1/search</code></td><td>Built-in catalog</td></tr>
         </tbody>
@@ -550,14 +583,16 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <thead><tr><th scope="col">Table</th><th scope="col">Holds</th><th scope="col">Key fields</th></tr></thead>
         <tbody>
           <tr><td><code>periods</code></td><td>One budget period</td><td><code>starts_on</code>, <code>ends_on</code>, <code>status</code> (pending, open, closed, declined), <code>source</code> (live or seed)</td></tr>
-          <tr><td><code>requests</code></td><td>A budget or top-up request</td><td><code>kind</code>, <code>status</code>, <code>reason</code>, <code>paypal_order_id</code>, <code>approval_check</code> (JSON: what PayPal last said about an order not yet approved)</td></tr>
+          <tr><td><code>requests</code></td><td>A budget or top-up request</td><td><code>kind</code>, <code>status</code>, <code>reason</code>, <code>paypal_order_id</code>, <code>approval_check</code> (JSON: what PayPal last said about an order not yet approved), <code>agent_id</code></td></tr>
           <tr><td><code>request_lines</code></td><td>Lines as asked and as approved</td><td><code>line_key</code>, <code>reason</code>, <code>amount_cents</code> (asked), <code>approved_cents</code> (sent to PayPal; 0 = removed)</td></tr>
-          <tr><td><code>envelopes</code></td><td>An approved line and its limit</td><td><code>line_key</code>, <code>label</code>, <code>reason</code>, <code>limit_cents</code> (top-ups add to it)</td></tr>
+          <tr><td><code>envelopes</code></td><td>An approved line and its limit</td><td><code>line_key</code>, <code>label</code>, <code>reason</code>, <code>limit_cents</code> (top-ups add to it), <code>agent_id</code> (empty for the buffer and for lines from before agents)</td></tr>
           <tr><td><code>holds</code></td><td>A PayPal authorization</td><td><code>authorization_id</code>, <code>amount_cents</code>, <code>captured_cents</code>, <code>status</code>, <code>honor_until</code>, <code>expires_at</code>, <code>release_note</code></td></tr>
-          <tr><td><code>purchases</code></td><td>Every attempt, paid or refused</td><td><code>status</code>, <code>amount_cents</code>, <code>from_line_cents</code>, <code>from_buffer_cents</code>, <code>reasoning</code>, <code>review</code> (JSON), <code>refusal</code>, <code>agent</code></td></tr>
+          <tr><td><code>purchases</code></td><td>Every attempt, paid or refused</td><td><code>status</code>, <code>amount_cents</code>, <code>from_line_cents</code>, <code>from_buffer_cents</code>, <code>reasoning</code>, <code>review</code> (JSON), <code>refusal</code>, <code>agent</code>, <code>owner_override</code> (JSON, set by Pay anyway)</td></tr>
           <tr><td><code>captures</code></td><td>The PayPal charges behind a purchase</td><td><code>hold_id</code>, <code>capture_id</code>, <code>amount_cents</code>, <code>final</code>, <code>refund_id</code>, <code>from_line_cents</code> and <code>from_buffer_cents</code> (the split; empty before funding was tracked)</td></tr>
           <tr><td><code>line_funding</code></td><td>How much of each line's limit each hold funded</td><td><code>envelope_id</code>, <code>hold_id</code>, <code>cents</code>. A line with less recorded than its limit (rows from before this table) counts the rest as the budget hold's</td></tr>
           <tr><td><code>line_moves</code></td><td>The owner moving money between lines</td><td><code>period_id</code>, <code>from_line_key</code>, <code>to_line_key</code>, <code>cents</code>, <code>who</code>, <code>created_at</code></td></tr>
+          <tr><td><code>agents</code></td><td>Agents that can call the wallet</td><td><code>name</code>, <code>token_hash</code> (sha256), <code>status</code> (active, paused, revoked), <code>builtin</code>, <code>last_used_at</code></td></tr>
+          <tr><td><code>paypal_events</code></td><td>Webhook events received</td><td><code>id</code> (PayPal's, so retries are ignored), <code>type</code>, <code>resource_id</code>, <code>action</code></td></tr>
           <tr><td><code>events</code></td><td>The activity feed</td><td><code>type</code>, <code>message</code></td></tr>
           <tr><td><code>chat_messages</code></td><td>Demo agent transcript</td><td>Messages stored unchanged, including thinking blocks</td></tr>
           <tr><td><code>sim_paypal</code></td><td>Simulator state</td><td>Orders, authorizations and captures as JSON</td></tr>
@@ -589,7 +624,9 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <tbody>
           <tr><td><code>OVER_LINE</code></td><td>More than the line plus buffer allows</td><td>Tell the owner, who can move money between lines; or <code>request_topup</code> if still worth it</td></tr>
           <tr><td><code>NO_SUCH_LINE</code></td><td>No approved line with that key</td><td>Use an approved line or ask for a new one</td></tr>
-          <tr><td><code>REVIEW_REJECTED</code></td><td>The purpose check says the purchase doesn't fit the line</td><td>Don't retry; explain to the owner</td></tr>
+          <tr><td><code>LINE_NOT_YOURS</code></td><td>The line belongs to another agent</td><td>Ask for a line of your own with <code>request_topup</code></td></tr>
+          <tr><td><code>AGENT_PAUSED</code></td><td>The owner paused this agent</td><td>Read only until the owner resumes it</td></tr>
+          <tr><td><code>REVIEW_REJECTED</code></td><td>The purpose check says the purchase doesn't fit the line</td><td>Don't retry; explain to the owner, who can choose Pay anyway</td></tr>
           <tr><td><code>OVER_BALANCE</code></td><td>More than is still held</td><td><code>request_topup</code></td></tr>
           <tr><td><code>PERIOD_ENDED</code>, <code>PERIOD_OPEN</code>, <code>REQUEST_PENDING</code></td><td>Wrong time for this call</td><td>Wait or ask for the next budget</td></tr>
           <tr><td><code>TOO_LARGE</code>, <code>BAD_LINES</code>, <code>BAD_DATES</code>, <code>BAD_AMOUNT</code></td><td>Invalid request</td><td>Fix the input</td></tr>
@@ -609,10 +646,16 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
           <tr><td><code>POST /api/paypal/check</code></td><td>Owner app, on open</td><td>Ask PayPal about requests in checkout: finish approved ones, mark the rest as not approved</td></tr>
           <tr><td><code>POST /api/period/close</code></td><td>Owner</td><td>Close now and release holds</td></tr>
           <tr><td><code>POST /api/purchases/:id/refund</code></td><td>Owner</td><td>Refund a paid purchase to the owner</td></tr>
+          <tr><td><code>POST /api/purchases/:id/override</code></td><td>Owner</td><td>Pay anyway for a purchase the purpose check refused; line and total rules run again</td></tr>
+          <tr><td><code>GET /api/agents</code>, <code>POST /api/agents</code></td><td>Owner</td><td>List agents; add one and return its token once</td></tr>
+          <tr><td><code>POST /api/agents/:id/pause</code>, <code>/resume</code>, <code>/revoke</code></td><td>Owner</td><td>Pause, resume or revoke an agent</td></tr>
           <tr><td><code>POST /api/lines/move</code></td><td>Owner</td><td>Move unspent money between lines (<code>from</code>, <code>to</code>, <code>amountCents</code>); total unchanged, no PayPal call</td></tr>
           <tr><td><code>POST /api/chat</code>, <code>/api/chat/reset</code></td><td>Owner (demo)</td><td>Send a message to the demo agent (runs in the background) or start over</td></tr>
           <tr><td><code>GET /paypal/return</code>, <code>/paypal/cancel</code></td><td>PayPal redirect</td><td>Authorize and create the hold, or ask PayPal what happened and note it on the card</td></tr>
-          <tr><td><code>POST /agent/v1/tools/:name</code></td><td>Agents (token)</td><td>Run one wallet tool</td></tr>
+          <tr><td><code>POST /paypal/webhook</code></td><td>PayPal</td><td>Verified events: approvals, declines, voids, capture news</td></tr>
+          <tr><td><code>GET</code>, <code>POST /link/:code</code>, <code>/link/:code/back</code>, <code>/cancel</code></td><td>Owner, from a notice</td><td>Confirm page and action for a signed one-tap link; PayPal return for link approvals</td></tr>
+          <tr><td><code>POST /agent/v1/tools/:name</code></td><td>Agents (token)</td><td>Run one wallet tool as the token's agent</td></tr>
+          <tr><td><code>POST /mcp</code></td><td>Agents (token)</td><td>Remote MCP over Streamable HTTP, stateless</td></tr>
         </tbody>
       </table>
     </div>
@@ -624,7 +667,10 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <tbody>
           <tr><td><code>PAYPAL_CLIENT_ID</code>, <code>PAYPAL_CLIENT_SECRET</code></td><td>Real sandbox when both are set, simulator otherwise</td></tr>
           <tr><td><code>ANTHROPIC_API_KEY</code>, <code>REMIT_MODEL</code>, <code>REMIT_REVIEWER</code></td><td>Claude for the purpose check and demo agent; purpose check on or off</td></tr>
-          <tr><td><code>REMIT_AGENT_TOKEN</code></td><td>Turns the agent API (and so MCP) on</td></tr>
+          <tr><td><code>REMIT_AGENT_TOKEN</code></td><td>Optional shared agent token (the built-in "Shared token" agent). The agent API and <code>/mcp</code> are always on and also take tokens made on the Agents page</td></tr>
+          <tr><td><code>PAYPAL_WEBHOOK_ID</code></td><td>Verifies webhooks on the real sandbox; without it the route is off there</td></tr>
+          <tr><td><code>NTFY_TOPIC</code>, <code>NTFY_URL</code>, <code>NTFY_TOKEN</code>, <code>NOTIFY_WEBHOOK_URL</code></td><td>Where notices go</td></tr>
+          <tr><td><code>REMIT_LINK_SECRET</code></td><td>Signs one-tap links; a random one per start if unset, so old links stop working</td></tr>
           <tr><td><code>REMIT_MAX_REQUEST</code></td><td>Largest single request, in dollars (default 500)</td></tr>
           <tr><td><code>REMIT_INR_RATE</code></td><td>Rupees per dollar for display (default 88; 0 hides rupees)</td></tr>
           <tr><td><code>CHANNEL3_API_KEY</code></td><td>Live product search for the demo agent</td></tr>
@@ -644,19 +690,22 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
       <table>
         <thead><tr><th scope="col">Component</th><th scope="col">Role</th><th scope="col">Inputs → outputs</th><th scope="col">Changes</th></tr></thead>
         <tbody>
-          <tr><td><span class="chip product">built</span><br><strong>Approval status watcher</strong></td><td>Notice when PayPal declines or the owner abandons approval, and finish approvals whose redirect got lost</td><td>Requests in <code>checkout</code>, checked when the app opens and on <code>/paypal/cancel</code> (at most every 15 seconds per request) → order status from PayPal → <code>APPROVED</code> completes the approval; still waiting or <code>VOIDED</code> puts a "PayPal didn't approve this" message on the card, whose button retries</td><td>Built: <code>wallet.checkApprovals</code>, <code>requests.approval_check</code>, <code>POST /api/paypal/check</code>, the request card, and a "Simulate a declined card" button on the simulated page. Webhooks can replace the polling later.</td></tr>
-          <tr><td><span class="chip planned">planned</span><br><strong>Agent registry</strong></td><td>Give each connected agent its own allowance and pause</td><td>Owner adds an agent → token; each call carries the agent → lines scoped to that agent</td><td>Database (agents table), wallet, API auth, web app</td></tr>
+          <tr><td><span class="chip product">built</span><br><strong>Approval status watcher</strong></td><td>Notice when PayPal declines or the owner abandons approval, and finish approvals whose redirect got lost</td><td>Requests in <code>checkout</code>, checked when the app opens and on <code>/paypal/cancel</code> (at most every 15 seconds per request) → order status from PayPal → <code>APPROVED</code> completes the approval; still waiting or <code>VOIDED</code> puts a "PayPal didn't approve this" message on the card, whose button retries</td><td>Built: <code>wallet.checkApprovals</code>, <code>requests.approval_check</code>, <code>POST /api/paypal/check</code>, the request card, and a "Simulate a declined card" button on the simulated page. PayPal webhooks now cover the same cases when <code>PAYPAL_WEBHOOK_ID</code> is set; this stays as the fallback.</td></tr>
+          <tr><td><span class="chip product">built</span><br><strong>Agent registry</strong></td><td>Give each connected agent its own allowance and pause</td><td>Owner adds an agent → token; each call carries the agent → lines scoped to that agent</td><td>Built: <code>agents</code> table, <code>agent_id</code> on requests and lines, one token check for <code>/agent/v1</code> and <code>/mcp</code>, the Agents view</td></tr>
           <tr><td><span class="chip product">built</span><br><strong>Move between lines</strong></td><td>Fix most refusals without a new PayPal approval</td><td>Owner picks from, to and an amount on the plan lines card, or taps "Move money to this line" on a refusal → envelope limits change, total and holds unchanged, a <code>moved</code> event</td><td>Wallet (owner-only <code>moveBetweenLines</code>), <code>POST /api/lines/move</code>, web app, <code>OVER_LINE</code> message</td></tr>
-          <tr><td><span class="chip planned">planned</span><br><strong>Notifier</strong></td><td>Bring decisions to the owner's phone</td><td>New request, refusal or weekly recap → push or email with approve and decline links</td><td>New service; API server routes for one-tap links</td></tr>
-          <tr><td><span class="chip planned">planned</span><br><strong>PayPal webhooks</strong></td><td>Learn about approvals, declines, voids and expiry directly from PayPal</td><td>PayPal event → verified signature → wallet update</td><td>API server route, PayPal gateway, hosting with a public URL</td></tr>
+          <tr><td><span class="chip product">built</span><br><strong>Notifier</strong></td><td>Bring decisions to the owner's phone</td><td>New request, refusal or weekly recap → ntfy push or JSON webhook with signed approve and decline links</td><td>Built: <code>src/notify/</code>, the wallet's <code>onEvent</code>, <code>/link</code> routes. Not yet tried against ntfy.sh itself</td></tr>
+          <tr><td><span class="chip product">built</span><br><strong>PayPal webhooks</strong></td><td>Learn about approvals, declines, voids and expiry directly from PayPal</td><td>PayPal event → verified signature → wallet update</td><td>Built: <code>/paypal/webhook</code>, <code>paypal_events</code>, <code>verifyWebhook</code>. Tested with the simulator; needs a public URL and a registered webhook to try on the real sandbox</td></tr>
+          <tr><td><span class="chip product">built</span><br><strong>Remote MCP</strong></td><td>Let hosted agents use the wallet without a local process</td><td>MCP over Streamable HTTP at <code>/mcp</code> → the same five tools</td><td>Built: <code>src/mcp/http.ts</code>, shared tool registration in <code>src/mcp/server.ts</code></td></tr>
+          <tr><td><span class="chip product">built</span><br><strong>Pay anyway</strong></td><td>Let the owner overrule the purpose check</td><td>A refused purchase → owner confirms → line and total rules again → capture</td><td>Built: <code>overridePurchase</code>, <code>owner_override</code>, the decision card, <code>npm run purpose-eval</code></td></tr>
           <tr><td><span class="chip planned">planned</span><br><strong>Merchant payment</strong></td><td>Pay the real shop instead of Remit's own sandbox account</td><td>Captured purchase → payment to the merchant or order with a PayPal merchant</td><td>PayPal gateway, purchases table</td></tr>
           <tr><td><span class="chip planned">planned</span><br><strong>AP2 mandate adapter</strong></td><td>Enforce budgets recorded as AP2 mandates</td><td>Mandate in → request lines; purchases checked against it</td><td>Tool contract, wallet</td></tr>
+          <tr><td><span class="chip planned">planned</span><br><strong>Postgres</strong></td><td>Host Remit for more than one owner</td><td>Same tables, a pooled connection</td><td>Database layer; the one-at-a-time queue becomes row locks</td></tr>
         </tbody>
       </table>
     </div>
   </section>
 
   <footer class="small muted">
-    <p>Written from the code on main (merge 8197fec). Source: github.com/hsyvy/remit. Paths are relative to the repository root.</p>
+    <p>Written from the code on branch claude/integrate-gaps. Source: github.com/hsyvy/remit. Paths are relative to the repository root.</p>
   </footer>
 </main>
