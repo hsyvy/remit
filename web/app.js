@@ -377,6 +377,8 @@ const EVENT_STAMP = {
   approved: ["approved", "Approved"],
   closed: ["returned", "Returned"],
   refunded: ["returned", "Returned"],
+  overridden: ["paid", "Paid anyway"],
+  override_refused: ["refused", "Refused"],
 };
 
 function renderEvents() {
@@ -547,10 +549,14 @@ const FILTERS = [
   ["paid", "Paid", (p) => p.status === "captured"],
   ["refused", "Refused", (p) => p.status === "refused" || p.status === "failed"],
   ["refunded", "Refunded", (p) => p.status === "refunded"],
+  ["override", "Paid anyway", (p) => Boolean(p.override)],
 ];
 
 // An OVER_LINE refusal: refused before the purpose check ran, on a line that still exists and is still short.
 const canMoveFor = (p) => p.status === "refused" && !p.review && state.period?.status === "open" && state.lines.length > 1 && shortfall(p) > 0;
+
+// A REVIEW_REJECTED refusal the owner hasn't overridden yet. The wallet checks everything again.
+const canOverride = (p) => p.status === "refused" && p.review?.verdict === "reject" && !p.override && state.period?.status === "open";
 
 function renderLedger() {
   const items = state.purchases;
@@ -569,12 +575,13 @@ function renderLedger() {
   $("purchases").innerHTML = shown.length
     ? `<ol class="entries">${shown
         .map((p) => {
-          const [cls, text] = STATUS[p.status] ?? ["", p.status];
+          const [cls, text] = p.override && p.status === "captured" ? ["over", "Paid anyway"] : STATUS[p.status] ?? ["", p.status];
           const crossed = p.status === "refused" || p.status === "failed";
           const acts = [
             canMoveFor(p)
               ? `<button class="btn xs" data-move-to="${esc(p.lineKey)}" data-cents="${shortfall(p)}" type="button">Move money to this line</button><small>${money(shortfall(p))} short</small>`
               : "",
+            canOverride(p) ? `<button class="btn xs" data-override="${esc(p.id)}" type="button">Pay anyway</button>` : "",
             p.status === "captured" ? `<button class="btn xs" data-refund="${esc(p.id)}" type="button">Refund to me</button>` : "",
           ].join("");
           const meta = [
@@ -590,7 +597,8 @@ function renderLedger() {
               <div class="meta">${meta.join(" · ")}</div>
               <p class="why"><span>Agent’s reason</span>${esc(p.reasoning)}</p>
               ${p.review && p.review.verdict !== "skipped" ? `<p class="pc ${p.review.verdict === "approve" ? "ok" : "no"}"><span>Purpose check</span>${esc(p.review.reason)}</p>` : ""}
-              ${p.refusal ? `<p class="refusal"><span>Refused</span>${esc(p.refusal)}</p>` : ""}
+              ${p.refusal && !p.override ? `<p class="refusal"><span>Refused</span>${esc(p.refusal)}</p>` : ""}
+              ${p.override ? overrideNote(p) : ""}
             </div>
             <div class="side-col">
               <div class="money${crossed ? " x" : ""}">${money(p.amountCents)}</div>
@@ -622,6 +630,9 @@ function renderLedger() {
   $("purchases").querySelectorAll("[data-move-to]").forEach((btn) =>
     btn.addEventListener("click", () => prefillMove(btn.dataset.moveTo, Number(btn.dataset.cents))),
   );
+  $("purchases").querySelectorAll("[data-override]").forEach((btn) =>
+    btn.addEventListener("click", () => openOverride(btn.dataset.override)),
+  );
   $("purchases").querySelectorAll("[data-refund]").forEach((btn) =>
     btn.addEventListener("click", async () => {
       if (!confirm("Refund this purchase to your PayPal account?")) return;
@@ -635,6 +646,71 @@ function renderLedger() {
       refresh();
     }),
   );
+}
+
+// ------------------------------------------------------------ pay anyway (owner override)
+
+function overrideNote(p) {
+  const o = p.override;
+  const text = o.error
+    ? `You chose to pay anyway on ${when(o.at)}, but the payment didn’t go through. ${o.error}`
+    : `You chose to pay anyway on ${when(o.at)}, over the purpose check. The wallet checked the line and the total again before taking the money.`;
+  return `<p class="override"><span>Your override</span>${esc(text)}</p>`;
+}
+
+/** The decision card: what was bought, from which line, why the purpose check said no, and what confirming does. */
+function openOverride(id) {
+  const p = state.purchases.find((x) => x.id === id);
+  if (!p || !canOverride(p)) return;
+  const line = state.lines.find((l) => l.key === p.lineKey);
+  const label = line?.label ?? p.lineKey;
+  const buffer = line && line.key !== "buffer" ? state.lines.find((l) => l.key === "buffer") : null;
+  const fromLine = line ? Math.max(0, Math.min(p.amountCents, line.leftCents)) : 0;
+  const fromBuffer = p.amountCents - fromLine;
+  const short = line ? shortfall(p) : p.amountCents;
+  const overTotal = p.amountCents > state.totals.heldCents;
+  const fits = Boolean(line) && !short && !overTotal;
+  const split = fromBuffer > 0 && buffer ? `${money(fromLine)} from “${label}” and ${money(fromBuffer)} from the buffer` : `from “${label}”`;
+  const next = fits
+    ? `Remit checks the line and the total again, but not the purpose check, then takes ${money(p.amountCents)} from your PayPal hold, ${split}. The ledger marks it as paid by your override, and the purpose check’s refusal stays on record. You can refund it later. Each purchase can be overridden once.`
+    : !line
+      ? `The line “${p.lineKey}” no longer exists, so the wallet would refuse this.`
+      : overTotal
+        ? `Only ${money(state.totals.heldCents)} is still held, so the wallet would refuse this.`
+        : `“${label}” is ${money(short)} short now, counting the buffer, so the wallet would refuse this. Move money to the line first.`;
+
+  let dlg = $("override-card");
+  if (!dlg) {
+    dlg = document.createElement("dialog");
+    dlg.id = "override-card";
+    dlg.className = "decide paper";
+    dlg.setAttribute("aria-labelledby", "override-title");
+    document.body.appendChild(dlg);
+  }
+  dlg.innerHTML = `
+    <div class="ch">Pay anyway?</div>
+    <h2 id="override-title">${esc(p.title)}</h2>
+    <div class="meta">${esc(p.merchant)} · line “${esc(label)}”</div>
+    <div class="amt"><span class="money">${money(p.amountCents)}</span>${state.inrRate ? ` <span class="inr">${inr(p.amountCents)}</span>` : ""}</div>
+    <p class="pc"><span>Purpose check refused it</span>${esc(p.review.reason)}</p>
+    <p class="${fits ? "next" : "warn"}"><span>If you confirm</span>${esc(next)}</p>
+    <div class="btns">
+      <button class="btn sm" type="button" data-act="keep">Keep it refused</button>
+      <button class="btn pri sm" type="button" data-act="pay"${fits ? "" : " disabled"}>Pay ${money(p.amountCents)} anyway</button>
+    </div>`;
+  dlg.querySelector('[data-act="keep"]').addEventListener("click", () => dlg.close());
+  dlg.querySelector('[data-act="pay"]').addEventListener("click", async (e) => {
+    e.currentTarget.disabled = true;
+    try {
+      await api(`/api/purchases/${encodeURIComponent(p.id)}/override`, {});
+      flash(`Paid ${money(p.amountCents)} for “${p.title}” on your override.`);
+    } catch (err) {
+      flash(err.message, true);
+    }
+    dlg.close();
+    refresh();
+  });
+  dlg.showModal();
 }
 
 // ------------------------------------------------------------ chat

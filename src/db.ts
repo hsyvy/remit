@@ -131,6 +131,8 @@ export function openDb(path: string): Db {
   db.exec(SCHEMA);
   // Columns added after the first release. CREATE TABLE IF NOT EXISTS doesn't add them to an existing database.
   addColumn(db, "requests", "approval_check", "TEXT");
+  // JSON, set when the owner paid for a purchase the purpose check refused: { by: "owner", at, error? }.
+  addColumn(db, "purchases", "owner_override", "TEXT");
   return db;
 }
 

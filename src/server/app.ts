@@ -89,6 +89,9 @@ export function createApp(deps: AppDeps) {
 
   app.post("/api/purchases/:id/refund", async (c) => c.json(await wallet.refund(c.req.param("id"))));
 
+  // Owner only: pay for a purchase the purpose check refused. The agent API has no route to this.
+  app.post("/api/purchases/:id/override", async (c) => c.json(await wallet.overridePurchase(c.req.param("id"))));
+
   // Owner only: the agent API above has no route to this.
   app.post("/api/lines/move", async (c) => {
     const body = z

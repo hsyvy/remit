@@ -378,7 +378,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <dt>Role</dt><dd>Owns every money rule: budgets, lines and buffer, holds, purchases, refusals, extra money, close-out and refunds. Nothing else changes money state.</dd>
         <dt>Inputs</dt><dd><ul>
           <li>From agents, through the tool contract: <code>requestBudget</code>, <code>requestTopup</code>, <code>spend</code>, <code>balance</code>, <code>history</code></li>
-          <li>From the owner, through the API: <code>checkout(requestId, edits)</code>, <code>decline</code>, <code>closePeriod</code>, <code>refund</code>, <code>moveBetweenLines(fromKey, toKey, cents)</code></li>
+          <li>From the owner, through the API: <code>checkout(requestId, edits)</code>, <code>decline</code>, <code>closePeriod</code>, <code>refund</code>, <code>moveBetweenLines(fromKey, toKey, cents)</code>, <code>overridePurchase(purchaseId)</code></li>
           <li>From PayPal's redirect: <code>completeApproval(requestId, orderId)</code></li>
           <li>When the owner opens the app or returns from PayPal without approving: <code>checkApprovals({ requestId?, force? })</code></li>
           <li>From the timer: <code>closeIfEnded()</code></li>
@@ -412,7 +412,8 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <dt>Inputs</dt><dd>The line's label and the owner-approved reason, plus the purchase: title, store, URL, price and the agent's reasoning. It never sees the pages the agent read.</dd>
         <dt>Outputs</dt><dd><code>{ verdict: "approve" | "reject", reason }</code>. The reason is shown in the ledger.</dd>
         <dt>How it works</dt><dd>One structured Claude call at low effort. The purchase text is marked as untrusted data. A model refusal, a missing verdict or an error all count as a rejection.</dd>
-        <dt>Next</dt><dd class="next">Let the owner override a rejection from the decision card; build a test set of misleading store listings to measure it.</dd>
+        <dt>Owner override</dt><dd>From a refused purchase's ledger row, the owner can choose Pay anyway (<code>overridePurchase</code>, owner route only). The wallet runs the line and total rules again, not the purpose check, and captures the normal way. The original verdict is kept and the override is recorded once per purchase.</dd>
+        <dt>Eval</dt><dd><code>npm run purpose-eval</code> runs this check over <code>test/fixtures/purpose-cases.json</code>, including prompt injection and mislabeled listings, and counts false approves on their own.</dd>
       </dl>
     </article>
 
