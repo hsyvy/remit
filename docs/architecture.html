@@ -351,14 +351,14 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <li>The wallet takes the next turn in its one-at-a-time queue, so two purchases can't both pass the checks.</li>
         <li>Line rule: take from the line first, then the buffer, never from another line. Total rule: never more than what is still held. If either fails, a <code>refused</code> purchase is recorded and the agent gets the reason.</li>
         <li>The purchase is saved as <code>pending</code>, then the purpose check judges whether it fits the line's reason. A rejection, or a purpose check that can't be reached, refuses the purchase.</li>
-        <li>The wallet captures from the oldest active hold first, spreading across holds if needed. Each capture carries an ID so a retry can't charge twice. A hold past PayPal's 3-day guarantee is renewed first. If a later capture fails, earlier ones in the same purchase are refunded.</li>
+        <li>The wallet captures from the holds that fund the purchase's line (and, for any part taken from the buffer, the holds that fund the buffer), oldest first. It falls back to other active holds only when those don't have enough left, for example after purchases made before funding was tracked. Each capture carries an ID so a retry can't charge twice. A hold past PayPal's 3-day guarantee is renewed first. If a later capture fails, earlier ones in the same purchase are refunded.</li>
         <li>The purchase becomes <code>captured</code>, an event is logged, and the agent gets what's left on the line and in total.</li>
       </ol>
     </div>
     <div class="layer">
       <h3>Ask for more, then close</h3>
       <ol class="flow">
-        <li>After an <code>OVER_LINE</code> refusal, the owner can move unspent money from another line (or the buffer) with <code>moveBetweenLines</code>. Line limits change, the total and the holds don't, so there is no PayPal call. The ledger offers this with the shortfall filled in, and the move is logged as a <code>moved</code> event.</li>
+        <li>After an <code>OVER_LINE</code> refusal, the owner can move unspent money from another line (or the buffer) with <code>moveBetweenLines</code>. Line limits change, the total and the holds don't, so there is no PayPal call. The ledger offers this with the shortfall filled in. Funding moves with the limit: the unspent part of the holds that funded the from line now funds the other line. The move is written to <code>line_moves</code> in the same transaction, shows as its own ledger row, and is logged as a <code>moved</code> event.</li>
         <li>Or the agent calls <code>request_topup</code> for an existing or new line. It follows the same approval path as a budget and ends in a second hold.</li>
         <li>At the end date (checked every 60 seconds) or when the owner clicks Close, the wallet voids each active hold. Untouched holds are released at once. Holds with partial captures are marked <code>lapsing</code> and released when they expire. Open requests expire.</li>
       </ol>
@@ -390,7 +390,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         </ul></dd>
         <dt>How it works</dt><dd>Money-changing calls run one at a time through a promise queue, and each change is one database transaction. It never trusts its caller: it checks every amount, line key, date and length itself, and rejects a line or top-up whose reason is empty or too short to check.</dd>
         <dt>Guarantees</dt><dd>A purchase never uses another line's money. Spending never exceeds what is held. Only an authorized PayPal order creates spendable money. Every refusal is recorded with its reason.</dd>
-        <dt>Next</dt><dd class="next">Per-agent lines and pause; draw from the hold that funded the line instead of the oldest.</dd>
+        <dt>Next</dt><dd class="next">Per-agent lines and pause.</dd>
       </dl>
     </article>
 
@@ -434,7 +434,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
         <dt>Inputs</dt><dd>Writes from the wallet (and the simulator's own table).</dd>
         <dt>Outputs</dt><dd>Reads for balances, history, the owner's state view and the chat transcript.</dd>
         <dt>How it works</dt><dd>SQLite through <code>node:sqlite</code> in WAL mode. All money is integer cents. Multi-row changes use <code>BEGIN IMMEDIATE</code> transactions. The tables are listed under Data model below.</dd>
-        <dt>Next</dt><dd class="next">Agents table; a move between lines as its own record; move to Postgres when hosted for more than one owner.</dd>
+        <dt>Next</dt><dd class="next">Agents table; move to Postgres when hosted for more than one owner.</dd>
       </dl>
     </article>
 
@@ -555,7 +555,9 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
           <tr><td><code>envelopes</code></td><td>An approved line and its limit</td><td><code>line_key</code>, <code>label</code>, <code>reason</code>, <code>limit_cents</code> (top-ups add to it)</td></tr>
           <tr><td><code>holds</code></td><td>A PayPal authorization</td><td><code>authorization_id</code>, <code>amount_cents</code>, <code>captured_cents</code>, <code>status</code>, <code>honor_until</code>, <code>expires_at</code>, <code>release_note</code></td></tr>
           <tr><td><code>purchases</code></td><td>Every attempt, paid or refused</td><td><code>status</code>, <code>amount_cents</code>, <code>from_line_cents</code>, <code>from_buffer_cents</code>, <code>reasoning</code>, <code>review</code> (JSON), <code>refusal</code>, <code>agent</code></td></tr>
-          <tr><td><code>captures</code></td><td>The PayPal charges behind a purchase</td><td><code>hold_id</code>, <code>capture_id</code>, <code>amount_cents</code>, <code>final</code>, <code>refund_id</code></td></tr>
+          <tr><td><code>captures</code></td><td>The PayPal charges behind a purchase</td><td><code>hold_id</code>, <code>capture_id</code>, <code>amount_cents</code>, <code>final</code>, <code>refund_id</code>, <code>from_line_cents</code> and <code>from_buffer_cents</code> (the split; empty before funding was tracked)</td></tr>
+          <tr><td><code>line_funding</code></td><td>How much of each line's limit each hold funded</td><td><code>envelope_id</code>, <code>hold_id</code>, <code>cents</code>. A line with less recorded than its limit (rows from before this table) counts the rest as the budget hold's</td></tr>
+          <tr><td><code>line_moves</code></td><td>The owner moving money between lines</td><td><code>period_id</code>, <code>from_line_key</code>, <code>to_line_key</code>, <code>cents</code>, <code>who</code>, <code>created_at</code></td></tr>
           <tr><td><code>events</code></td><td>The activity feed</td><td><code>type</code>, <code>message</code></td></tr>
           <tr><td><code>chat_messages</code></td><td>Demo agent transcript</td><td>Messages stored unchanged, including thinking blocks</td></tr>
           <tr><td><code>sim_paypal</code></td><td>Simulator state</td><td>Orders, authorizations and captures as JSON</td></tr>
@@ -601,7 +603,7 @@ footer { border-top: 1px solid var(--rule); padding-top: 20px; }
       <table>
         <thead><tr><th scope="col">Route</th><th scope="col">Who</th><th scope="col">Does</th></tr></thead>
         <tbody>
-          <tr><td><code>GET /api/state</code></td><td>Owner app</td><td>Everything the app shows: modes, period, lines, requests, holds, totals, purchases, events, chat</td></tr>
+          <tr><td><code>GET /api/state</code></td><td>Owner app</td><td>Everything the app shows: modes, period, lines, requests, holds (with the lines each funds), totals, purchases, moves, events, chat</td></tr>
           <tr><td><code>POST /api/requests/:id/checkout</code></td><td>Owner</td><td>Apply edits, create the PayPal order, return the approval URL</td></tr>
           <tr><td><code>POST /api/requests/:id/decline</code></td><td>Owner</td><td>Decline a waiting request</td></tr>
           <tr><td><code>POST /api/paypal/check</code></td><td>Owner app, on open</td><td>Ask PayPal about requests in checkout: finish approved ones, mark the rest as not approved</td></tr>

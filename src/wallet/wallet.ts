@@ -221,12 +221,13 @@ export class Wallet {
       const lines = this.requestLines(requestId).filter((l) => (l.approved_cents ?? 0) > 0);
       const now = this.now();
       tx(this.db, () => {
+        const holdId = newId("hold");
         this.db
           .prepare(
             `INSERT INTO holds (id, period_id, request_id, authorization_id, amount_cents, status, authorized_at, honor_until, expires_at)
              VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?)`,
           )
-          .run(newId("hold"), request.period_id, requestId, auth.authorizationId, auth.cents, now.toISOString(),
+          .run(holdId, request.period_id, requestId, auth.authorizationId, auth.cents, now.toISOString(),
             new Date(now.getTime() + HONOR_PERIOD_MS).toISOString(), auth.expiresAt);
         for (const l of lines) {
           this.db
@@ -235,6 +236,8 @@ export class Wallet {
                ON CONFLICT(period_id, line_key) DO UPDATE SET limit_cents = limit_cents + excluded.limit_cents`,
             )
             .run(newId("env"), request.period_id, l.line_key, l.label, l.reason, l.approved_cents!);
+          // This hold funds what it added to the line.
+          this.fund(request.period_id, this.envelope(request.period_id, l.line_key)!.id, holdId, l.approved_cents!);
         }
         this.db.prepare("UPDATE requests SET status = 'approved', decided_at = ? WHERE id = ?").run(now.toISOString(), requestId);
         this.db.prepare("UPDATE periods SET status = 'open' WHERE id = ? AND status = 'pending'").run(request.period_id);
@@ -393,7 +396,8 @@ export class Wallet {
         throw new WalletError("REVIEW_REJECTED", message, 409);
       }
 
-      const captures = await this.captureFromHolds(period.id, purchaseId, input.amountCents, title).catch((err) => {
+      const parts = { lineEnvelopeId: line.envelopeId, lineCents: fromLine, bufferEnvelopeId: buffer?.envelopeId ?? null, bufferCents: fromBuffer };
+      const captures = await this.captureFromHolds(period.id, purchaseId, parts, title).catch((err) => {
         const message = `PayPal capture failed: ${errorText(err)}`;
         this.db.prepare("UPDATE purchases SET status = 'failed', refusal = ? WHERE id = ?").run(message, purchaseId);
         this.event(period.id, "spend_failed", `${fmt(input.amountCents)} for "${title}" failed. ${message}`);
@@ -417,39 +421,82 @@ export class Wallet {
     });
   }
 
-  /** Partial captures from the oldest hold first. A capture that empties a hold is marked final. */
-  private async captureFromHolds(periodId: string, purchaseId: string, cents: number, title: string) {
-    const holds = this.db
-      .prepare("SELECT * FROM holds WHERE period_id = ? AND status = 'active' ORDER BY authorized_at")
-      .all(periodId) as unknown as HoldRow[];
-    const done: { holdId: string; captureId: string; cents: number }[] = [];
-    let need = cents;
-    try {
+  /**
+   * Partial captures, one per hold. The line part comes from the holds that fund the line and the
+   * buffer part from the holds that fund the buffer, oldest first (the oldest expires first).
+   * A capture that empties a hold is marked final.
+   */
+  private async captureFromHolds(
+    periodId: string,
+    purchaseId: string,
+    parts: { lineEnvelopeId: string; lineCents: number; bufferEnvelopeId: string | null; bufferCents: number },
+    title: string,
+  ) {
+    const holds = (
+      this.db.prepare("SELECT * FROM holds WHERE period_id = ? AND status = 'active' ORDER BY authorized_at").all(periodId) as unknown as HoldRow[]
+    ).filter((h) => h.amount_cents - h.captured_cents > 0 && Date.parse(h.expires_at) >= this.now().getTime());
+    const room = new Map(holds.map((h) => [h.id, h.amount_cents - h.captured_cents]));
+    const funded = this.fundingLeft(periodId);
+    // Per hold, in the order first used: how much pays the line and how much the buffer.
+    const plan = new Map<string, { hold: HoldRow; line: number; buffer: number }>();
+    const wants = [
+      { envelopeId: parts.lineEnvelopeId, part: "line" as const, need: parts.lineCents },
+      { envelopeId: parts.bufferEnvelopeId, part: "buffer" as const, need: parts.bufferCents },
+    ];
+    const take = (hold: HoldRow, want: (typeof wants)[number], cents: number) => {
+      if (cents <= 0) return;
+      const entry = plan.get(hold.id) ?? { hold, line: 0, buffer: 0 };
+      entry[want.part] += cents;
+      plan.set(hold.id, entry);
+      room.set(hold.id, room.get(hold.id)! - cents);
+      want.need -= cents;
+    };
+    for (const want of wants) {
       for (const hold of holds) {
-        if (need === 0) break;
+        if (want.need === 0 || !want.envelopeId) break;
+        take(hold, want, Math.min(want.need, funded.get(fundKey(want.envelopeId, hold.id)) ?? 0, room.get(hold.id)!));
+      }
+    }
+    // Fallback: the funding holds don't have enough left. That happens when a hold has less than
+    // its lines say: purchases made before funding was tracked took from the oldest hold whatever
+    // their line, a capture that failed and was refunded still used up the hold, or a funding hold
+    // expired or came back smaller from reauthorization. The period's total is still held (checked
+    // before this), so take the rest from any active hold, oldest first.
+    for (const want of wants) {
+      for (const hold of holds) {
+        if (want.need === 0) break;
+        take(hold, want, Math.min(want.need, room.get(hold.id)!));
+      }
+    }
+    const short = wants.reduce((sum, w) => sum + w.need, 0);
+    if (short > 0) throw new WalletError("OVER_BALANCE", `The holds ran out ${fmt(short)} short.`);
+
+    const done: { holdId: string; captureId: string; cents: number }[] = [];
+    try {
+      for (const { hold, line, buffer } of plan.values()) {
         const left = hold.amount_cents - hold.captured_cents;
-        if (left <= 0 || Date.parse(hold.expires_at) < this.now().getTime()) continue;
         const authorizationId = await this.maybeReauthorize(hold, left);
-        const take = Math.min(left, need);
-        const final = take === left;
+        const cents = line + buffer;
+        const final = cents === left;
         const { captureId } = await this.paypal.capture(authorizationId, {
-          cents: take,
+          cents,
           finalCapture: final,
           note: `Remit: ${title}`,
           idempotencyKey: `${purchaseId}-${hold.id}`,
         });
         tx(this.db, () => {
           this.db
-            .prepare("INSERT INTO captures (id, purchase_id, hold_id, capture_id, amount_cents, final, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-            .run(newId("cap"), purchaseId, hold.id, captureId, take, final ? 1 : 0, this.iso());
+            .prepare(
+              `INSERT INTO captures (id, purchase_id, hold_id, capture_id, amount_cents, final, from_line_cents, from_buffer_cents, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            )
+            .run(newId("cap"), purchaseId, hold.id, captureId, cents, final ? 1 : 0, line, buffer, this.iso());
           this.db
             .prepare(`UPDATE holds SET captured_cents = captured_cents + ?, status = CASE WHEN ? THEN 'captured' ELSE status END WHERE id = ?`)
-            .run(take, final ? 1 : 0, hold.id);
+            .run(cents, final ? 1 : 0, hold.id);
         });
-        done.push({ holdId: hold.id, captureId, cents: take });
-        need -= take;
+        done.push({ holdId: hold.id, captureId, cents });
       }
-      if (need > 0) throw new WalletError("OVER_BALANCE", `The holds ran out ${fmt(need)} short.`);
       return done;
     } catch (err) {
       // Don't leave a purchase half paid: give back any piece already taken.
@@ -556,7 +603,7 @@ export class Wallet {
    * Owner only; never part of the agent tool contract. Moves unspent money from one line to
    * another inside what is already held, so the total and the PayPal holds don't change.
    */
-  moveBetweenLines(fromKey: string, toKey: string, cents: number) {
+  moveBetweenLines(fromKey: string, toKey: string, cents: number, who = "owner") {
     return this.serial(async () => {
       const period = this.openPeriod();
       if (!Number.isInteger(cents) || cents <= 0) throw new WalletError("BAD_AMOUNT", "Amount must be positive.");
@@ -571,9 +618,14 @@ export class Wallet {
         if (cents > from.leftCents) {
           throw new WalletError("OVER_UNSPENT", `"${from.label}" has only ${fmt(Math.max(0, from.leftCents))} unspent.`);
         }
+        // Funding first: it reads the limits as they were.
+        this.moveFunding(period.id, from.envelopeId, to.envelopeId, cents);
         const update = this.db.prepare("UPDATE envelopes SET limit_cents = limit_cents + ? WHERE id = ?");
         update.run(-cents, from.envelopeId);
         update.run(cents, to.envelopeId);
+        this.db
+          .prepare("INSERT INTO line_moves (id, period_id, from_line_key, to_line_key, cents, who, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+          .run(newId("move"), period.id, from.key, to.key, cents, who, this.iso());
         this.event(period.id, "moved", `You moved ${fmt(cents)} from ${from.label} to ${to.label}.`);
         const after = this.lines(period.id);
         return {
@@ -592,6 +644,103 @@ export class Wallet {
       .prepare("INSERT INTO envelopes (id, period_id, line_key, label, reason, limit_cents) VALUES (?, ?, ?, 'Buffer', ?, 0)")
       .run(id, periodId, BUFFER_KEY, "Money you moved here from other lines.");
     return { envelopeId: id, key: BUFFER_KEY, label: "Buffer" };
+  }
+
+  // ---------------------------------------------------------------- funding: which hold pays for which line
+
+  /**
+   * How much of each line's limit each hold funded, keyed by fundKey(envelope, hold).
+   * Lines with less recorded than their limit (rows from before funding was tracked) count the
+   * rest as funded by the period's budget hold.
+   */
+  private funding(periodId: string) {
+    // unrecorded: the part of cents that comes from the budget-hold fallback, not from a line_funding row.
+    const funded = new Map<string, { envelopeId: string; holdId: string; cents: number; unrecorded: number }>();
+    const recorded = new Map<string, number>();
+    const rows = this.db.prepare("SELECT envelope_id, hold_id, cents FROM line_funding WHERE period_id = ?").all(periodId) as unknown as {
+      envelope_id: string;
+      hold_id: string;
+      cents: number;
+    }[];
+    for (const r of rows) {
+      funded.set(fundKey(r.envelope_id, r.hold_id), { envelopeId: r.envelope_id, holdId: r.hold_id, cents: r.cents, unrecorded: 0 });
+      recorded.set(r.envelope_id, (recorded.get(r.envelope_id) ?? 0) + r.cents);
+    }
+    const budgetHold = this.db
+      .prepare(
+        `SELECT h.id FROM holds h JOIN requests r ON r.id = h.request_id WHERE h.period_id = ?
+         ORDER BY r.kind = 'budget' DESC, h.authorized_at LIMIT 1`,
+      )
+      .get(periodId) as { id: string } | undefined;
+    if (!budgetHold) return funded;
+    const envelopes = this.db.prepare("SELECT id, limit_cents FROM envelopes WHERE period_id = ?").all(periodId) as unknown as { id: string; limit_cents: number }[];
+    for (const e of envelopes) {
+      const rest = e.limit_cents - (recorded.get(e.id) ?? 0);
+      if (rest <= 0) continue;
+      const key = fundKey(e.id, budgetHold.id);
+      const row = funded.get(key) ?? { envelopeId: e.id, holdId: budgetHold.id, cents: 0, unrecorded: 0 };
+      funded.set(key, { ...row, cents: row.cents + rest, unrecorded: rest });
+    }
+    return funded;
+  }
+
+  /** Funding not yet drawn by purchases, keyed by fundKey(envelope, hold). Captures from before funding was tracked aren't counted. */
+  private fundingLeft(periodId: string) {
+    const left = new Map<string, number>();
+    for (const [key, f] of this.funding(periodId)) left.set(key, f.cents);
+    const bufferId = this.envelope(periodId, BUFFER_KEY)?.id;
+    const drawn = this.db
+      .prepare(
+        `SELECT c.hold_id, p.envelope_id, SUM(c.from_line_cents) AS line, SUM(c.from_buffer_cents) AS buffer
+         FROM captures c JOIN purchases p ON p.id = c.purchase_id
+         WHERE p.period_id = ? AND p.status IN ${LIVE} AND c.from_line_cents IS NOT NULL
+         GROUP BY c.hold_id, p.envelope_id`,
+      )
+      .all(periodId) as unknown as { hold_id: string; envelope_id: string; line: number; buffer: number }[];
+    const draw = (envelopeId: string | undefined, holdId: string, cents: number) => {
+      if (!envelopeId || !cents) return;
+      const key = fundKey(envelopeId, holdId);
+      left.set(key, (left.get(key) ?? 0) - cents);
+    };
+    for (const d of drawn) {
+      draw(d.envelope_id, d.hold_id, d.line);
+      draw(bufferId, d.hold_id, d.buffer);
+    }
+    // A fallback capture can draw more than a hold funded for a line; that pair has nothing left, not less than nothing.
+    for (const [key, cents] of left) if (cents < 0) left.set(key, 0);
+    return left;
+  }
+
+  /**
+   * Funding moves with the limit: the from line's unspent funding goes to the other line, oldest
+   * hold first. Call inside a transaction, before the limits change.
+   */
+  private moveFunding(periodId: string, fromEnvelopeId: string, toEnvelopeId: string, cents: number) {
+    // Write down what rows from before funding was tracked leave to the budget hold, so the move can subtract from it.
+    for (const f of this.funding(periodId).values()) {
+      if (f.unrecorded > 0) this.fund(periodId, f.envelopeId, f.holdId, f.unrecorded);
+    }
+    const left = this.fundingLeft(periodId);
+    const holds = this.db.prepare("SELECT id FROM holds WHERE period_id = ? ORDER BY authorized_at").all(periodId) as unknown as { id: string }[];
+    let need = cents;
+    for (const hold of holds) {
+      const n = Math.min(need, left.get(fundKey(fromEnvelopeId, hold.id)) ?? 0);
+      if (n <= 0) continue;
+      this.fund(periodId, fromEnvelopeId, hold.id, -n);
+      this.fund(periodId, toEnvelopeId, hold.id, n);
+      need -= n;
+    }
+    // need is 0 here unless captures weren't attributed. If not, the to line's unrecorded rest
+    // counts as the budget hold's, and spending falls back to any hold that has the money.
+  }
+
+  private fund(periodId: string, envelopeId: string, holdId: string, cents: number) {
+    this.db
+      .prepare(
+        `INSERT INTO line_funding (period_id, envelope_id, hold_id, cents) VALUES (?, ?, ?, ?)
+         ON CONFLICT(envelope_id, hold_id) DO UPDATE SET cents = cents + excluded.cents`,
+      )
+      .run(periodId, envelopeId, holdId, cents);
   }
 
   // ---------------------------------------------------------------- reads
@@ -634,6 +783,9 @@ export class Wallet {
   state() {
     const period = this.currentPeriod() ?? this.lastPeriod();
     const periodId = period?.id;
+    const funding = periodId ? [...this.funding(periodId).values()] : [];
+    const fundingLeft = periodId ? this.fundingLeft(periodId) : new Map<string, number>();
+    const lineKeys = new Map((periodId ? this.lines(periodId) : []).map((l) => [l.envelopeId, l.key]));
     return {
       balance: this.balance(),
       period: period ? { id: period.id, summary: period.summary, startsOn: period.starts_on, endsOn: period.ends_on, status: period.status } : null,
@@ -649,6 +801,31 @@ export class Wallet {
             expiresAt: h.expires_at,
             honorUntil: h.honor_until,
             releaseNote: h.release_note,
+            // Which lines this hold pays for, and how much of that is still unspent.
+            funding: funding
+              .filter((f) => f.holdId === h.id && f.cents > 0)
+              .map((f) => ({ lineKey: lineKeys.get(f.envelopeId) ?? "", fundedCents: f.cents, leftCents: fundingLeft.get(fundKey(f.envelopeId, h.id)) ?? 0 })),
+          }))
+        : [],
+      moves: periodId
+        ? (
+            this.db
+              .prepare(
+                `SELECT m.*, ef.label AS from_label, et.label AS to_label FROM line_moves m
+                 LEFT JOIN envelopes ef ON ef.period_id = m.period_id AND ef.line_key = m.from_line_key
+                 LEFT JOIN envelopes et ON et.period_id = m.period_id AND et.line_key = m.to_line_key
+                 WHERE m.period_id = ? ORDER BY m.created_at DESC, m.rowid DESC`,
+              )
+              .all(periodId) as unknown as LineMoveRow[]
+          ).map((m) => ({
+            id: m.id,
+            fromKey: m.from_line_key,
+            fromLabel: m.from_label ?? m.from_line_key,
+            toKey: m.to_line_key,
+            toLabel: m.to_label ?? m.to_line_key,
+            cents: m.cents,
+            who: m.who,
+            createdAt: m.created_at,
           }))
         : [],
       totals: periodId
@@ -881,6 +1058,10 @@ function addDays(date: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+function fundKey(envelopeId: string, holdId: string) {
+  return `${envelopeId}:${holdId}`;
+}
+
 function parseCheck(json: string | null): ApprovalCheck | null {
   return json ? (JSON.parse(json) as ApprovalCheck) : null;
 }
@@ -945,4 +1126,15 @@ interface PurchaseRow {
   refusal: string | null;
   review: string | null;
   created_at: string;
+}
+
+interface LineMoveRow {
+  id: string;
+  from_line_key: string;
+  to_line_key: string;
+  cents: number;
+  who: string;
+  created_at: string;
+  from_label: string | null;
+  to_label: string | null;
 }
