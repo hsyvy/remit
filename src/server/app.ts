@@ -1,9 +1,10 @@
-import { Hono, type Context } from "hono";
+import { Hono, type Context, type MiddlewareHandler } from "hono";
 import { basicAuth } from "hono/basic-auth";
 import { HTTPException } from "hono/http-exception";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { z } from "zod";
 import type { ShoppingAgent } from "../demo/agent.ts";
+import { handleMcpRequest } from "../mcp/http.ts";
 import { fmt } from "../money.ts";
 import { PayPalError } from "../paypal/gateway.ts";
 import { isWaiting, type SimOrder, type SimulatedPayPal } from "../paypal/simulated.ts";
@@ -20,6 +21,19 @@ export interface AppDeps {
   inrRate?: number;
   agentToken?: string;
   ownerPassword?: string;
+}
+
+/** The one check for agent requests, on /agent/v1/* and /mcp: finds the agent the token belongs to. */
+export function agentAuth(deps: AppDeps): MiddlewareHandler<{ Variables: { agent: AgentRecord } }> {
+  return async (c, next) => {
+    const found = agentFromAuthHeader(deps.wallet.agents, c.req.header("Authorization"), deps.agentToken);
+    if (!found) {
+      c.header("WWW-Authenticate", 'Bearer realm="remit"');
+      return c.json({ error: "UNAUTHORIZED", message: "Unknown or revoked agent token. Add an agent in the Remit app to get one." }, 401);
+    }
+    c.set("agent", found);
+    await next();
+  };
 }
 
 export function createApp(deps: AppDeps) {
@@ -39,18 +53,12 @@ export function createApp(deps: AppDeps) {
   // For the host's health check, so it sits in front of the owner password.
   app.get("/healthz", (c) => c.json({ ok: true }));
 
-  // ------------------------------------------------------------ agent API (used by the MCP server)
+  // ------------------------------------------------------------ agent API (used by the MCP servers)
 
   // Each agent has its own token from the Agents page; the shared REMIT_AGENT_TOKEN is the built-in "default" agent.
-  app.use("/agent/v1/*", async (c, next) => {
-    const found = agentFromAuthHeader(wallet.agents, c.req.header("Authorization"), deps.agentToken);
-    if (!found) {
-      c.header("WWW-Authenticate", 'Bearer realm="remit"');
-      return c.json({ error: "UNAUTHORIZED", message: "Unknown or revoked agent token. Add an agent in the Remit app to get one." }, 401);
-    }
-    c.set("agent", found);
-    await next();
-  });
+  const requireAgent = agentAuth(deps);
+  app.use("/agent/v1/*", requireAgent);
+  app.use("/mcp", requireAgent);
   app.get("/agent/v1/tools", (c) => c.json(Object.keys(walletToolDefs)));
   app.post("/agent/v1/tools/:name", async (c) => {
     const name = c.req.param("name");
@@ -59,11 +67,17 @@ export function createApp(deps: AppDeps) {
     return c.json(await runWalletTool(wallet, name as WalletToolName, body, c.get("agent").id));
   });
 
+  // Remote MCP over Streamable HTTP, for hosted agents. Stateless, so there is no stream to GET or session to DELETE.
+  app.post("/mcp", (c) => handleMcpRequest(wallet, c.req.raw, c.get("agent").id));
+  app.on(["GET", "DELETE"], "/mcp", (c) =>
+    c.json({ jsonrpc: "2.0", error: { code: -32000, message: "Method not allowed." }, id: null }, 405),
+  );
+
   // ------------------------------------------------------------ owner routes
 
   if (deps.ownerPassword) {
     const owner = basicAuth({ username: "owner", password: deps.ownerPassword });
-    app.use("*", async (c, next) => (c.req.path.startsWith("/agent/v1/") ? next() : owner(c, next)));
+    app.use("*", async (c, next) => (c.req.path.startsWith("/agent/v1/") || c.req.path === "/mcp" ? next() : owner(c, next)));
   }
 
   app.get("/api/state", (c) =>

@@ -50,7 +50,7 @@ const app = createApp({
 serve({ fetch: app.fetch, port: config.port }, () => {
   console.log(`Remit on ${config.appUrl}`);
   console.log(`  PayPal: ${modes.paypal}  search: ${modes.search}  agent: ${modes.agent}  purpose check: ${modes.reviewer}`);
-  console.log(`  agent API for MCP: per-agent tokens from the Agents page; shared token ${config.agentToken ? "on" : "off (set REMIT_AGENT_TOKEN)"}`);
+  console.log(`  agent API and remote MCP at ${config.appUrl}/mcp: per-agent tokens from the Agents page; shared token ${config.agentToken ? "on" : "off (set REMIT_AGENT_TOKEN)"}`);
 });
 
 // Scheduled close-out: when a period's end date passes, release what's left.
