@@ -1,5 +1,7 @@
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import type { Db } from "../db.ts";
 import { newId } from "../db.ts";
+import { toValue } from "../money.ts";
 import {
   AUTHORIZATION_MS,
   PayPalError,
@@ -7,6 +9,7 @@ import {
   type CaptureInput,
   type CreateOrderInput,
   type PayPalGateway,
+  type WebhookDelivery,
 } from "./gateway.ts";
 
 /**
@@ -15,9 +18,14 @@ import {
  * the hold (MAX_CAPTURE_AMOUNT_EXCEEDED), and no void after a capture (PREVIOUSLY_CAPTURED).
  * The owner approves on /sim-paypal/checkout/:orderId, which is clearly labelled as a simulation.
  * That page can also act out PayPal refusing the payment method, which leaves the order waiting, as on PayPal.
+ * Like PayPal, it can send webhooks for approvals, declines and voided holds, signed with its own key.
  */
 export class SimulatedPayPal implements PayPalGateway {
   readonly mode = "simulated" as const;
+  /** Signs simulated webhooks. Made fresh each start: only this process sends or checks them. */
+  private readonly webhookKey = randomBytes(32);
+  private webhookTarget?: (delivery: WebhookDelivery) => unknown;
+  private readonly deliveries = new Set<Promise<void>>();
 
   constructor(
     private readonly db: Db,
@@ -27,6 +35,7 @@ export class SimulatedPayPal implements PayPalGateway {
   async createAuthorizeOrder(input: CreateOrderInput) {
     const order: SimOrder = {
       id: newId("SIMORDER").toUpperCase(),
+      referenceId: input.referenceId,
       // What PayPal returns for an order created with a payment_source: it waits for the buyer.
       status: "PAYER_ACTION_REQUIRED",
       declined: false,
@@ -51,19 +60,22 @@ export class SimulatedPayPal implements PayPalGateway {
       order.status = "APPROVED";
       order.declined = false;
       this.put("order", order.id, order);
+      this.sendWebhook("CHECKOUT.ORDER.APPROVED", "checkout-order", `Order ${order.id} approved`, orderResource(order));
     }
     return order;
   }
 
   /**
    * PayPal refused the buyer's payment method. Like PayPal, the order doesn't change status:
-   * it keeps waiting so the buyer can pick another way to pay, and nothing tells the merchant.
+   * it keeps waiting so the buyer can pick another way to pay. The simulator also sends
+   * CHECKOUT.ORDER.DECLINED; the real PayPal may not for a card refused on its own page.
    */
   decline(orderId: string): SimOrder {
     const order = this.order(orderId);
     if (isWaiting(order)) {
       order.declined = true;
       this.put("order", order.id, order);
+      this.sendWebhook("CHECKOUT.ORDER.DECLINED", "checkout-order", `Order ${order.id} declined`, orderResource(order));
     }
     return order;
   }
@@ -135,6 +147,96 @@ export class SimulatedPayPal implements PayPalGateway {
     if (auth.status === "VOIDED") return;
     auth.status = "VOIDED";
     this.put("authorization", auth.id, auth);
+    this.sendVoided(auth);
+  }
+
+  /**
+   * Acts out an authorization reaching the end of its validity. PayPal then voids it, even after
+   * partial captures, and reports it as PAYMENT.AUTHORIZATION.VOIDED.
+   */
+  expireAuthorization(authorizationId: string) {
+    const auth = this.authorization(authorizationId);
+    if (auth.status === "VOIDED" || auth.status === "CAPTURED") return;
+    auth.status = "VOIDED";
+    auth.expiresAt = new Date().toISOString();
+    this.put("authorization", auth.id, auth);
+    this.sendVoided(auth);
+  }
+
+  // ---------------------------------------------------------------- webhooks
+
+  /** Where simulated webhooks go. Without a target, none are sent. */
+  deliverWebhooksTo(target: (delivery: WebhookDelivery) => unknown) {
+    this.webhookTarget = target;
+  }
+
+  /** Resolves once every webhook sent so far has been handled. For tests. */
+  async webhooksSettled() {
+    while (this.deliveries.size) await Promise.all([...this.deliveries]);
+  }
+
+  /** A webhook body with headers signed the simulator's way. */
+  signWebhook(event: object): WebhookDelivery {
+    const body = JSON.stringify(event);
+    const id = newId("simtx");
+    const time = new Date().toISOString();
+    return {
+      body,
+      headers: {
+        "content-type": "application/json",
+        "paypal-auth-algo": "SIM-HMAC-SHA256",
+        "paypal-transmission-id": id,
+        "paypal-transmission-time": time,
+        "paypal-transmission-sig": this.signature(id, time, body),
+      },
+    };
+  }
+
+  async verifyWebhook({ headers, body }: WebhookDelivery) {
+    const id = headers["paypal-transmission-id"];
+    const time = headers["paypal-transmission-time"];
+    const sig = headers["paypal-transmission-sig"];
+    if (!id || !time || !sig || headers["paypal-auth-algo"] !== "SIM-HMAC-SHA256") return false;
+    const expected = Buffer.from(this.signature(id, time, body));
+    const given = Buffer.from(sig);
+    return given.length === expected.length && timingSafeEqual(given, expected);
+  }
+
+  private signature(id: string, time: string, body: string) {
+    return createHmac("sha256", this.webhookKey).update(`${id}|${time}|${body}`).digest("base64");
+  }
+
+  private sendVoided(auth: SimAuthorization) {
+    this.sendWebhook("PAYMENT.AUTHORIZATION.VOIDED", "authorization", `Authorization ${auth.id} voided`, {
+      id: auth.id,
+      status: "VOIDED",
+      amount: { currency_code: "USD", value: toValue(auth.cents) },
+      expiration_time: auth.expiresAt,
+    });
+  }
+
+  /** Sends after the current call returns, as PayPal does, so the caller isn't held up. */
+  private sendWebhook(eventType: string, resourceType: string, summary: string, resource: object) {
+    const target = this.webhookTarget;
+    if (!target) return;
+    const delivery = this.signWebhook({
+      id: newId("WH-SIM").toUpperCase(),
+      event_version: "1.0",
+      create_time: new Date().toISOString(),
+      resource_type: resourceType,
+      resource_version: "2.0",
+      event_type: eventType,
+      summary,
+      resource,
+    });
+    const sent: Promise<void> = Promise.resolve()
+      .then(() => target(delivery))
+      .then(
+        () => undefined,
+        (err) => console.error("simulated webhook:", err),
+      )
+      .finally(() => this.deliveries.delete(sent));
+    this.deliveries.add(sent);
   }
 
   async refund(captureId: string, cents: number, idempotencyKey: string) {
@@ -198,6 +300,8 @@ export function isWaiting(order: SimOrder) {
 
 export interface SimOrder {
   id: string;
+  /** The Remit request this order is for. Older simulated orders don't have it. */
+  referenceId?: string;
   status: "PAYER_ACTION_REQUIRED" | "CREATED" | "APPROVED" | "COMPLETED" | "VOIDED";
   /** The simulated page refused the payment method at least once. */
   declined?: boolean;
@@ -206,6 +310,22 @@ export interface SimOrder {
   totalCents: number;
   returnUrl: string;
   cancelUrl: string;
+}
+
+/** The parts of an order PayPal puts in a checkout-order webhook. */
+function orderResource(order: SimOrder) {
+  return {
+    id: order.id,
+    intent: "AUTHORIZE",
+    status: order.status,
+    purchase_units: [
+      {
+        reference_id: order.referenceId,
+        custom_id: order.referenceId,
+        amount: { currency_code: "USD", value: toValue(order.totalCents) },
+      },
+    ],
+  };
 }
 
 interface SimAuthorization {

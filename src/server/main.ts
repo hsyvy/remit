@@ -8,6 +8,7 @@ import { SimulatedPayPal } from "../paypal/simulated.ts";
 import { Channel3Search, DemoSearch } from "../demo/search.ts";
 import { ClaudeReviewer } from "../wallet/reviewer.ts";
 import { Wallet } from "../wallet/wallet.ts";
+import { PayPalWebhooks } from "../wallet/webhooks.ts";
 import { createApp } from "./app.ts";
 
 // Anyone who can open a public web app can approve holds and run the agent, so it must have a password.
@@ -26,6 +27,8 @@ const claude = config.anthropic.configured ? new Anthropic() : null;
 const reviewer = claude && config.anthropic.reviewer ? new ClaudeReviewer(claude, config.anthropic.model) : undefined;
 
 const wallet = new Wallet(db, paypal, { appUrl: config.appUrl, maxRequestCents: config.maxRequestCents, reviewer });
+// The simulator signs its own webhooks. The real sandbox needs the webhook's ID to verify them.
+const webhooks = simulated || config.paypal.webhookId ? new PayPalWebhooks(db, wallet) : undefined;
 const agent = new ShoppingAgent(db, wallet, search, claude, config.anthropic.model, config.inrRate);
 
 const modes = {
@@ -41,15 +44,28 @@ const app = createApp({
   wallet,
   agent,
   simulated,
+  webhooks,
   modes,
   inrRate: config.inrRate,
   agentToken: config.agentToken || undefined,
   ownerPassword: config.ownerPassword || undefined,
 });
 
+// The simulator sends its webhooks straight to the route, in process, so keyless demos take the same path.
+simulated?.deliverWebhooksTo((d) =>
+  app.request("/paypal/webhook", { method: "POST", headers: d.headers as Record<string, string>, body: d.body }),
+);
+
+const webhookMode = simulated
+  ? "simulated, sent in process"
+  : webhooks
+    ? `on at ${config.appUrl}/paypal/webhook`
+    : "off (set PAYPAL_WEBHOOK_ID); approvals are checked by asking PayPal";
+
 serve({ fetch: app.fetch, port: config.port }, () => {
   console.log(`Remit on ${config.appUrl}`);
   console.log(`  PayPal: ${modes.paypal}  search: ${modes.search}  agent: ${modes.agent}  purpose check: ${modes.reviewer}`);
+  console.log(`  PayPal webhooks: ${webhookMode}`);
   console.log(`  agent API and remote MCP at ${config.appUrl}/mcp: per-agent tokens from the Agents page; shared token ${config.agentToken ? "on" : "off (set REMIT_AGENT_TOKEN)"}`);
 });
 

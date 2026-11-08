@@ -7,6 +7,7 @@ import {
   type CaptureInput,
   type CreateOrderInput,
   type PayPalGateway,
+  type WebhookDelivery,
 } from "./gateway.ts";
 
 /** PayPal Orders v2 and Payments v2 over REST, against the sandbox. */
@@ -15,7 +16,7 @@ export class RestPayPal implements PayPalGateway {
   private token?: { value: string; expiresAt: number };
 
   constructor(
-    private readonly opts: { clientId: string; clientSecret: string; baseUrl: string; currency: string },
+    private readonly opts: { clientId: string; clientSecret: string; baseUrl: string; currency: string; webhookId?: string },
   ) {}
 
   async createAuthorizeOrder(input: CreateOrderInput) {
@@ -114,6 +115,29 @@ export class RestPayPal implements PayPalGateway {
     return { refundId: refund.id };
   }
 
+  async verifyWebhook({ headers, body }: WebhookDelivery) {
+    if (!this.opts.webhookId) return false;
+    const fields = {
+      auth_algo: headers["paypal-auth-algo"],
+      cert_url: headers["paypal-cert-url"],
+      transmission_id: headers["paypal-transmission-id"],
+      transmission_sig: headers["paypal-transmission-sig"],
+      transmission_time: headers["paypal-transmission-time"],
+      webhook_id: this.opts.webhookId,
+    };
+    if (Object.values(fields).some((v) => !v)) return false;
+    // Send the event exactly as received: parsing and re-serializing it can change the bytes and fail the check.
+    const raw = `${JSON.stringify(fields).slice(0, -1)},"webhook_event":${body}}`;
+    const result = await this.call<{ verification_status?: string }>(
+      "POST",
+      "/v1/notifications/verify-webhook-signature",
+      undefined,
+      undefined,
+      raw,
+    );
+    return result.verification_status === "SUCCESS";
+  }
+
   private async accessToken(): Promise<string> {
     if (this.token && this.token.expiresAt > Date.now() + 60_000) return this.token.value;
     const basic = Buffer.from(`${this.opts.clientId}:${this.opts.clientSecret}`).toString("base64");
@@ -128,7 +152,7 @@ export class RestPayPal implements PayPalGateway {
     return body.access_token;
   }
 
-  private async call<T = unknown>(method: string, path: string, body?: unknown, requestId?: string): Promise<T> {
+  private async call<T = unknown>(method: string, path: string, body?: unknown, requestId?: string, rawBody?: string): Promise<T> {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${await this.accessToken()}`,
       "Content-Type": "application/json",
@@ -138,7 +162,7 @@ export class RestPayPal implements PayPalGateway {
     const res = await fetch(`${this.opts.baseUrl}${path}`, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: rawBody ?? (body === undefined ? undefined : JSON.stringify(body)),
     });
     const text = await res.text();
     const json = text ? JSON.parse(text) : {};
