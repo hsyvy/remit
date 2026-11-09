@@ -44,7 +44,7 @@ const wallet = new Wallet(db, paypal, {
 });
 // The simulator signs its own webhooks. The real sandbox needs the webhook's ID to verify them.
 const webhooks = simulated || config.paypal.webhookId ? new PayPalWebhooks(db, wallet) : undefined;
-const agent = new ShoppingAgent(db, wallet, search, claude, config.anthropic.model, config.inrRate);
+const agent = new ShoppingAgent(db, wallet, search, claude, config.anthropic.model);
 notifications = new Notifications(wallet, notifier, links, { appUrl: config.appUrl, canPlan: () => agent.enabled });
 
 const modes = {
@@ -63,7 +63,6 @@ const app = createApp({
   simulated,
   webhooks,
   modes,
-  inrRate: config.inrRate,
   agentToken: config.agentToken || undefined,
   ownerPassword: config.ownerPassword || undefined,
   // The link secret also signs the owner's session cookie, under its own derived key.

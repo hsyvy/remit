@@ -8,8 +8,6 @@ export const config = {
   appUrl,
   dbPath: env.REMIT_DB ?? "data/remit.db",
   currency: "USD",
-  // PayPal won't take INR, so money stays in USD; the app and agent also show an approximate rupee figure. 0 turns it off.
-  inrRate: Number(env.REMIT_INR_RATE ?? 88) || 0,
   maxRequestCents: Math.round(Number(env.REMIT_MAX_REQUEST ?? 500) * 100),
   paypal: {
     clientId: env.PAYPAL_CLIENT_ID ?? "",
