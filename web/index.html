@@ -93,6 +93,8 @@ img { display: block; max-width: 100%; }
 .note h1, .note h2 { margin: 0; font: 600 clamp(2.1rem, 3.6vw, 3.4rem)/1.02 var(--f-display); letter-spacing: -0.035em; color: var(--head); text-wrap: balance; }
 .note h1 { font-size: clamp(2.6rem, 4.5vw, 4.5rem); line-height: 0.98; letter-spacing: -0.04em; }
 .note p { margin: 18px 0 0; max-width: 30em; font-size: clamp(1rem, 1.25vw, 1.12rem); color: var(--ivory-2); text-wrap: pretty; }
+.note p.motto { margin-top: 16px; font: 500 clamp(1.15rem, 1.7vw, 1.45rem)/1.25 var(--f-display); letter-spacing: -0.015em; color: var(--brass); }
+.note p.motto span { white-space: nowrap; }
 .note .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
 .note .hint { margin-top: 34px; font: 400 14px var(--f-mono); color: var(--ivory-3); }
 .progress { position: absolute; left: 0; bottom: 6px; display: flex; gap: 8px; }
@@ -182,6 +184,7 @@ img { display: block; max-width: 100%; }
   .note h1 { font-size: clamp(2.3rem, 10.5vw, 3rem); }
   .note h2 { font-size: clamp(1.7rem, 7.6vw, 2.2rem); }
   .note p { margin-top: 10px; font-size: 15px; }
+  .note p.motto { font-size: 1.05rem; }
   .note time { margin-bottom: 8px; font-size: 13.5px; }
   .note .actions { margin-top: 18px; }
   .note .hint { display: none; }
@@ -294,6 +297,7 @@ footer::before { content: ""; position: absolute; left: 0; right: 0; top: 0; hei
       <div class="notes" id="notes">
         <div class="note on" data-step="0">
           <h1>Your agent spends within its remit.</h1>
+          <p class="motto"><span>Cards limit the spend.</span> <span>Remit limits the purpose.</span></p>
           <p>Give an AI agent a budget it has to justify. You approve one hold on PayPal, every purchase is checked against what it was planned for, and whatever is left comes back to you.</p>
           <div class="actions"><a class="btn btn-pri" href="/login">Sign in</a><a class="btn btn-sec" href="#security">The rules</a></div>
           <div class="hint">Scroll to watch one week</div>

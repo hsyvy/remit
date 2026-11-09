@@ -40,7 +40,11 @@ Devpost's form has five steps. Step 1 is the team. Step 2 is the project name, t
 
 **Project name:** Remit
 
-**Tagline** (121 characters):
+**Tagline** (48 characters):
+
+> Cards limit the spend. Remit limits the purpose.
+
+A descriptive alternative (121 characters):
 
 > A PayPal wallet for AI agents: the agent asks for a budget with reasons, you approve a hold, and every purchase must fit.
 
