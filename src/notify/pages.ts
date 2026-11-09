@@ -82,7 +82,7 @@ ${requestPaper(r)}
 <p class="note">${esc(note)}</p>
 ${expiry(expiresAt)}`,
     `<form method="post" action="${esc(action)}"><button class="btn pri">Approve on PayPal</button></form>
-<a class="btn" href="${esc(`${appUrl}/#${r.id}`)}">Review or edit in Remit</a>`,
+<a class="btn" href="${esc(`${appUrl}/app#${r.id}`)}">Review or edit in Remit</a>`,
   );
 }
 
@@ -99,7 +99,7 @@ ${requestPaper(r)}
 <p class="note">${esc(note)}</p>
 ${expiry(expiresAt)}`,
     `<form method="post" action="${esc(action)}"><button class="btn danger">Decline</button></form>
-<a class="btn" href="${esc(`${appUrl}/#${r.id}`)}">Open Remit instead</a>`,
+<a class="btn" href="${esc(`${appUrl}/app#${r.id}`)}">Open Remit instead</a>`,
   );
 }
 
@@ -119,7 +119,7 @@ export function overridePage(p: PurchaseDetail, action: string, appUrl: string, 
 <p class="note">Remit checks the line and the total again, but not the purpose check, then takes ${esc(fmt(p.amountCents))} from your PayPal hold. The ledger marks it as paid by your override, and the purpose check's refusal stays on record. You can refund it later.</p>
 ${expiry(expiresAt, "purchase")}`,
     `<form method="post" action="${esc(action)}"><button class="btn pri">Pay ${esc(fmt(p.amountCents))} anyway</button></form>
-<a class="btn" href="${esc(appUrl)}/#ledger">Keep it refused</a>`,
+<a class="btn" href="${esc(appUrl)}/app#ledger">Keep it refused</a>`,
   );
 }
 
@@ -131,7 +131,7 @@ export function planPage(action: string, appUrl: string, range: string, expiresA
 <p class="note">${esc(range)} is closed. Your agent reads the history and drafts next week's budget, with a reason for each line. Nothing is held until you approve it on PayPal.</p>
 <p class="k fine">This link only asks for a plan, and works until ${esc(until(expiresAt))}.</p>`,
     `<form method="post" action="${esc(action)}"><button class="btn pri">Ask my agent to plan</button></form>
-<a class="btn" href="${esc(appUrl)}/#ledger">Open Remit</a>`,
+<a class="btn" href="${esc(appUrl)}/app#ledger">Open Remit</a>`,
   );
 }
 
@@ -143,7 +143,7 @@ export function messagePage(opts: { title: string; text: string; chip: [kind: "a
     chip(...opts.chip),
     `<h1 class="t">${esc(opts.title)}</h1>
 <p class="note">${esc(opts.text)}</p>`,
-    `${retry}<a class="btn${retry ? "" : " pri"}" href="${esc(opts.appUrl)}/">Open Remit</a>`,
+    `${retry}<a class="btn${retry ? "" : " pri"}" href="${esc(opts.appUrl)}/app">Open Remit</a>`,
   );
 }
 

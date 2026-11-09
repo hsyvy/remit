@@ -281,7 +281,7 @@ describe("notifiers", () => {
     actions: [
       { label: "Approve", url: `${APP}/link/a` },
       { label: "Decline", url: `${APP}/link/d` },
-      { label: "Open Remit", url: `${APP}/#req` },
+      { label: "Open Remit", url: `${APP}/app#req` },
       { label: "Fourth", url: `${APP}/` },
     ],
     priority: "high",

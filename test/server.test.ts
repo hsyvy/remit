@@ -134,7 +134,7 @@ describe("PayPal return", () => {
 
     const res = await app.request(`/paypal/return?request=${requestId}&token=${orderId}`);
     assert.equal(res.status, 302);
-    assert.match(res.headers.get("location") ?? "", /^\/\?error=/);
+    assert.match(res.headers.get("location") ?? "", /^\/app\?error=/);
     assert.equal(wallet.balance().period?.status, "pending");
     assert.equal(wallet.balance().approvedCents, 0);
   });
@@ -146,7 +146,7 @@ describe("PayPal return", () => {
     paypal.approve(orderId);
 
     const res = await app.request(`/paypal/return?request=${requestId}&token=SOMEONE-ELSES`);
-    assert.match(res.headers.get("location") ?? "", /^\/\?error=/);
+    assert.match(res.headers.get("location") ?? "", /^\/app\?error=/);
     assert.equal(wallet.balance().period?.status, "pending");
   });
 
@@ -157,7 +157,7 @@ describe("PayPal return", () => {
     paypal.approve(orderId);
 
     const res = await app.request(`/paypal/return?request=${requestId}&token=${orderId}`);
-    assert.equal(res.headers.get("location"), `/?approved=${requestId}`);
+    assert.equal(res.headers.get("location"), `/app?approved=${requestId}`);
     assert.equal(wallet.balance().period?.status, "open");
     assert.equal(wallet.balance().leftCents, 5000);
   });

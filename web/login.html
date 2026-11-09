@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sign in · Remit</title>
+<meta name="robots" content="noindex">
+<script>if (/[?&]error=/.test(location.search)) document.documentElement.classList.add("again");</script>
+<link rel="icon" href="/assets/mark.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:opsz,wght@6..144,400..700&family=Google+Sans+Code:wght@400;500&family=Courier+Prime:wght@400;700&family=Caveat:wght@500;600&display=swap">
+<style>
+/* The sign-in page sits on the same sky desk as the landing page: one paper card, one envelope tucked behind it. */
+:root {
+  color-scheme: light;
+  --desk: #6fa7d9;
+  --fg: 16, 30, 52;
+  --ivory: rgb(var(--fg));
+  --head: #0d1a2d;
+  --on-fg: #eef5fb;
+  --fg-hover: #1f3658;
+  --ivory-2: rgba(var(--fg), 0.74);
+  --ivory-3: rgba(var(--fg), 0.55);
+  --brass: #7a4c06;
+  --ink: #1b2433;
+  --ink-2: #4a5466;
+  --bad: #9a2c22;
+  --f-body: "Google Sans Flex", "Google Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "Google Sans Code", ui-monospace, "SF Mono", monospace;
+  --f-type: "Courier Prime", "Courier New", ui-monospace, monospace;
+  --f-hand: "Caveat", "Segoe Print", cursive;
+  --ease: cubic-bezier(0.22, 0.8, 0.2, 1);
+  --paper-shadow: drop-shadow(0 18px 22px rgba(24, 58, 102, 0.26)) drop-shadow(0 2px 3px rgba(24, 48, 84, 0.24));
+}
+* { box-sizing: border-box; }
+html { background: var(--desk); }
+body { margin: 0; min-height: 100vh; min-height: 100svh; display: flex; flex-direction: column; color: var(--ivory); font-family: var(--f-body); font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0; z-index: -1; background: var(--desk) url("/assets/tech-sky-wide.webp") center / cover no-repeat; }
+@media (max-aspect-ratio: 1/1) { body::before { background-image: url("/assets/tech-sky-tall.webp"); } }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 3px; border-radius: 4px; }
+.gut { padding-left: max(clamp(16px, 4vw, 56px), env(safe-area-inset-left, 0px)); padding-right: max(clamp(16px, 4vw, 56px), env(safe-area-inset-right, 0px)); }
+
+header { display: flex; align-items: center; justify-content: space-between; height: 76px; padding-top: env(safe-area-inset-top, 0px); }
+.brand { display: flex; align-items: center; gap: 10px; font: 600 21px/1 var(--f-body); letter-spacing: -0.025em; text-decoration: none; color: var(--ivory); }
+.brand i { width: 26px; height: 26px; background: var(--ivory); -webkit-mask: url("/assets/mark-ink.svg") center / contain no-repeat; mask: url("/assets/mark-ink.svg") center / contain no-repeat; transition: transform 0.9s var(--ease); }
+.brand:hover i { transform: rotate(60deg); }
+header .back { font-size: 14.5px; color: var(--ivory-2); text-decoration: none; padding: 9px 4px; transition: color 0.25s; }
+header .back:hover { color: var(--ivory); }
+
+main { flex: 1; display: grid; place-items: center; padding-block: clamp(24px, 6vh, 72px); }
+.desk { position: relative; width: 100%; max-width: 440px; }
+
+/* An envelope tucked behind the card, as if just taken out of it. */
+.tucked { position: absolute; right: -150px; top: -56px; width: 250px; transform: rotate(11deg); filter: var(--paper-shadow); container-type: inline-size; animation: tuck 1.1s var(--ease) both; }
+.tucked img { display: block; width: 100%; height: auto; }
+.tucked span { position: absolute; left: 8%; right: 8%; top: 0; height: 27.67%; display: grid; place-items: center; font: 600 13cqw/1 var(--f-hand); color: #2b3242; }
+@keyframes tuck { from { opacity: 0; transform: translate(-40px, 24px) rotate(2deg); } }
+@media (max-width: 760px) { .tucked { display: none; } }
+
+.card { position: relative; padding: clamp(28px, 6vw, 40px) clamp(24px, 6vw, 40px) clamp(26px, 5vw, 34px); background: #f6f1e7 url("/assets/laid.webp") center / 700px auto; border-radius: 3px; color: var(--ink); filter: var(--paper-shadow); animation: lay 0.9s var(--ease) both; }
+@keyframes lay { from { opacity: 0; transform: translateY(18px) rotate(-1.2deg); } }
+.card .k { margin: 0 0 18px; font: 400 12px/1 var(--f-mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--brass); }
+.card h1 { margin: 0; font: 600 clamp(2rem, 7vw, 2.5rem)/1.02 var(--f-body); letter-spacing: -0.035em; color: var(--head); }
+.card .lede { margin: 12px 0 26px; font-size: 15.5px; color: var(--ink-2); text-wrap: pretty; }
+
+label { display: block; margin-bottom: 8px; font: 500 14px/1 var(--f-body); color: var(--ink); }
+.field { position: relative; }
+input[type="password"], input[type="text"] { width: 100%; height: 50px; padding: 0 52px 0 16px; border: 1.5px solid rgba(27, 36, 51, 0.28); border-radius: 10px; background: rgba(255, 255, 255, 0.72); color: var(--ink); font: 400 17px var(--f-body); letter-spacing: 0.01em; transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s; }
+input::placeholder { color: rgba(27, 36, 51, 0.38); }
+input:hover { border-color: rgba(27, 36, 51, 0.45); }
+input:focus { outline: none; border-color: var(--ink); background: #fff; box-shadow: 0 0 0 4px rgba(16, 30, 52, 0.1); }
+.bad input { border-color: var(--bad); }
+.peek { position: absolute; right: 6px; top: 6px; width: 38px; height: 38px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--ink-2); cursor: pointer; }
+.peek:hover { background: rgba(27, 36, 51, 0.07); color: var(--ink); }
+.peek svg { width: 18px; height: 18px; }
+.peek .off { display: none; }
+.peek[aria-pressed="true"] .on { display: none; }
+.peek[aria-pressed="true"] .off { display: block; }
+
+.msg { min-height: 22px; margin: 10px 0 0; font-size: 14px; color: var(--bad); }
+.msg:empty { visibility: hidden; }
+
+button.go { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 12px; height: 50px; margin-top: 14px; border: 0; border-radius: 10px; background: var(--ivory); color: var(--on-fg); font: 500 16px/1 var(--f-body); cursor: pointer; box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.12); transition: background-color 0.2s; }
+button.go:hover { background: var(--fg-hover); }
+button.go b { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 7px; background: rgba(222, 236, 248, 0.92); color: var(--ivory); font-weight: 500; transition: transform 0.4s var(--ease); }
+button.go:hover b { transform: translateX(2px); }
+button.go[disabled] { opacity: 0.7; cursor: progress; }
+
+.slip { margin: 24px 0 0; padding-top: 16px; border-top: 1px dashed rgba(27, 36, 51, 0.3); font: 400 13.5px/1.5 var(--f-type); color: var(--ink-2); }
+
+footer { padding-block: 18px 24px; font-size: 13px; color: var(--ivory-3); text-align: center; }
+footer p { margin: 0; }
+
+.again .card, .again .tucked { animation: none; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition-duration: 0.001ms !important; } }
+</style>
+</head>
+<body>
+<header class="gut">
+  <a class="brand" href="/"><i aria-hidden="true"></i>Remit</a>
+  <a class="back" href="/">← Back to home</a>
+</header>
+
+<main class="gut">
+  <div class="desk">
+    <div class="tucked" aria-hidden="true"><img src="/assets/gro-closed.webp" alt="" width="600" height="506"><span>This week</span></div>
+    <section class="card" aria-labelledby="h">
+      <p class="k">Owner sign-in</p>
+      <h1 id="h">Welcome back.</h1>
+      <p class="lede">Read this week’s plan, approve what your agent asks for, and see every purchase it made.</p>
+
+      <form method="post" action="/login" id="form" novalidate>
+        <input type="text" name="username" value="owner" autocomplete="username" hidden>
+        <input type="hidden" name="next" id="next" value="/app">
+        <label for="password">Password</label>
+        <div class="field" id="field">
+          <input type="password" name="password" id="password" autocomplete="current-password" required autofocus aria-describedby="msg">
+          <button class="peek" type="button" id="peek" aria-label="Show password" aria-pressed="false">
+            <svg class="on" viewBox="0 0 20 20" aria-hidden="true"><path d="M1.8 10S4.8 4.5 10 4.5 18.2 10 18.2 10 15.2 15.5 10 15.5 1.8 10 1.8 10z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="10" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+            <svg class="off" viewBox="0 0 20 20" aria-hidden="true"><path d="M1.8 10S4.8 4.5 10 4.5 18.2 10 18.2 10 15.2 15.5 10 15.5 1.8 10 1.8 10z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="10" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3 17 17 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <p class="msg" id="msg" role="alert"></p>
+        <button class="go" type="submit" id="go">Sign in<b aria-hidden="true">→</b></button>
+      </form>
+
+      <p class="slip">Your agent never sees this password. It connects with its own token from the Agents page.</p>
+    </section>
+  </div>
+</main>
+
+<footer class="gut">
+  <p>Holds and payments are processed by PayPal. Remit never sees your card or bank details.</p>
+</footer>
+
+<script>
+(() => {
+  const q = new URLSearchParams(location.search);
+  const next = q.get("next");
+  // The server never sees the #section of the address it sent here, so carry it in the form.
+  const target = (next && next.startsWith("/") && !next.startsWith("//") ? next : "/app") + (next?.includes("#") ? "" : location.hash);
+  document.getElementById("next").value = target;
+
+  const msg = document.getElementById("msg");
+  const field = document.getElementById("field");
+  const pw = document.getElementById("password");
+  const error = q.get("error");
+  if (error === "wrong") msg.textContent = "That password didn’t match. Try again.";
+  if (error === "wait") msg.textContent = "Too many tries. Wait a few minutes, then try again.";
+  if (error) field.classList.add("bad");
+  pw.addEventListener("input", () => { field.classList.remove("bad"); msg.textContent = ""; });
+
+  const peek = document.getElementById("peek");
+  peek.addEventListener("click", () => {
+    const show = pw.type === "password";
+    pw.type = show ? "text" : "password";
+    peek.setAttribute("aria-pressed", String(show));
+    peek.setAttribute("aria-label", show ? "Hide password" : "Show password");
+    pw.focus();
+  });
+
+  document.getElementById("form").addEventListener("submit", (e) => {
+    if (!pw.value) { e.preventDefault(); field.classList.add("bad"); msg.textContent = "Enter your password."; pw.focus(); return; }
+    document.getElementById("go").disabled = true;
+  });
+})();
+</script>
+</body>
+</html>

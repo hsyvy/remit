@@ -174,7 +174,7 @@ export class Wallet {
       this.insertRequest(requestId, periodId, "budget", summary, lines, input.agentId);
       this.event(periodId, "budget_requested", `${this.asker(input.agentId)} asked for ${fmt(total)} for ${input.startsOn} to ${input.endsOn}.`);
     });
-    return { requestId, periodId, totalCents: total, status: "waiting_for_owner" as const, reviewUrl: `${this.opts.appUrl}/#${requestId}` };
+    return { requestId, periodId, totalCents: total, status: "waiting_for_owner" as const, reviewUrl: `${this.opts.appUrl}/app#${requestId}` };
   }
 
   requestTopup(input: TopupInput) {
@@ -203,7 +203,7 @@ export class Wallet {
       this.insertRequest(requestId, period.id, "topup", line.reason, [line], input.agentId);
       this.event(period.id, "topup_requested", `${this.asker(input.agentId)} asked for ${fmt(line.amountCents)} more for "${label}": ${line.reason}`);
     });
-    return { requestId, totalCents: line.amountCents, status: "waiting_for_owner" as const, reviewUrl: `${this.opts.appUrl}/#${requestId}` };
+    return { requestId, totalCents: line.amountCents, status: "waiting_for_owner" as const, reviewUrl: `${this.opts.appUrl}/app#${requestId}` };
   }
 
   // ---------------------------------------------------------------- owner: approval on PayPal

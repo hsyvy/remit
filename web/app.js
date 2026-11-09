@@ -55,6 +55,11 @@ async function api(path, body) {
     headers: body === undefined ? {} : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
+  // Signed out, or the session ran out: go sign in and come back to the same view.
+  if (res.status === 401) {
+    location.href = `/login?next=${encodeURIComponent(location.pathname + location.hash)}`;
+    throw new Error("Signing you in again…");
+  }
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(json.message || `Request failed (${res.status})`);
   return json;
@@ -160,6 +165,7 @@ function renderSide() {
   if (period?.status === "open") foot = `<b>${money(totals.heldCents)} held on PayPal</b>What’s left is released on ${esc(weekdayDate(period.endsOn))}.`;
   else if (period?.status === "closed") foot = `<b>Period closed</b>${esc(range(period.startsOn, period.endsOn))}. Your agent can’t spend until you approve a new plan.`;
   $("sfoot").innerHTML = foot;
+  $("signout").hidden = !state.signIn;
 
   const n = state.requests.length;
   $("req-count").hidden = !n;
