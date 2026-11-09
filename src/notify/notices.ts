@@ -111,7 +111,7 @@ export class Notifications {
       actions: [
         { label: "Approve", url: approve },
         { label: "Decline", url: decline },
-        { label: "Open Remit", url: `${this.opts.appUrl}/#${r.id}` },
+        { label: "Open Remit", url: `${this.opts.appUrl}/app#${r.id}` },
       ],
       priority: "high",
       data: {
@@ -131,7 +131,7 @@ export class Notifications {
   private refusalNotice(event: WalletEvent): Notice | null {
     // The owner paused or revoked this agent themselves, so its refusals are expected. They stay in the ledger.
     if (event.code && OWNER_BLOCKED.has(event.code)) return null;
-    const ledger = `${this.opts.appUrl}/#ledger`;
+    const ledger = `${this.opts.appUrl}/app#ledger`;
     const actions = [{ label: "Open ledger", url: ledger }];
     const p = event.ref ? this.wallet.purchaseDetail(event.ref) : null;
     if (!p) {
@@ -180,7 +180,7 @@ export class Notifications {
     if (recap.lapsingCents) released.push(`${fmt(recap.lapsingCents)} released when PayPal's hold expires on ${dateRange(recap.lapsesOn!, recap.lapsesOn!)}`);
     body.push(released.length ? `${capitalize(released.join("; "))}.` : "Nothing was left to release.");
 
-    const app = `${this.opts.appUrl}/#ledger`;
+    const app = `${this.opts.appUrl}/app#ledger`;
     const actions = [{ label: "Open Remit", url: app }];
     const plan = this.opts.canPlan?.() ? this.linkUrl(this.links.sign("plan", periodId, PLAN_LINK_TTL_MS)) : null;
     if (plan) {

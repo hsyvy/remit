@@ -29,8 +29,9 @@ const search = config.channel3Key ? new Channel3Search(config.channel3Key) : new
 const claude = config.anthropic.configured ? new Anthropic() : null;
 const reviewer = claude && config.anthropic.reviewer ? new ClaudeReviewer(claude, config.anthropic.model) : undefined;
 
-if (!config.linkSecret) console.warn("REMIT_LINK_SECRET is not set: using a random one, so notification links stop working when the server restarts.");
-const links = new LinkSigner(config.linkSecret || LinkSigner.randomSecret());
+if (!config.linkSecret) console.warn("REMIT_LINK_SECRET is not set: using a random one, so notification links and sign-ins stop working when the server restarts.");
+const secret = config.linkSecret || LinkSigner.randomSecret();
+const links = new LinkSigner(secret);
 const notifier = makeNotifier(config.notify);
 // The wallet is built before the notifications that read from it, so the hook looks it up when an event arrives.
 let notifications: Notifications | undefined;
@@ -65,6 +66,8 @@ const app = createApp({
   inrRate: config.inrRate,
   agentToken: config.agentToken || undefined,
   ownerPassword: config.ownerPassword || undefined,
+  // The link secret also signs the owner's session cookie, under its own derived key.
+  sessionSecret: secret,
   links: { signer: links, appUrl: config.appUrl },
 });
 

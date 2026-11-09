@@ -1,5 +1,7 @@
+import { randomBytes } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { Hono, type Context, type MiddlewareHandler } from "hono";
-import { basicAuth } from "hono/basic-auth";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { z } from "zod";
@@ -14,6 +16,7 @@ import { mountLinkRoutes } from "../notify/routes.ts";
 import { runWalletTool, walletToolDefs, type WalletToolName } from "../wallet/tools.ts";
 import { errorText, WalletError, type Wallet } from "../wallet/wallet.ts";
 import type { PayPalWebhooks } from "../wallet/webhooks.ts";
+import { LoginThrottle, OwnerSessions, safeNext, SESSION_COOKIE, SESSION_TTL_S } from "./session.ts";
 
 export interface AppDeps {
   wallet: Wallet;
@@ -26,6 +29,8 @@ export interface AppDeps {
   inrRate?: number;
   agentToken?: string;
   ownerPassword?: string;
+  /** Signs the owner's session cookie. Unset: a random one per start, so a restart signs the owner out. */
+  sessionSecret?: string;
   /** One-tap links from notifications. Signed links work without the owner password. */
   links?: { signer: LinkSigner; appUrl: string };
 }
@@ -93,13 +98,62 @@ export function createApp(deps: AppDeps) {
 
   // ------------------------------------------------------------ owner routes
 
-  if (deps.ownerPassword) {
-    const owner = basicAuth({ username: "owner", password: deps.ownerPassword });
-    app.use("*", async (c, next) => (c.req.path.startsWith("/agent/v1/") || c.req.path === "/mcp" ? next() : owner(c, next)));
-  }
+  // The landing page and the sign-in page are public. Everything else here needs the owner's session cookie
+  // (or, for scripts, the same password as Basic auth). Without a password (localhost only) it's all open.
+  const sessions = deps.ownerPassword
+    ? new OwnerSessions(deps.sessionSecret || randomBytes(32).toString("base64url"), deps.ownerPassword)
+    : undefined;
+  const throttle = new LoginThrottle();
+  const isOwner = (c: Context) => !sessions || sessions.verify(getCookie(c, SESSION_COOKIE)) || basicOwner(sessions, c.req.header("Authorization"));
+
+  app.get("/login", async (c) => {
+    if (isOwner(c)) return c.redirect(safeNext(c.req.query("next")));
+    return serveFile(c, "./web/login.html");
+  });
+
+  app.post("/login", async (c) => {
+    const form = await c.req.parseBody().catch(() => ({}) as Record<string, unknown>);
+    const next = safeNext(typeof form.next === "string" ? form.next : undefined);
+    if (!sessions) return c.redirect(next, 303);
+    const who = clientAddress(c);
+    const back = (error: string) => c.redirect(`/login?error=${error}&next=${encodeURIComponent(next)}`, 303);
+    if (throttle.blocked(who)) return back("wait");
+    if (typeof form.password !== "string" || !sessions.checkPassword(form.password)) {
+      throttle.fail(who);
+      return back("wrong");
+    }
+    throttle.clear(who);
+    setCookie(c, SESSION_COOKIE, sessions.issue(), {
+      path: "/",
+      httpOnly: true,
+      secure: isHttps(c),
+      sameSite: "Lax",
+      maxAge: SESSION_TTL_S,
+    });
+    return c.redirect(next, 303);
+  });
+
+  app.post("/logout", (c) => {
+    deleteCookie(c, SESSION_COOKIE, { path: "/", secure: isHttps(c) });
+    return c.redirect("/", 303);
+  });
+
+  app.use("*", async (c, next) => {
+    const path = c.req.path;
+    if (path.startsWith("/agent/v1/") || path === "/mcp" || isPublicPath(path) || isOwner(c)) return next();
+    // A page load goes to the sign-in page and comes back; API calls get a 401 the web app turns into the same trip.
+    if (c.req.method === "GET" && !c.req.path.startsWith("/api/")) {
+      const url = new URL(c.req.url);
+      return c.redirect(`/login?next=${encodeURIComponent(url.pathname + url.search)}`);
+    }
+    return c.json({ error: "UNAUTHORIZED", message: "Sign in to Remit." }, 401);
+  });
+
+  app.get("/app", (c) => serveFile(c, "./web/app.html"));
 
   app.get("/api/state", (c) =>
     c.json({
+      signIn: !!sessions,
       modes: deps.modes,
       inrRate: deps.inrRate ?? 0,
       ...wallet.state(),
@@ -179,9 +233,9 @@ export function createApp(deps: AppDeps) {
     const orderId = c.req.query("token") ?? "";
     try {
       await wallet.completeApproval(requestId, orderId);
-      return c.redirect(`/?approved=${encodeURIComponent(requestId)}`);
+      return c.redirect(`/app?approved=${encodeURIComponent(requestId)}`);
     } catch (err) {
-      return c.redirect(`/?error=${encodeURIComponent(errorText(err))}`);
+      return c.redirect(`/app?error=${encodeURIComponent(errorText(err))}`);
     }
   });
 
@@ -193,7 +247,7 @@ export function createApp(deps: AppDeps) {
       return [];
     });
     const approved = results.some((r) => r.outcome === "approved");
-    return c.redirect(`/?${approved ? "approved" : "cancelled"}=${encodeURIComponent(requestId)}`);
+    return c.redirect(`/app?${approved ? "approved" : "cancelled"}=${encodeURIComponent(requestId)}`);
   });
 
   // ------------------------------------------------------------ simulated PayPal (only without sandbox credentials)
@@ -216,6 +270,36 @@ export function createApp(deps: AppDeps) {
   app.use("/*", serveStatic({ root: "./web" }));
   app.notFound((c: Context) => c.json({ error: "NOT_FOUND" }, 404));
   return app;
+}
+
+/** Pages and files anyone can load: the landing page, the sign-in page, and static code, styles and images (no data). */
+function isPublicPath(path: string) {
+  return /^\/(index\.html|login|logout|[\w-]+\.(css|js)|assets\/[\w.-]+)?$/.test(path);
+}
+
+function basicOwner(sessions: OwnerSessions, header: string | undefined) {
+  const match = /^Basic\s+([A-Za-z0-9+/=]+)$/i.exec(header ?? "");
+  if (!match) return false;
+  const decoded = Buffer.from(match[1]!, "base64").toString("utf8");
+  const colon = decoded.indexOf(":");
+  return colon >= 0 && decoded.slice(0, colon) === "owner" && sessions.checkPassword(decoded.slice(colon + 1));
+}
+
+/** Render and most hosts end TLS at a proxy, so the app itself sees http. */
+function isHttps(c: Context) {
+  return c.req.header("x-forwarded-proto")?.split(",")[0]?.trim() === "https" || new URL(c.req.url).protocol === "https:";
+}
+
+function clientAddress(c: Context) {
+  return c.req.header("x-forwarded-for")?.split(",")[0]?.trim() || c.req.header("x-real-ip") || "local";
+}
+
+async function serveFile(c: Context, path: string): Promise<Response> {
+  try {
+    return c.html(await readFile(path, "utf8"));
+  } catch {
+    return c.json({ error: "NOT_FOUND" }, 404);
+  }
 }
 
 function withToken(url: string, orderId: string) {
@@ -250,7 +334,7 @@ function simCheckoutPage(sim: SimulatedPayPal, orderId: string) {
   <ul class="sim-items">${rows}</ul>
   ${
     done
-      ? `<p class="muted">This order was already ${order.status.toLowerCase()}.</p><p><a href="/">Back to Remit</a></p>`
+      ? `<p class="muted">This order was already ${order.status.toLowerCase()}.</p><p><a href="/app">Back to Remit</a></p>`
       : `<div class="btns">
     <form method="post" action="/sim-paypal/checkout/${esc(order.id)}/approve"><button class="btn primary">Approve hold</button></form>
     <form method="post" action="/sim-paypal/checkout/${esc(order.id)}/decline"><button class="btn">Simulate a declined card</button></form>
