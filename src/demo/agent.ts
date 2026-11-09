@@ -39,7 +39,6 @@ export class ShoppingAgent {
     private readonly search: ProductSearch,
     private readonly client: Anthropic | null,
     private readonly model: string,
-    private readonly inrRate = 0,
   ) {}
 
   get enabled() {
@@ -60,7 +59,7 @@ export class ShoppingAgent {
         const response = await this.client.beta.messages.create({
           model: this.model,
           max_tokens: 16000,
-          system: `${SYSTEM}\n\nToday is ${new Date().toDateString()}. Product search: ${this.search.source === "demo" ? "built-in demo catalog (prices are examples)" : "Channel3 live catalog"}.${this.inrRate ? `\n\nThe owner thinks in Indian rupees, but every amount in Remit and PayPal is US dollars, and tool amounts are always dollars. When you mention an amount to the owner, give the dollar figure with an approximate rupee figure at ₹${this.inrRate} per dollar, e.g. $32.49 (≈ ₹${Math.round(32.49 * this.inrRate).toLocaleString("en-IN")}).` : ""}`,
+          system: `${SYSTEM}\n\nToday is ${new Date().toDateString()}. Product search: ${this.search.source === "demo" ? "built-in demo catalog (prices are examples)" : "Channel3 live catalog"}.`,
           tools: this.toolSchemas(),
           messages: this.messages(),
           output_config: { effort: "medium" },

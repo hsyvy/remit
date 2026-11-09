@@ -11,6 +11,8 @@ import { WalletError } from "./wallet.ts";
 export const DEFAULT_AGENT_ID = "default";
 /** Remit's own shopping agent, which runs in the server and needs no token. */
 export const BUILTIN_AGENT_ID = "remit";
+/** The built-in agent that plans and shops from the chat panel. It shows how an agent uses Remit; owners bring their own. */
+export const BUILTIN_AGENT_NAME = "Demo shopping agent";
 
 export type AgentStatus = "active" | "paused" | "revoked";
 
@@ -61,7 +63,9 @@ export class AgentRegistry {
     private readonly now: () => Date = () => new Date(),
   ) {
     const insert = db.prepare("INSERT OR IGNORE INTO agents (id, name, status, builtin, created_at) VALUES (?, ?, 'active', 1, ?)");
-    insert.run(BUILTIN_AGENT_ID, "Remit’s shopping agent", this.iso());
+    insert.run(BUILTIN_AGENT_ID, BUILTIN_AGENT_NAME, this.iso());
+    // Databases from before the rename keep the old name otherwise.
+    db.prepare("UPDATE agents SET name = ? WHERE id = ? AND name = 'Remit’s shopping agent'").run(BUILTIN_AGENT_NAME, BUILTIN_AGENT_ID);
     insert.run(DEFAULT_AGENT_ID, "Shared token (REMIT_AGENT_TOKEN)", this.iso());
     db.prepare("UPDATE purchases SET agent = ? WHERE agent = 'mcp'").run(DEFAULT_AGENT_ID);
   }

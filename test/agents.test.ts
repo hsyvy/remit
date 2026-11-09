@@ -204,3 +204,14 @@ describe("per-agent lines", () => {
     );
   });
 });
+
+describe("built-in agent name", () => {
+  it("renames the built-in agent in a database from before the rename", async () => {
+    const { AgentRegistry, BUILTIN_AGENT_ID, BUILTIN_AGENT_NAME } = await import("../src/wallet/agents.ts");
+    const old = openDb(":memory:");
+    old.prepare("INSERT INTO agents (id, name, status, builtin, created_at) VALUES (?, 'Remit’s shopping agent', 'active', 1, '2026-11-01T00:00:00Z')").run(BUILTIN_AGENT_ID);
+    const registry = new AgentRegistry(old);
+    assert.equal(registry.get(BUILTIN_AGENT_ID)?.name, BUILTIN_AGENT_NAME);
+    assert.equal(BUILTIN_AGENT_NAME, "Demo shopping agent");
+  });
+});

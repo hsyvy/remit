@@ -25,8 +25,6 @@ export interface AppDeps {
   /** Set when PayPal webhooks are on: always with the simulator, and with PAYPAL_WEBHOOK_ID in sandbox mode. */
   webhooks?: PayPalWebhooks;
   modes: { paypal: string; search: string; agent: string; reviewer: string; model: string; mcp?: string };
-  /** Rupees per dollar for the approximate ₹ figure in the web app; 0 for dollars only. */
-  inrRate?: number;
   agentToken?: string;
   ownerPassword?: string;
   /** Signs the owner's session cookie. Unset: a random one per start, so a restart signs the owner out. */
@@ -155,7 +153,6 @@ export function createApp(deps: AppDeps) {
     c.json({
       signIn: !!sessions,
       modes: deps.modes,
-      inrRate: deps.inrRate ?? 0,
       ...wallet.state(),
       agents: wallet.agentSummaries(),
       chat: agent.transcript(),

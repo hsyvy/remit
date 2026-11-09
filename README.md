@@ -31,7 +31,6 @@ Every key in `.env` is optional. Without a key, that part runs in a stand-in mod
 | `ANTHROPIC_API_KEY` | The Claude agent chats, plans and shops; a second Claude call reviews each purchase | Chat is off. The wallet, approvals and MCP still work |
 | `CHANNEL3_API_KEY` | Live products and prices from Channel3 | A small built-in demo catalog |
 | `REMIT_AGENT_TOKEN` | A shared token for the agent API, the remote MCP endpoint at `/mcp` and the stdio MCP server, as the built-in "Shared token" agent | Only tokens made on the Agents page work |
-| `REMIT_INR_RATE` (default 88) | Next to each dollar amount, the app and agent also show approximately what it is in rupees. PayPal doesn't accept INR (`CURRENCY_NOT_SUPPORTED`), so holds and captures stay in USD | Set it to 0 to show dollars only |
 | `REMIT_OWNER_PASSWORD` | The app at `/app` needs a sign-in on `/login`; the landing page at `/` stays public. Scripts can send the same password as Basic auth (user `owner`) | Open. Allowed only when `APP_URL` is localhost: with a public `APP_URL` the server refuses to start |
 
 ### Notifications

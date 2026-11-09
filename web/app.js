@@ -3,9 +3,6 @@
 
 const $ = (id) => document.getElementById(id);
 const money = (cents) => `${cents < 0 ? "-" : ""}$${(Math.abs(cents) / 100).toFixed(2)}`;
-// Approximate rupee figure next to a dollar amount. PayPal itself works in USD.
-const inr = (cents) => (state?.inrRate ? `≈ ₹${Math.round((cents / 100) * state.inrRate).toLocaleString("en-IN")}` : "");
-const both = (cents) => `${money(cents)}${state?.inrRate ? ` <span class="inr">${inr(cents)}</span>` : ""}`;
 const esc = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 const pct = (part, whole) => (whole > 0 ? Math.max(0, Math.min(100, (part / whole) * 100)) : 0);
@@ -145,9 +142,9 @@ function renderSide() {
   const agent = (on, title, note, icon) =>
     `<div class="agent${on ? "" : " off"}"><span class="pic">${icon}</span><span>${esc(title)}<small>${esc(note)}</small></span></div>`;
   $("agents").innerHTML = [
-    agent(m.agent === "on", "Remit’s shopping agent", m.agent === "on" ? "Built in. Plans and shops here." : "Off. Needs ANTHROPIC_API_KEY.", SPARK),
+    agent(m.agent === "on", "Demo shopping agent", m.agent === "on" ? "Built in. Plans and shops here." : "Off. Needs ANTHROPIC_API_KEY.", SPARK),
     (() => {
-      const own = (state.agents ?? []).filter((a) => !a.builtin).length + (m.mcp === "on" ? 1 : 0);
+      const own = (state.agents ?? []).filter((a) => !a.builtin).length;
       return agent(own > 0, "Your own agents", own ? `${plural(own, "token")} for MCP. See Agents.` : "Add one under Agents.", PLUG);
     })(),
   ].join("");
@@ -219,8 +216,8 @@ function renderWeek() {
   const headline = pending
     ? `<div class="k">Left to spend</div><div class="big">$0.00</div><div class="k">until you approve the plan</div>`
     : closed
-      ? `<div class="k">Not spent, back to you</div><div class="big">${money(unspent)}<span class="inr">${inr(unspent)}</span></div><div class="k">of ${money(totals.approvedCents)} approved</div>`
-      : `<div class="k">Left to spend</div><div class="big">${money(totals.heldCents)}<span class="inr">${inr(totals.heldCents)}</span></div><div class="k">of ${money(totals.approvedCents)} held on PayPal</div>`;
+      ? `<div class="k">Not spent, back to you</div><div class="big">${money(unspent)}</div><div class="k">of ${money(totals.approvedCents)} approved</div>`
+      : `<div class="k">Left to spend</div><div class="big">${money(totals.heldCents)}</div><div class="k">of ${money(totals.approvedCents)} held on PayPal</div>`;
 
   $("week-body").innerHTML = `
     <section class="purse glass" aria-label="Balance" aria-live="polite">
@@ -256,7 +253,7 @@ function emptyPlan() {
   return `
     <section class="paper empty-state">
       <div>
-        <h2>Ask your agent for a plan</h2>
+        <h2>Ask the demo shopping agent for a plan</h2>
         <p>It looks at what you usually buy and proposes a budget with a reason for every line. You can change it, then approve it on PayPal. Nothing is held until you do.</p>
         ${on ? `<p style="margin-top:18px"><button class="btn pri" id="ask-plan" type="button">Plan my budget for this week</button></p>` : ""}
       </div>
@@ -303,7 +300,7 @@ function renderLines() {
       <div class="ln">
         <img src="${envelopeFor(l, i, lines)}" alt="">
         <b>${esc(l.label)}<span class="key">${esc(l.key)}${esc(owner(l))}</span></b>
-        <span class="amt"><b class="money">${money(l.leftCents)}</b> left of ${both(l.limitCents)}</span>
+        <span class="amt"><b class="money">${money(l.leftCents)}</b> left of ${money(l.limitCents)}</span>
         <small>${esc(l.reason)}</small>
         <div class="track" role="img" aria-label="${money(l.usedCents)} used of ${money(l.limitCents)}"><div class="fill" style="width:${pct(l.usedCents, l.limitCents)}%"></div></div>
       </div>`,
@@ -452,7 +449,7 @@ function requestCard(r) {
           <span class="amt-in">$<input type="text" inputmode="decimal" value="${((kept ? cents : l.amountCents) / 100).toFixed(2)}" aria-label="Amount for ${esc(l.label)}"></span>
           <button class="x2" type="button" aria-pressed="${!kept}" aria-label="Strike ${esc(l.label)}" title="Strike or restore this line">×</button>
         </div>
-        <p class="why">${esc(l.reason)}${state.inrRate ? ` <span class="inr" data-inr>${inr(kept ? cents : l.amountCents)}</span>` : ""}</p>
+        <p class="why">${esc(l.reason)}</p>
       </div>`;
     })
     .join("");
@@ -479,7 +476,7 @@ function requestCard(r) {
         <div class="hand">Prepared by ${r.agentId && r.agentId !== "remit" ? esc(agentName(r.agentId)) : "your agent"}, ${esc(when(r.createdAt))}</div>
       </div>
       <aside class="approve glass" aria-label="Approve">
-        <div><div class="k">You’re approving</div><div class="big" data-total>${money(r.totalCents)}</div>${state.inrRate ? `<div class="k" data-total-inr>${inr(r.totalCents)}</div>` : ""}</div>
+        <div><div class="k">You’re approving</div><div class="big" data-total>${money(r.totalCents)}</div></div>
         <ul class="facts">${facts.map((f) => `<li>${f}</li>`).join("")}</ul>
         <div class="acts">
           <button class="btn pri" data-act="approve" type="button">${r.approval ? "Try again on PayPal" : `<span>Approve <span data-total>${money(r.totalCents)}</span> on PayPal</span>`}</button>
@@ -504,13 +501,9 @@ function wireRequest(r) {
     const edits = readEdits();
     card.querySelectorAll("[data-line]").forEach((row, i) => {
       row.classList.toggle("removed", edits[i].amountCents === 0);
-      const inrEl = row.querySelector("[data-inr]");
-      if (inrEl) inrEl.textContent = inr(typed(row));
     });
     const total = edits.reduce((s, e) => s + e.amountCents, 0);
     card.querySelectorAll("[data-total], [data-total-text]").forEach((el) => (el.textContent = money(total)));
-    const inrTotal = card.querySelector("[data-total-inr]");
-    if (inrTotal) inrTotal.textContent = inr(total);
     card.querySelector('[data-act="approve"]').disabled = total === 0;
   };
   card.addEventListener("input", update);
@@ -582,7 +575,6 @@ function moveEntry(m) {
     </div>
     <div class="side-col">
       <div class="money">${money(m.cents)}</div>
-      ${state.inrRate ? `<div class="inr">${inr(m.cents)}</div>` : ""}
       <span class="chip"><i></i>Moved</span>
     </div>
   </li>`;
@@ -639,7 +631,6 @@ function renderLedger() {
             </div>
             <div class="side-col">
               <div class="money${crossed ? " x" : ""}">${money(p.amountCents)}</div>
-              ${state.inrRate ? `<div class="inr">${inr(p.amountCents)}</div>` : ""}
               <span class="chip ${cls}"><i></i>${text}</span>
               ${acts ? `<div class="acts">${acts}</div>` : ""}
             </div>
@@ -689,19 +680,19 @@ function renderLedger() {
 
 function agentNote(a) {
   if (a.id === "remit") return state.modes.agent === "on" ? "Built in. Plans and shops here." : "Built in. Off until ANTHROPIC_API_KEY is set.";
-  if (a.id === "default") return state.modes.mcp === "on" ? "The shared REMIT_AGENT_TOKEN from .env." : "Not set. Add REMIT_AGENT_TOKEN to .env to use it.";
   return `Own token over MCP. Added ${monthDay(a.createdAt.slice(0, 10))}.`;
 }
 
 function renderAgents() {
-  const agents = state.agents ?? [];
-  const sig = JSON.stringify([agents, state.modes.agent, state.modes.mcp]);
+  // The shared REMIT_AGENT_TOKEN still works for MCP, but it's server setup, not an agent the owner manages here.
+  const agents = (state.agents ?? []).filter((a) => a.id !== "default");
+  const sig = JSON.stringify([agents, state.modes.agent]);
   if (sig === rendered.agents) return;
   rendered.agents = sig;
   $("agent-list").innerHTML = agents
     .map((a) => {
       const paused = a.status === "paused";
-      const off = (a.id === "default" && state.modes.mcp !== "on") || (a.id === "remit" && state.modes.agent !== "on");
+      const off = a.id === "remit" && state.modes.agent !== "on";
       const facts = [
         `${money(a.spentCents)} spent this period`,
         a.lineCount ? plural(a.lineCount, "line") : "",
@@ -829,7 +820,7 @@ function openOverride(id) {
     <div class="ch">Pay anyway?</div>
     <h2 id="override-title">${esc(p.title)}</h2>
     <div class="meta">${esc(p.merchant)} · line “${esc(label)}”</div>
-    <div class="amt"><span class="money">${money(p.amountCents)}</span>${state.inrRate ? ` <span class="inr">${inr(p.amountCents)}</span>` : ""}</div>
+    <div class="amt"><span class="money">${money(p.amountCents)}</span></div>
     <p class="pc"><span>Purpose check refused it</span>${esc(p.review.reason)}</p>
     <p class="${fits ? "next" : "warn"}"><span>If you confirm</span>${esc(next)}</p>
     <div class="btns">
@@ -887,7 +878,7 @@ function renderChat() {
       `<p class="warn">The built-in agent is off. Add ANTHROPIC_API_KEY to .env and restart to chat here. Approvals, the ledger and agents connected over MCP work without it.</p>`,
     );
   } else if (!chat.length) {
-    parts.push(`<p class="empty">Ask your agent to plan a budget. It looks at past weeks and current prices, then sends you a request to approve.</p>`);
+    parts.push(`<p class="empty">Ask the demo shopping agent to plan a budget. It looks at past weeks and current prices, then sends you a request to approve.</p>`);
   }
   for (const item of chat) {
     if (item.kind === "text") parts.push(`<div class="msg ${item.role === "user" ? "user" : "assistant"}">${esc(item.text)}</div>`);
@@ -897,7 +888,7 @@ function renderChat() {
     }
   }
   if (agentBusy) parts.push(`<div class="working">Working</div>`);
-  if (agentError) parts.push(`<p class="warn">Your agent stopped: ${esc(agentError)}</p>`);
+  if (agentError) parts.push(`<p class="warn">The demo shopping agent stopped: ${esc(agentError)}</p>`);
   log.innerHTML = parts.join("");
   log.scrollTop = log.scrollHeight;
   const off = agentBusy || modes.agent !== "on";

@@ -42,8 +42,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 [hidden] { display: none !important; }
 .mono { font-family: var(--fm); }
 .money { font-family: var(--ft); font-weight: 700; }
-.inr { font: 400 12px var(--fm); color: var(--t3); white-space: nowrap; }
-.paper .inr { color: var(--ink3); }
 .k { font: 400 12.5px/1.4 var(--fm); color: var(--t3); }
 .paper .k { color: var(--ink3); }
 .big { font: 600 64px/1 var(--fd); letter-spacing: -.045em; color: var(--t1); }
@@ -168,7 +166,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* ------------------------------------------------------------ this week */
 .purse { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px 32px; padding: 26px 30px; flex-wrap: wrap; }
 .purse .big { margin: 8px 0; }
-.purse .big .inr { display: block; margin-top: 8px; font-size: 13px; letter-spacing: 0; }
 .stats { display: flex; flex-wrap: wrap; row-gap: 16px; }
 .stats > div { padding: 0 24px; border-left: 1px solid rgba(16, 30, 52, .14); }
 .stats .v { margin-top: 6px; font: 600 26px/1 var(--fd); letter-spacing: -.03em; }
@@ -232,7 +229,6 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .amt-in { display: inline-flex; align-items: baseline; }
 .amt-in input { width: 84px; border: 0; border-bottom: 1.5px solid rgba(27, 36, 51, .45); background: transparent; font: 700 15px var(--ft); color: #20283a; text-align: right; padding: 0; outline: none; }
 .amt-in input:focus { border-bottom-color: var(--navy); background: rgba(16, 30, 52, .04); }
-.amt-in .inr { margin-left: 8px; }
 .x2 { border: 0; background: transparent; color: #8a5a52; font: 700 16px var(--ft); cursor: pointer; padding: 0 2px 0 6px; line-height: 1; }
 .x2:hover { color: var(--no); }
 .lgrp.removed .lbl, .lgrp.removed .why { text-decoration: line-through; color: #9aa0ab; }
